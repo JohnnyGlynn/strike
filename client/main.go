@@ -19,6 +19,7 @@ func main() {
 	clynt, err := grpc.Dial(trgt, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		fmt.Printf("Uh Oh: %v\n", err)
+		// fmt.Print("Hello ")
 	}
 
 	fmt.Printf("Connected to server: %v\n", clynt.Target())
