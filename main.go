@@ -15,22 +15,11 @@ func main() {
 	}
 
 	srvr := grpc.NewServer()
-	listener, err := net.Listen("tcp", "localhost:8080")
+	ears, err := net.Listen("tcp", "localhost:8080")
 	if err != nil {
 		fmt.Printf("Uh Oh: %v\n", err)
 	}
 
 	srvr.RegisterService(serviceInitializer, nil)
-	srvr.Serve(listener)
-
-  listener.Accept()
-  listener.Addr()
-
-  lsrvr := len(srvr.GetServiceInfo())
-
-  fmt.Println(lsrvr)
-
-  
-  
-  fmt.Println("Im listening")
+	srvr.Serve(ears)
 }
