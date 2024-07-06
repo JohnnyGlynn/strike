@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+
+package message;
+
+option go_package="strike/";
+
+service Strike {
+  rpc SendMessage(Envelope) returns (Chat) {}
+}
+
+message Chat {
+  string name = 1;
+}
+
+// -----------------------------------Messages---------------------------------------------
+message Envelope {
+
+  int32 Sender_public_key = 1;
+
+  int32 hash_time = 2;
+
+  int32 time = 3;
+
+  string chat_name = 4;
+
+}
+

@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"net"
 
+	network "github.com/JohnnyGlynn/strike/src"
+  
 	grpc "google.golang.org/grpc"
+
 )
 
 func main() {
@@ -17,12 +20,17 @@ func main() {
 	srvr := grpc.NewServer()
 	listener, err := net.Listen("tcp", "localhost:8080")
 	if err != nil {
-		fmt.Printf("Uh Oh: %v\n", err)
+    fmt.Printf("Uh Oh: %v\n", err)
 	}
 
 	srvr.RegisterService(serviceInitializer, nil)
-	srvr.Serve(listener)
+  err = srvr.Serve(listener)
+  if err != nil{
+    fmt.Println("Error%v\n", err)
+  }
 
+  network.Scan_Network()
+  
   listener.Accept()
   listener.Addr()
 

@@ -1,5 +1,7 @@
 # Copyright - Watchful Inc. 2024
 
+#Strike Server
+
 # Use an official Go image based on Alpine
 FROM golang:alpine
 
@@ -40,7 +42,7 @@ COPY ./ ./
 # Copy Go Source code to container
 RUN go mod tidy
 
-RUN CGO_ENABLED=0 go build -o /go/bin/strike.bin ./src/main.go 
+RUN CGO_ENABLED=0 go build -o /go/bin/strike.bin main.go 
 
 # Set the default command or entrypoint (optional)
 #CMD ["bash"]
