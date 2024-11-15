@@ -1,44 +1,62 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"net"
 
-	network "github.com/JohnnyGlynn/strike/src"
-  
-	grpc "google.golang.org/grpc"
+	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 
+	grpc "google.golang.org/grpc"
 )
 
+type strikeServer struct {
+	pb.UnimplementedStrikeServer
+	Env []*pb.Envelope
+	// mu sync.Mutex
+}
+
+func (s *strikeServer) GetMessages(chat *pb.Chat, stream pb.Strike_GetMessagesServer) error {
+	for _, envelope := range s.Env {
+		if envelope.Chat.Name == "endpoint0" {
+			if err := stream.Send(envelope); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *strikeServer) SendMessages(ctx context.Context, envelope *pb.Envelope) (*pb.Stamp, error) {
+	fmt.Printf("Received message: %s\n", envelope)
+	return &pb.Stamp{KeyUsed: envelope.SenderPublicKey}, nil
+}
+
 func main() {
-	fmt.Println("Strike")
+	fmt.Println("Strike Server")
 
-	serviceInitializer := &grpc.ServiceDesc{
-		ServiceName: "Strike_foundation",
-	}
-
-	srvr := grpc.NewServer()
-	listener, err := net.Listen("tcp", "localhost:8080")
+	lis, err := net.Listen("tcp", ":8080")
 	if err != nil {
-    fmt.Printf("Uh Oh: %v\n", err)
+		log.Fatalf("failed to listen: %v", err)
+	}
+	var opts []grpc.ServerOption
+
+	srvr := grpc.NewServer(opts...)
+	//s := &pb.StrikeServer{}
+	pb.RegisterStrikeServer(srvr, newServer())
+
+	srvr.Serve(lis)
+
+	err = srvr.Serve(lis)
+	if err != nil {
+		fmt.Printf("Error")
 	}
 
-	srvr.RegisterService(serviceInitializer, nil)
-  err = srvr.Serve(listener)
-  if err != nil{
-    fmt.Println("Error%v\n", err)
-  }
+}
 
-  network.Scan_Network()
-  
-  listener.Accept()
-  listener.Addr()
-
-  lsrvr := len(srvr.GetServiceInfo())
-
-  fmt.Println(lsrvr)
-
-  
-  
-  fmt.Println("Im listening")
+func newServer() *strikeServer {
+	s := strikeServer{}
+	return &s
 }

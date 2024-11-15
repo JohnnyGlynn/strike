@@ -3,14 +3,21 @@ syntax = "proto3";
 
 package message;
 
-option go_package="strike/";
+option go_package="./message";
 
 service Strike {
-  rpc SendMessage(Envelope) returns (Chat) {}
+  rpc SendMessages(Envelope) returns (Stamp) {}
+
+  rpc GetMessages(Chat) returns (stream Envelope) {}
 }
 
 message Chat {
   string name = 1;
+  string message = 2;
+}
+
+message Stamp {
+  int32 key_used = 1;
 }
 
 // -----------------------------------Messages---------------------------------------------
@@ -22,7 +29,7 @@ message Envelope {
 
   int32 time = 3;
 
-  string chat_name = 4;
+  Chat chat = 5;
 
 }
 
