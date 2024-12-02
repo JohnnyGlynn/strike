@@ -22,4 +22,4 @@ go.work
 
 strike
 vendor
-bin/*
+cmd/strike-client/client
