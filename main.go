@@ -1,38 +1,15 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net"
 
+	strike_server "github.com/JohnnyGlynn/strike/cmd/strike-server"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 
 	grpc "google.golang.org/grpc"
 )
-
-type strikeServer struct {
-	pb.UnimplementedStrikeServer
-	Env []*pb.Envelope
-	// mu sync.Mutex
-}
-
-func (s *strikeServer) GetMessages(chat *pb.Chat, stream pb.Strike_GetMessagesServer) error {
-	for _, envelope := range s.Env {
-		if envelope.Chat.Name == "endpoint0" {
-			if err := stream.Send(envelope); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func (s *strikeServer) SendMessages(ctx context.Context, envelope *pb.Envelope) (*pb.Stamp, error) {
-	fmt.Printf("Received message: %s\n", envelope)
-	return &pb.Stamp{KeyUsed: envelope.SenderPublicKey}, nil
-}
 
 func main() {
 	fmt.Println("Strike Server")
@@ -45,7 +22,7 @@ func main() {
 
 	srvr := grpc.NewServer(opts...)
 	//s := &pb.StrikeServer{}
-	pb.RegisterStrikeServer(srvr, newServer())
+	pb.RegisterStrikeServer(srvr, strike_server.InitServer())
 
 	srvr.Serve(lis)
 
@@ -54,9 +31,4 @@ func main() {
 		fmt.Printf("Error")
 	}
 
-}
-
-func newServer() *strikeServer {
-	s := strikeServer{}
-	return &s
 }
