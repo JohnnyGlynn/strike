@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+
+package message;
+
+option go_package="./message";
+
+service Strike {
+  rpc SendMessages(Envelope) returns (Stamp) {}
+
+  rpc GetMessages(Chat) returns (stream Envelope) {}
+}
+
+message Chat {
+  string name = 1;
+  string message = 2;
+}
+
+message Stamp {
+  int32 key_used = 1;
+}
+
+// -----------------------------------Messages---------------------------------------------
+message Envelope {
+
+  int32 Sender_public_key = 1;
+
+  int32 hash_time = 2;
+
+  int32 time = 3;
+
+  Chat chat = 5;
+
+}
+

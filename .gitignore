@@ -19,6 +19,7 @@
 
 # Go workspace file
 go.work
-strike
-client/main
 
+strike
+vendor
+bin/*

@@ -1,5 +1,7 @@
 # Copyright - Watchful Inc. 2024
 
+#Strike Server
+
 # Use an official Go image based on Alpine
 FROM golang:alpine
 
@@ -15,32 +17,23 @@ RUN echo 'http://dl-cdn.alpinelinux.org/alpine/v3.6/main' >> /etc/apk/repositori
 RUN echo 'http://dl-cdn.alpinelinux.org/alpine/v3.6/community' >> /etc/apk/repositories
 RUN apk update
 
-# Install MongoDB
-RUN apk add --no-cache mongodb
-
-RUN mkdir -p /data/db && \
-    chown -R mongodb /data/db
-
-VOLUME /data/db
-
 # Install PostgreSQL
 RUN apk add --no-cache postgresql
 
-# Expose the default ports for MongoDB and PostgreSQL and Go Binary``
-EXPOSE 27017 5432 8080
+# EXPOSE 5432 8080
+EXPOSE 8080
 
 WORKDIR /go/src/strike
 
 COPY go.mod go.sum ./
 RUN go mod download
 
-
 COPY ./ ./
 
 # Copy Go Source code to container
 RUN go mod tidy
 
-RUN CGO_ENABLED=0 go build -o /go/bin/strike.bin ./src/main.go 
+RUN CGO_ENABLED=0 go build -o /go/bin/strike.bin main.go 
 
 # Set the default command or entrypoint (optional)
 #CMD ["bash"]
