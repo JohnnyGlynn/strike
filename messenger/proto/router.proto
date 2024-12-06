@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package router;
+
+// Specify the Go package for generated code
+option go_package = ".;pb";
+
+service RouterService {
+    rpc Register(RegisterRequest) returns (RegisterResponse);
+    rpc GetPublicKey(PublicKeyRequest) returns (PublicKeyResponse);
+    rpc SendMessage(Message) returns (SendResponse);
+    rpc ReceiveMessages(ReceiveRequest) returns (stream Message);
+    rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+}
+
+message RegisterRequest {
+    string username = 1;
+    string public_key = 2; // Include public key in registration
+}
+
+message RegisterResponse {
+    string status = 1;
+}
+
+message PublicKeyRequest {
+    string username = 1; // Username of the recipient whose public key is needed
+}
+
+message PublicKeyResponse {
+    string public_key = 1; // Public key of the requested user
+}
+
+message Message {
+    string sender = 1;
+    string recipient = 2;
+    string body = 3; // Encrypted message body
+    string timestamp = 4;
+}
+
+message SendResponse {
+    string status = 1;
+}
+
+message ReceiveRequest {
+    string username = 1;
+}
+
+message HeartbeatRequest {
+    string username = 1;
+}
+
+message HeartbeatResponse {
+    string status = 1;
+}
