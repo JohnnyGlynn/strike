@@ -5,47 +5,17 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"time"
 
+	"github.com/JohnnyGlynn/strike/cmd/keys"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// func printMessages(ctx context.Context, client pb.StrikeClient, chat *pb.Chat) {
-// 	stream, err := client.GetMessages(ctx, chat)
-// 	if err != nil {
-// 		fmt.Println("broken")
-// 		fmt.Println(err)
-// 	}
-
-// 	for {
-// 		envelope, err := stream.Recv()
-// 		if err == io.EOF {
-// 			break
-// 		}
-// 		if err != nil {
-// 			println("broken stream")
-// 		}
-// 		fmt.Printf("\nChat:%v\n\n\nSenderKey:%v\nHash Time:%v\nTime:%v",
-// 			envelope.Chat.Name, envelope.SenderPublicKey, envelope.HashTime, envelope.Time)
-// 	}
-// }
-
-// func sendMessages(ctx context.Context, client pb.StrikeClient, envelope *pb.Envelope) {
-// 	stamp, err := client.SendMessages(ctx, envelope)
-// 	if err != nil {
-// 		// fmt.Printf("broken2 fmt: %v\n", err)
-// 		log.Fatalf("broken2: %v", err)
-// 	}
-
-// 	fmt.Printf("New Message sent: %v\n", stamp)
-
-// }
-
-func main() {
-	fmt.Println("Strike client")
-
+func autoChat() {
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
@@ -101,4 +71,26 @@ func main() {
 		//Slow down
 		time.Sleep(5 * time.Second)
 	}
+}
+
+func main() {
+	fmt.Println("Strike client")
+
+	//check if its the first startup then create a userfile and generate keys
+	_, err := os.Stat("userfile")
+	if os.IsNotExist(err) {
+		//create userfile
+		_, err := os.Create("userfile")
+		if err != nil {
+			fmt.Println("Error creating userfile:", err)
+			os.Exit(1)
+		}
+		//key generation
+		keys.Keygen()
+		autoChat()
+
+	} else {
+		autoChat()
+	}
+
 }

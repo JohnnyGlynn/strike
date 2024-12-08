@@ -30,6 +30,14 @@ func (s *strikeServer) SendMessages(ctx context.Context, envelope *pb.Envelope) 
 	return &pb.Stamp{KeyUsed: envelope.SenderPublicKey}, nil
 }
 
+func (s *strikeServer) Login(ctx context.Context, clientLogin *pb.ClientLogin) (*pb.Stamp, error) {
+	return &pb.Stamp{}, nil
+}
+
+func (s *strikeServer) KeyHandshake(ctx context.Context, clientinit *pb.ClientInit) (*pb.Stamp, error) {
+	return &pb.Stamp{}, nil
+}
+
 func InitServer() *strikeServer {
 	s := strikeServer{}
 	return &s

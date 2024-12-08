@@ -19,6 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion8
 
 const (
+	Strike_KeyHandshake_FullMethodName = "/message.Strike/KeyHandshake"
+	Strike_Login_FullMethodName        = "/message.Strike/Login"
 	Strike_SendMessages_FullMethodName = "/message.Strike/SendMessages"
 	Strike_GetMessages_FullMethodName  = "/message.Strike/GetMessages"
 )
@@ -27,6 +29,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type StrikeClient interface {
+	KeyHandshake(ctx context.Context, in *ClientInit, opts ...grpc.CallOption) (*Stamp, error)
+	Login(ctx context.Context, in *ClientLogin, opts ...grpc.CallOption) (*Stamp, error)
 	SendMessages(ctx context.Context, in *Envelope, opts ...grpc.CallOption) (*Stamp, error)
 	GetMessages(ctx context.Context, in *Chat, opts ...grpc.CallOption) (Strike_GetMessagesClient, error)
 }
@@ -37,6 +41,26 @@ type strikeClient struct {
 
 func NewStrikeClient(cc grpc.ClientConnInterface) StrikeClient {
 	return &strikeClient{cc}
+}
+
+func (c *strikeClient) KeyHandshake(ctx context.Context, in *ClientInit, opts ...grpc.CallOption) (*Stamp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Stamp)
+	err := c.cc.Invoke(ctx, Strike_KeyHandshake_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *strikeClient) Login(ctx context.Context, in *ClientLogin, opts ...grpc.CallOption) (*Stamp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Stamp)
+	err := c.cc.Invoke(ctx, Strike_Login_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *strikeClient) SendMessages(ctx context.Context, in *Envelope, opts ...grpc.CallOption) (*Stamp, error) {
@@ -86,6 +110,8 @@ func (x *strikeGetMessagesClient) Recv() (*Envelope, error) {
 // All implementations must embed UnimplementedStrikeServer
 // for forward compatibility
 type StrikeServer interface {
+	KeyHandshake(context.Context, *ClientInit) (*Stamp, error)
+	Login(context.Context, *ClientLogin) (*Stamp, error)
 	SendMessages(context.Context, *Envelope) (*Stamp, error)
 	GetMessages(*Chat, Strike_GetMessagesServer) error
 	mustEmbedUnimplementedStrikeServer()
@@ -95,6 +121,12 @@ type StrikeServer interface {
 type UnimplementedStrikeServer struct {
 }
 
+func (UnimplementedStrikeServer) KeyHandshake(context.Context, *ClientInit) (*Stamp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method KeyHandshake not implemented")
+}
+func (UnimplementedStrikeServer) Login(context.Context, *ClientLogin) (*Stamp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Login not implemented")
+}
 func (UnimplementedStrikeServer) SendMessages(context.Context, *Envelope) (*Stamp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendMessages not implemented")
 }
@@ -112,6 +144,42 @@ type UnsafeStrikeServer interface {
 
 func RegisterStrikeServer(s grpc.ServiceRegistrar, srv StrikeServer) {
 	s.RegisterService(&Strike_ServiceDesc, srv)
+}
+
+func _Strike_KeyHandshake_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClientInit)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StrikeServer).KeyHandshake(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Strike_KeyHandshake_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StrikeServer).KeyHandshake(ctx, req.(*ClientInit))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Strike_Login_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClientLogin)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StrikeServer).Login(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Strike_Login_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StrikeServer).Login(ctx, req.(*ClientLogin))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Strike_SendMessages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -160,6 +228,14 @@ var Strike_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "message.Strike",
 	HandlerType: (*StrikeServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "KeyHandshake",
+			Handler:    _Strike_KeyHandshake_Handler,
+		},
+		{
+			MethodName: "Login",
+			Handler:    _Strike_Login_Handler,
+		},
 		{
 			MethodName: "SendMessages",
 			Handler:    _Strike_SendMessages_Handler,

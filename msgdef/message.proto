@@ -1,14 +1,27 @@
 syntax = "proto3";
 
-
 package message;
 
 option go_package="./message";
 
 service Strike {
+  rpc KeyHandshake(ClientInit) returns (Stamp) {}
+
+  rpc Login(ClientLogin) returns (Stamp) {}
+
   rpc SendMessages(Envelope) returns (Stamp) {}
 
   rpc GetMessages(Chat) returns (stream Envelope) {}
+}
+
+message ClientInit {
+  string uname = 1;
+  //byte array - https://protobuf.dev/programming-guides/proto3/#scalar
+  bytes public_key = 2;
+}
+
+message ClientLogin {
+  bytes public_key = 2;
 }
 
 message Chat {
