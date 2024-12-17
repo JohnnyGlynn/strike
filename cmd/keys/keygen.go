@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-func Keygen() {
+func Keygen() string {
 
 	var keyFileName string
 
@@ -22,19 +22,22 @@ func Keygen() {
 	fmt.Scan(&keyFileName)
 
 	//public key
-	publicKeyFile, err := os.Create("./" + keyFileName + ".pub")
+	publicKeyFile, err := os.Create("./cfg/" + keyFileName + ".pub")
 	if err != nil {
 		fmt.Printf("Error creating public key file: %v", err)
 	}
 	defer publicKeyFile.Close()
 
 	//private key
-	privateKeyFile, err := os.Create("./" + keyFileName)
+	privateKeyFile, err := os.Create("./cfg/" + keyFileName)
 	if err != nil {
 		fmt.Printf("Error creating private key file: %v", err)
 	}
 	defer privateKeyFile.Close()
 
+	//Writing the keys to files as byte arrays
+	//Bad Idea? Can't be used elsewhere?
+	//TODO: Fix this?
 	_, err = publicKeyFile.Write(public)
 	if err != nil {
 		fmt.Printf("Error writing private key: %v", err)
@@ -44,5 +47,8 @@ func Keygen() {
 	if err != nil {
 		fmt.Printf("Error writing private key: %v", err)
 	}
+
+	//TODO: write the path to config
+	return "./cfg/" + keyFileName + ".pub"
 
 }
