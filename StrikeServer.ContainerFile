@@ -38,7 +38,3 @@ RUN CGO_ENABLED=0 go build -o /go/bin/strike.bin main.go
 # Set the default command or entrypoint (optional)
 #CMD ["bash"]
 CMD ["/go/bin/strike.bin"]
-
-
-
-
