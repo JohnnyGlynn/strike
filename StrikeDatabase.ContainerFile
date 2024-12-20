@@ -6,4 +6,6 @@ ENV POSTGRES_USER strikeadmin
 
 ENV POSTGRES_DB strike
 
+EXPOSE 5432
+
 COPY config/init.sql /docker-entrypoint-initdb.d/

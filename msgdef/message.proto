@@ -21,6 +21,7 @@ message ClientInit {
 }
 
 message ClientLogin {
+  string uname = 1;
   bytes public_key = 2;
 }
 

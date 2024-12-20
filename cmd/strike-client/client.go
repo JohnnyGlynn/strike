@@ -118,6 +118,51 @@ func registerClient(pubkeypath string) {
 	fmt.Printf("Stamp: %v\n", stamp.KeyUsed)
 }
 
+func login(uname string, pubkeypath string) {
+
+	//TODO create a client once
+	var opts []grpc.DialOption
+	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+	conn, err := grpc.NewClient("localhost:8080", opts...)
+	if err != nil {
+		log.Fatalf("fail to dial: %v", err)
+	}
+	defer conn.Close()
+
+	client := pb.NewStrikeClient(conn)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	//TODO: More robust than this
+	publickeyfile, err := os.Open(pubkeypath)
+	if err != nil {
+		fmt.Println("Error public key file:", err)
+		return
+	}
+	defer publickeyfile.Close()
+
+	publickey, err := io.ReadAll(publickeyfile)
+	if err != nil {
+		fmt.Println("Error reading public key:", err)
+		return
+	}
+
+	loginClient := pb.ClientLogin{
+		Uname:     uname,
+		PublicKey: publickey,
+	}
+
+	stamp, err := client.Login(ctx, &loginClient)
+	if err != nil {
+		log.Fatalf("Login Failed: %v", err)
+	}
+
+	// TODO: Print actual SenderPublicKey
+	fmt.Printf("Stamp: %v\n", stamp.KeyUsed)
+}
+
 func main() {
 	fmt.Println("Strike client")
 
@@ -142,7 +187,7 @@ func main() {
 		//key generation
 		pubpath := keys.Keygen()
 		registerClient(pubpath)
-
+		login("client0", pubpath)
 		autoChat()
 
 	} else {
