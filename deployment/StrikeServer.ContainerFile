@@ -9,32 +9,26 @@ FROM golang:alpine
 RUN apk add --no-cache bash curl
 
 # Install OpenAPI Generator
-RUN go install github.com/deepmap/oapi-codegen/v2/cmd/oapi-codegen@latest
-RUN oapi-codegen -version
+# RUN go install github.com/deepmap/oapi-codegen/v2/cmd/oapi-codegen@latest
+# RUN oapi-codegen -version
 
 # Install alpine respositories
 RUN echo 'http://dl-cdn.alpinelinux.org/alpine/v3.6/main' >> /etc/apk/repositories
 RUN echo 'http://dl-cdn.alpinelinux.org/alpine/v3.6/community' >> /etc/apk/repositories
 RUN apk update
 
-# Install PostgreSQL
-# RUN apk add --no-cache postgresql
-
-# EXPOSE 5432 8080
 EXPOSE 8080
 
-WORKDIR /go/src/strike
+WORKDIR /go/strike
 
 COPY go.mod go.sum ./
 RUN go mod download
 
+# TODO: dont copy everything
 COPY ./ ./
 
-# Copy Go Source code to container
 RUN go mod tidy
 
-RUN CGO_ENABLED=0 go build -o /go/bin/strike.bin main.go 
+RUN CGO_ENABLED=0 go build -o /go/strike.bin cmd/strike-server/main.go 
 
-# Set the default command or entrypoint (optional)
-#CMD ["bash"]
-CMD ["/go/bin/strike.bin"]
+CMD ["/go/strike.bin"]

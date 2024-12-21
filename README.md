@@ -1,37 +1,39 @@
 # Strike
 
-## dependencies
-[Protoc](https://grpc.io/docs/protoc-installation/)
-[]()
+The following instructions may reference `podman` as the container runtime, but `docker` is interchangeable here.
+
+The makefile will account for whether you are using Docker or Podman (target: check-runtime)
+
+### Container runtime network
+
+Create a network for strike using the following:
+```bash
+podman network create strikenw
+```
+
+For now will facilitate Networking between the Server and the Database, but will change when Strike is migrated to an orchestrated architecture
+
+TODO: [k3d](https://k3d.io/stable/) + [tilt](https://tilt.dev/) as a means for Docker users or Implementing [Podman pods](https://docs.podman.io/en/v5.2.5/markdown/podman-pod-create.1.html) directly.
+
+Either way the K8s manifests will be rolled once and used as needed.
 
 ## Running Strike Client/Server
 
 ### Client
-
-In `cmd/strike-client`
 ```bash
-go build client.go && ./client
+make run-strike-client
 ```
 
 ### Server
-
-The following instructions will reference `podman` as the method of running containers, but `docker` is interchangeable here.
-
-The following is for testing locally, bypassing network isolation with `--net=host`.
-
-In the root directory
 ```bash
-podman build -t strike_server -f StrikeServer.ContainerFile
-podman run --net=host  localhost/strike_server:latest
+make run-server-container
 ```
-
 
 ### Postgres
-
-In the root directory
 ```bash
-podman build -t strike_db -f StrikeDatabase.ContainerFile
-podman run -p 5432:5432  localhost/strike_db:latest
+make run-db-container
 ```
 
-
+## Dependencies
+[Protoc](https://grpc.io/docs/protoc-installation/)
+[]()

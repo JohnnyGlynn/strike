@@ -1,4 +1,4 @@
-package main
+package client
 
 import (
 	"context"
@@ -8,14 +8,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/JohnnyGlynn/strike/cmd/keys"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func autoChat() {
+func AutoChat() {
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
@@ -73,7 +72,7 @@ func autoChat() {
 	}
 }
 
-func registerClient(pubkeypath string) {
+func RegisterClient(pubkeypath string) {
 
 	//TODO create a client once
 	var opts []grpc.DialOption
@@ -118,7 +117,7 @@ func registerClient(pubkeypath string) {
 	fmt.Printf("Stamp: %v\n", stamp.KeyUsed)
 }
 
-func login(uname string, pubkeypath string) {
+func Login(uname string, pubkeypath string) {
 
 	//TODO create a client once
 	var opts []grpc.DialOption
@@ -161,37 +160,4 @@ func login(uname string, pubkeypath string) {
 
 	// TODO: Print actual SenderPublicKey
 	fmt.Printf("Stamp: %v\n", stamp.KeyUsed)
-}
-
-func main() {
-	fmt.Println("Strike client")
-
-	//check if its the first startup then create a userfile and generate keys
-	_, err := os.Stat("./cfg/userfile")
-	if os.IsNotExist(err) {
-		fmt.Println("First time setup")
-
-		//create config directory
-		direrr := os.Mkdir("./cfg", 0755)
-		if direrr != nil {
-			fmt.Println("Error creating directory:", direrr)
-			return
-		}
-
-		//create userfile
-		_, ferr := os.Create("./cfg/userfile")
-		if ferr != nil {
-			fmt.Println("Error creating userfile:", ferr)
-			os.Exit(1)
-		}
-		//key generation
-		pubpath := keys.Keygen()
-		registerClient(pubpath)
-		login("client0", pubpath)
-		autoChat()
-
-	} else {
-		autoChat()
-	}
-
 }

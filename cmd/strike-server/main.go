@@ -5,7 +5,7 @@ import (
 	"log"
 	"net"
 
-	strike_server "github.com/JohnnyGlynn/strike/cmd/strike-server"
+	"github.com/JohnnyGlynn/strike/internal/server"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 
 	grpc "google.golang.org/grpc"
@@ -21,14 +21,13 @@ func main() {
 	var opts []grpc.ServerOption
 
 	srvr := grpc.NewServer(opts...)
-	//s := &pb.StrikeServer{}
-	pb.RegisterStrikeServer(srvr, strike_server.InitServer())
+	pb.RegisterStrikeServer(srvr, server.InitServer())
 
 	srvr.Serve(lis)
 
 	err = srvr.Serve(lis)
 	if err != nil {
-		fmt.Printf("Error")
+		fmt.Printf("Error listening: %v\n", err)
 	}
 
 }

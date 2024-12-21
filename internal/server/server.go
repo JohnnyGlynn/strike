@@ -1,4 +1,4 @@
-package strike_server
+package server
 
 import (
 	"bytes"
@@ -41,7 +41,7 @@ func (s *strikeServer) Login(ctx context.Context, clientLogin *pb.ClientLogin) (
 	fmt.Println("Logging in...")
 
 	//TODO: Secrets for connection string
-	config, err := pgxpool.ParseConfig("postgres://strikeadmin:plaintextisbad@localhost:5432/strike")
+	config, err := pgxpool.ParseConfig("postgres://strikeadmin:plaintextisbad@strike_db:5432/strike")
 	if err != nil {
 		log.Fatalf("Config parsing failed: %v", err)
 	}
@@ -80,7 +80,7 @@ func (s *strikeServer) KeyHandshake(ctx context.Context, clientinit *pb.ClientIn
 	fmt.Printf("%v's Public Key: %v\n", clientinit.Uname, clientinit.PublicKey)
 
 	//TODO: Secrets for connection string
-	config, err := pgxpool.ParseConfig("postgres://strikeadmin:plaintextisbad@localhost:5432/strike")
+	config, err := pgxpool.ParseConfig("postgres://strikeadmin:plaintextisbad@strike_db:5432/strike")
 	if err != nil {
 		log.Fatalf("Config parsing failed: %v", err)
 	}

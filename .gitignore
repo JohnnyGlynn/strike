@@ -23,4 +23,5 @@ go.work
 strike
 vendor
 cmd/strike-client/client
-cmd/strike-client/cfg
+build/
+cfg/
