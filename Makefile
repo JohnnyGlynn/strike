@@ -74,6 +74,7 @@ test:
 .PHONY: clean
 clean:
 	rm -rf $(BUILD_DIR)
+	rm -rf cfg/
 
 # Format code
 .PHONY: fmt

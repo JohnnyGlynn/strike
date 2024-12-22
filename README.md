@@ -11,7 +11,7 @@ Create a network for strike using the following:
 podman network create strikenw
 ```
 
-For now will facilitate Networking between the Server and the Database, but will change when Strike is migrated to an orchestrated architecture
+For now this will facilitate Networking between the Server and the Database, but will change when Strike is migrated to an orchestrated architecture
 
 TODO: [k3d](https://k3d.io/stable/) + [tilt](https://tilt.dev/) as a means for Docker users or Implementing [Podman pods](https://docs.podman.io/en/v5.2.5/markdown/podman-pod-create.1.html) directly.
 
@@ -26,12 +26,12 @@ make run-strike-client
 
 ### Server
 ```bash
-make run-server-container
+make run-strike-server-container
 ```
 
 ### Postgres
 ```bash
-make run-db-container
+make run-strike-db-container
 ```
 
 ## Dependencies
