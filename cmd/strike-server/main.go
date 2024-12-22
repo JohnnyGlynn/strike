@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 
+	"github.com/JohnnyGlynn/strike/internal/db"
 	"github.com/JohnnyGlynn/strike/internal/server"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 
@@ -15,26 +16,38 @@ import (
 
 func main() {
 	fmt.Println("Strike Server")
-
-	lis, err := net.Listen("tcp", ":8080")
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-	var opts []grpc.ServerOption
+	ctx := context.Background()
 
 	config, err := pgxpool.ParseConfig("postgres://strikeadmin:plaintextisbad@strike_db:5432/strike")
 	if err != nil {
 		log.Fatalf("Config parsing failed: %v", err)
 	}
 
-	pool, err := pgxpool.NewWithConfig(context.Background(), config)
+	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		log.Fatalf("DB pool connection failed: %v", err)
 	}
 	defer pool.Close()
 
+	statements, err := db.PrepareStatements(ctx, pool)
+	if err != nil {
+		log.Fatalf("Failed to prepare statements: %v", err)
+	}
+
+	strikeServerConfig := &server.StrikeServer{
+		DBpool:      pool,
+		PStatements: statements,
+	}
+
+	//GRPC server prep
+	lis, err := net.Listen("tcp", ":8080")
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	var opts []grpc.ServerOption
+
 	srvr := grpc.NewServer(opts...)
-	pb.RegisterStrikeServer(srvr, &server.StrikeServer{DBpool: pool})
+	pb.RegisterStrikeServer(srvr, strikeServerConfig)
 
 	srvr.Serve(lis)
 

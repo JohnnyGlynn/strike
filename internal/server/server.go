@@ -10,14 +10,15 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/JohnnyGlynn/strike/internal/db"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 )
 
 type StrikeServer struct {
 	pb.UnimplementedStrikeServer
-	Env []*pb.Envelope
-
-	DBpool *pgxpool.Pool
+	Env         []*pb.Envelope
+	DBpool      *pgxpool.Pool
+	PStatements *db.PreparedStatements
 	// mu sync.Mutex
 }
 
@@ -43,8 +44,7 @@ func (s *StrikeServer) Login(ctx context.Context, clientLogin *pb.ClientLogin) (
 
 	var exists bool
 
-	//TODO: Prep these statements elsewhere and call as needed
-	err := s.DBpool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM userkeys WHERE uname = $1 AND publickey = $2)", clientLogin.Uname, clientLogin.PublicKey).Scan(&exists)
+	err := s.DBpool.QueryRow(ctx, s.PStatements.LoginUser, clientLogin.Uname, clientLogin.PublicKey).Scan(&exists)
 	if err != nil {
 		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
 			log.Fatalf("Unable to login: %v", err)
@@ -67,8 +67,7 @@ func (s *StrikeServer) KeyHandshake(ctx context.Context, clientinit *pb.ClientIn
 	fmt.Printf("New User signup: %s\n", clientinit.Uname)
 	fmt.Printf("%v's Public Key: %v\n", clientinit.Uname, clientinit.PublicKey)
 
-	//TODO: Prep these statements elsewhere and call as needed
-	_, err := s.DBpool.Exec(ctx, "INSERT INTO userkeys (uname, publickey) VALUES ($1, $2)", clientinit.Uname, clientinit.PublicKey)
+	_, err := s.DBpool.Exec(ctx, s.PStatements.CreateUser, clientinit.Uname, clientinit.PublicKey)
 	if err != nil {
 		log.Fatalf("Insert failed: %v", err)
 	}
