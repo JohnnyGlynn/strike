@@ -58,7 +58,10 @@ func (s *StrikeServer) Login(ctx context.Context, clientLogin *pb.ClientLogin) (
 
 	//TODO: Change message type to support keys not ints
 	var keyAsInt int32
-	binary.Read(bytes.NewReader(clientLogin.PublicKey), binary.BigEndian, &keyAsInt)
+	err = binary.Read(bytes.NewReader(clientLogin.PublicKey), binary.BigEndian, &keyAsInt)
+	if err != nil {
+		log.Fatalf("Error converting Public key to int: %v", err)
+	}
 
 	return &pb.Stamp{KeyUsed: keyAsInt}, nil
 }
@@ -74,7 +77,10 @@ func (s *StrikeServer) KeyHandshake(ctx context.Context, clientinit *pb.ClientIn
 
 	//TODO: Change message type to support keys not ints
 	var keyAsInt int32
-	binary.Read(bytes.NewReader(clientinit.PublicKey), binary.BigEndian, &keyAsInt)
+	err = binary.Read(bytes.NewReader(clientinit.PublicKey), binary.BigEndian, &keyAsInt)
+	if err != nil {
+		log.Fatalf("Error converting Public key to int: %v", err)
+	}
 
 	return &pb.Stamp{KeyUsed: keyAsInt}, nil
 }

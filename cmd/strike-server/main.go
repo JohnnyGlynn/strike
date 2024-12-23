@@ -49,8 +49,6 @@ func main() {
 	srvr := grpc.NewServer(opts...)
 	pb.RegisterStrikeServer(srvr, strikeServerConfig)
 
-	srvr.Serve(lis)
-
 	err = srvr.Serve(lis)
 	if err != nil {
 		fmt.Printf("Error listening: %v\n", err)

@@ -19,7 +19,10 @@ func Keygen() string {
 	fmt.Println("WARNING: You (the user) are responsible for the safety of these key files")
 	//user input for filename
 	fmt.Println("Please enter a name for your keyfiles:")
-	fmt.Scan(&keyFileName)
+	_, err = fmt.Scan(&keyFileName)
+	if err != nil {
+		fmt.Printf("Error naming key files: %v", err)
+	}
 
 	//public key
 	publicKeyFile, err := os.Create("./cfg/" + keyFileName + ".pub")
