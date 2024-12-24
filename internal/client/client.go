@@ -9,23 +9,9 @@ import (
 	"time"
 
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
-func AutoChat() {
-	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-
-	conn, err := grpc.NewClient("localhost:8080", opts...)
-	if err != nil {
-		log.Fatalf("fail to dial: %v", err)
-	}
-	defer conn.Close()
-
-	client := pb.NewStrikeClient(conn)
-
+func AutoChat(c pb.StrikeClient) {
 	newChat := pb.Chat{
 		Name:    "endpoint0",
 		Message: "Hello from client0",
@@ -42,7 +28,7 @@ func AutoChat() {
 	defer cancel()
 
 	for {
-		stamp, err := client.SendMessages(ctx, &newEnvelope)
+		stamp, err := c.SendMessages(ctx, &newEnvelope)
 		if err != nil {
 			log.Fatalf("SendMessages Failed: %v", err)
 		}
@@ -50,7 +36,7 @@ func AutoChat() {
 		// TODO: Print actual SenderPublicKey
 		fmt.Printf("Stamp: %v\n", stamp.KeyUsed)
 
-		stream, err := client.GetMessages(ctx, &newChat)
+		stream, err := c.GetMessages(ctx, &newChat)
 		if err != nil {
 			log.Fatalf("GetMessages Failed: %v", err)
 		}
@@ -72,20 +58,7 @@ func AutoChat() {
 	}
 }
 
-func RegisterClient(pubkeypath string) {
-
-	//TODO create a client once
-	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-
-	conn, err := grpc.NewClient("localhost:8080", opts...)
-	if err != nil {
-		log.Fatalf("fail to dial: %v", err)
-	}
-	defer conn.Close()
-
-	client := pb.NewStrikeClient(conn)
-
+func RegisterClient(c pb.StrikeClient, pubkeypath string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -108,7 +81,7 @@ func RegisterClient(pubkeypath string) {
 		PublicKey: publickey,
 	}
 
-	stamp, err := client.KeyHandshake(ctx, &initClient)
+	stamp, err := c.KeyHandshake(ctx, &initClient)
 	if err != nil {
 		log.Fatalf("KeyHandshake Failed: %v", err)
 	}
@@ -117,19 +90,7 @@ func RegisterClient(pubkeypath string) {
 	fmt.Printf("Stamp: %v\n", stamp.KeyUsed)
 }
 
-func Login(uname string, pubkeypath string) {
-
-	//TODO create a client once
-	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-
-	conn, err := grpc.NewClient("localhost:8080", opts...)
-	if err != nil {
-		log.Fatalf("fail to dial: %v", err)
-	}
-	defer conn.Close()
-
-	client := pb.NewStrikeClient(conn)
+func Login(c pb.StrikeClient, uname string, pubkeypath string) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -153,7 +114,7 @@ func Login(uname string, pubkeypath string) {
 		PublicKey: publickey,
 	}
 
-	stamp, err := client.Login(ctx, &loginClient)
+	stamp, err := c.Login(ctx, &loginClient)
 	if err != nil {
 		log.Fatalf("Login Failed: %v", err)
 	}

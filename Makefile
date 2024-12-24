@@ -33,8 +33,13 @@ build-strike-server-container: check-runtime
 
 # Run server container after checking runtime
 .PHONY: run-strike-server-container
-run-strike-server-container: build-strike-server-container check-runtime
+run-strike-server-container: check-runtime
 	$(CONTAINER_RUNTIME) run  --name strike_server --network=strikenw -p 8080:8080 localhost/strike_server:latest
+
+# Run server container after checking runtime
+.PHONY: start-strike-server-container
+start-strike-server-container: check-runtime
+	$(CONTAINER_RUNTIME) start -a strike_server
 
 # ===== STRIKE SERVER =====
 
@@ -45,22 +50,37 @@ build-strike-db-container: check-runtime
 	$(CONTAINER_RUNTIME) build -t strike_db -f deployment/StrikeDatabase.ContainerFile .
 
 .PHONY: run-strike-db-container
-run-strike-db-container: build-strike-db-container check-runtime
+run-strike-db-container: check-runtime
 	$(CONTAINER_RUNTIME) run --name strike_db --network=strikenw -p 5432:5432 localhost/strike_db:latest
+
+.PHONY: start-strike-db-container
+start-strike-db-container: check-runtime
+	$(CONTAINER_RUNTIME) start strike_db 
 
 # ===== STRIKE DB =====
 
 # ===== STRIKE CLIENT =====
+.PHONY: build-strike-client-container
+build-strike-client-container: check-runtime
+	$(CONTAINER_RUNTIME) build -t strike_client -f deployment/StrikeClient.ContainerFile .
+
+.PHONY: run-strike-client-container
+run-strike-client-container: check-runtime
+	$(CONTAINER_RUNTIME) run -it --name strike_client --network=strikenw localhost/strike_client:latest
+
+.PHONY: start-strike-client-container
+start-strike-client-container: check-runtime
+	$(CONTAINER_RUNTIME) start -a strike_client 
 
 # Build strike client
-.PHONY: build-client
-build-strike-client:
+.PHONY: build-strike-client-binary
+build-strike-client-binary:
 	mkdir -p $(BUILD_DIR)
 	go build -o $(BUILD_DIR)/$(APP_NAME)-client $(CLIENT_CMD_DIR)/main.go
 
 # Run strike-client
-.PHONY: run
-run-strike-client: build-strike-client
+.PHONY: run-strike-client-binary
+run-strike-client-binary:
 	./$(BUILD_DIR)/$(APP_NAME)-client
 
 # ===== STRIKE CLIENT =====
@@ -71,7 +91,7 @@ test:
 	go test ./... -v
 
 # Clean build artifacts
-.PHONY: clean
+.PHONY: clean-binary-artifacts
 clean:
 	rm -rf $(BUILD_DIR)
 	rm -rf cfg/
