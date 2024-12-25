@@ -17,6 +17,19 @@ import (
 func main() {
 	fmt.Println("Strike client")
 
+	//TODO: Figure out a better way to handle these paths (i.e wont work in container as is)
+	config, err := client.LoadConfig("./config/clientConfig.json")
+	if err != nil {
+		log.Fatalf("Failed to load client config: %v", err)
+	}
+
+	if err := config.ValidateConfig(); err != nil {
+		log.Fatalf("Invalid client config: %v", err)
+	}
+
+	// +v to print struct fields too
+	log.Printf("Loaded client Config: %+v", config)
+
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 

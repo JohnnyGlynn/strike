@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -10,6 +11,48 @@ import (
 
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 )
+
+type Config struct {
+	ServerHost     string `json:"server_host" yaml:"server_host"`
+	Username       string `json:"username" yaml:"username"`
+	PrivateKeyPath string `json:"private_key_path" yaml:"private_key_path"`
+	PublicKeyPath  string `json:"public_key_path" yaml:"public_key_path"`
+}
+
+func LoadConfig(filePath string) (*Config, error) {
+	configFile, err := os.ReadFile(filePath)
+	if err != nil {
+		log.Fatalf("Failed to read config file: %v", err)
+		return nil, err
+	}
+
+	var config Config
+
+	err = json.Unmarshal(configFile, &config)
+	if err != nil {
+		log.Fatalf("Unmarshall Failed: %v", err)
+		return nil, err
+	}
+
+	return &config, nil
+}
+
+// TODO: Handle this better
+func (c *Config) ValidateConfig() error {
+	if c.ServerHost == "" {
+		return fmt.Errorf("server_host is required")
+	}
+	if c.Username == "" {
+		return fmt.Errorf("username is required")
+	}
+	if c.PrivateKeyPath == "" {
+		return fmt.Errorf("private_key_path is required")
+	}
+	if c.PublicKeyPath == "" {
+		return fmt.Errorf("public_key_path is required")
+	}
+	return nil
+}
 
 func AutoChat(c pb.StrikeClient) {
 	newChat := pb.Chat{
