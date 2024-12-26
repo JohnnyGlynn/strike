@@ -19,7 +19,16 @@ type Config struct {
 	PublicKeyPath  string `json:"public_key_path" yaml:"public_key_path"`
 }
 
-func LoadConfig(filePath string) (*Config, error) {
+func LoadConfigEnv() *Config {
+	return &Config{
+		ServerHost:     os.Getenv("SERVER_HOST"),
+		Username:       os.Getenv("USERNAME"),
+		PrivateKeyPath: os.Getenv("PRIVATE_KEY_PATH"),
+		PublicKeyPath:  os.Getenv("PUBLIC_KEY_PATH"),
+	}
+}
+
+func LoadConfigFile(filePath string) (*Config, error) {
 	configFile, err := os.ReadFile(filePath)
 	if err != nil {
 		log.Fatalf("Failed to read config file: %v", err)

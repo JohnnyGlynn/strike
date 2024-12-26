@@ -80,8 +80,8 @@ build-strike-client-binary:
 
 # Run strike-client
 .PHONY: run-strike-client-binary
-run-strike-client-binary:
-	./$(BUILD_DIR)/$(APP_NAME)-client
+run-strike-client-binary: build-strike-client-binary
+	./$(BUILD_DIR)/$(APP_NAME)-client --config=config/clientConfig.json
 
 # ===== STRIKE CLIENT =====
 

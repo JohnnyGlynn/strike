@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -17,14 +18,34 @@ import (
 func main() {
 	fmt.Println("Strike client")
 
-	//TODO: Figure out a better way to handle these paths (i.e wont work in container as is)
-	config, err := client.LoadConfig("./config/clientConfig.json")
-	if err != nil {
-		log.Fatalf("Failed to load client config: %v", err)
-	}
+	configFilePath := flag.String("config", "", "Path to configuration JSON file")
+	flag.Parse()
 
-	if err := config.ValidateConfig(); err != nil {
-		log.Fatalf("Invalid client config: %v", err)
+	//Avoid shadowing
+	var config *client.Config
+	var err error
+
+	/*
+		Flag check - Provide a config file, otherwise look for env vars
+		Average user who just wants to connect to a server can run binary+json file,
+		meanwhile running a server you can have a client contianer present with env vars provided to pod
+	*/
+	if *configFilePath != "" {
+		log.Println("Loading Config from File")
+		config, err = client.LoadConfigFile(*configFilePath)
+		if err != nil {
+			log.Fatalf("Failed to load client config: %v", err)
+		}
+		//TODO: Looks gross
+		if err := config.ValidateConfig(); err != nil {
+			log.Fatalf("Invalid client config: %v", err)
+		}
+	} else {
+		log.Println("Loading Config from Envrionment Variables")
+		config = client.LoadConfigEnv()
+		if err := config.ValidateConfig(); err != nil {
+			log.Fatalf("Invalid client config: %v", err)
+		}
 	}
 
 	// +v to print struct fields too
