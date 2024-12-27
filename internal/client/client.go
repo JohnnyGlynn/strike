@@ -63,7 +63,7 @@ func (c *Config) ValidateConfig() error {
 	return nil
 }
 
-func AutoChat(c pb.StrikeClient) {
+func AutoChat(c pb.StrikeClient) error {
 	newChat := pb.Chat{
 		Name:    "endpoint0",
 		Message: "Hello from client0",
@@ -83,6 +83,7 @@ func AutoChat(c pb.StrikeClient) {
 		stamp, err := c.SendMessages(ctx, &newEnvelope)
 		if err != nil {
 			log.Fatalf("SendMessages Failed: %v", err)
+			return err
 		}
 
 		// TODO: Print actual SenderPublicKey
@@ -91,6 +92,7 @@ func AutoChat(c pb.StrikeClient) {
 		stream, err := c.GetMessages(ctx, &newChat)
 		if err != nil {
 			log.Fatalf("GetMessages Failed: %v", err)
+			return err
 		}
 
 		for {
@@ -100,6 +102,7 @@ func AutoChat(c pb.StrikeClient) {
 			}
 			if err != nil {
 				log.Fatalf("Recieve Failed: %v", err)
+				return err
 			}
 			fmt.Printf("Chat Name: %s\n", messageStream.Chat.Name)
 			fmt.Printf("Message: %s\n", messageStream.Chat.Message)
@@ -108,9 +111,10 @@ func AutoChat(c pb.StrikeClient) {
 		//Slow down
 		time.Sleep(5 * time.Second)
 	}
+	return nil
 }
 
-func RegisterClient(c pb.StrikeClient, pubkeypath string) {
+func RegisterClient(c pb.StrikeClient, pubkeypath string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -118,14 +122,14 @@ func RegisterClient(c pb.StrikeClient, pubkeypath string) {
 	publickeyfile, err := os.Open(pubkeypath)
 	if err != nil {
 		fmt.Println("Error public key file:", err)
-		return
+		return err
 	}
 	defer publickeyfile.Close()
 
 	publickey, err := io.ReadAll(publickeyfile)
 	if err != nil {
 		fmt.Println("Error reading public key:", err)
-		return
+		return err
 	}
 
 	initClient := pb.ClientInit{
@@ -136,13 +140,15 @@ func RegisterClient(c pb.StrikeClient, pubkeypath string) {
 	stamp, err := c.KeyHandshake(ctx, &initClient)
 	if err != nil {
 		log.Fatalf("KeyHandshake Failed: %v", err)
+		return err
 	}
 
 	// TODO: Print actual SenderPublicKey
 	fmt.Printf("Stamp: %v\n", stamp.KeyUsed)
+	return nil
 }
 
-func Login(c pb.StrikeClient, uname string, pubkeypath string) {
+func Login(c pb.StrikeClient, uname string, pubkeypath string) error {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -150,15 +156,15 @@ func Login(c pb.StrikeClient, uname string, pubkeypath string) {
 	//TODO: More robust than this
 	publickeyfile, err := os.Open(pubkeypath)
 	if err != nil {
-		fmt.Println("Error public key file:", err)
-		return
+		log.Fatal("Error public key file:", err)
+		return err
 	}
 	defer publickeyfile.Close()
 
 	publickey, err := io.ReadAll(publickeyfile)
 	if err != nil {
-		fmt.Println("Error reading public key:", err)
-		return
+		log.Fatal("Error reading public key:", err)
+		return err
 	}
 
 	loginClient := pb.ClientLogin{
@@ -169,8 +175,10 @@ func Login(c pb.StrikeClient, uname string, pubkeypath string) {
 	stamp, err := c.Login(ctx, &loginClient)
 	if err != nil {
 		log.Fatalf("Login Failed: %v", err)
+		return err
 	}
 
 	// TODO: Print actual SenderPublicKey
-	fmt.Printf("Stamp: %v\n", stamp.KeyUsed)
+	log.Printf("Stamp: %v\n", stamp.KeyUsed)
+	return nil
 }

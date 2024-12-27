@@ -4,10 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/JohnnyGlynn/strike/internal/client"
-	"github.com/JohnnyGlynn/strike/internal/keys"
 
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 
@@ -54,7 +52,7 @@ func main() {
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
-	conn, err := grpc.NewClient("strike_server:8080", opts...)
+	conn, err := grpc.NewClient(config.ServerHost, opts...)
 	if err != nil {
 		log.Fatalf("fail to dial: %v", err)
 	}
@@ -62,33 +60,7 @@ func main() {
 
 	newClient := pb.NewStrikeClient(conn)
 
-	//check if its the first startup then create a userfile and generate keys
-	_, err = os.Stat("./cfg/userfile")
-	if os.IsNotExist(err) {
-		fmt.Println("First time setup")
-
-		//create config directory
-		direrr := os.Mkdir("./cfg", 0755)
-		if direrr != nil {
-			fmt.Println("Error creating directory:", direrr)
-			return
-		}
-
-		//create userfile
-		_, ferr := os.Create("./cfg/userfile")
-		if ferr != nil {
-			fmt.Println("Error creating userfile:", ferr)
-			os.Exit(1)
-		}
-		//key generation
-		pubpath := keys.Keygen()
-
-		client.RegisterClient(newClient, pubpath)
-		client.Login(newClient, "client0", pubpath)
-		client.AutoChat(newClient)
-
-	} else {
-		client.AutoChat(newClient)
-	}
-
+	// client.RegisterClient(newClient, config.PublicKeyPath)
+	client.Login(newClient, config.Username, config.PublicKeyPath)
+	client.AutoChat(newClient)
 }
