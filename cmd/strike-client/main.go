@@ -60,7 +60,12 @@ func main() {
 
 	newClient := pb.NewStrikeClient(conn)
 
-	// client.RegisterClient(newClient, config.PublicKeyPath)
-	client.Login(newClient, config.Username, config.PublicKeyPath)
-	client.AutoChat(newClient)
+	pubkey, err := client.GetKeyFromPath(config.PublicKeyPath)
+	if err != nil {
+		log.Fatalf("fail to dial: %v", err)
+	}
+
+	// client.RegisterClient(newClient, config.Username, pubkey)
+	client.Login(newClient, config.Username, pubkey)
+	client.AutoChat(newClient, config.Username, pubkey)
 }

@@ -1,5 +1,5 @@
 {
-    "server_host": "strike_server:8080",
+    "server_host": "localhost:8080",
     "username": "client0",
     "private_key_path": "/path/to/private.key",
     "public_key_path": "/path/to/public.key"

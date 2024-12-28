@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "google/protobuf/timestamp.proto";
+
 package message;
 
 option go_package="./message";
@@ -31,17 +33,15 @@ message Chat {
 }
 
 message Stamp {
-  int32 key_used = 1;
+  bytes key_used = 1;
 }
 
 // -----------------------------------Messages---------------------------------------------
 message Envelope {
 
-  int32 Sender_public_key = 1;
+  bytes Sender_public_key = 1;
 
-  int32 hash_time = 2;
-
-  int32 time = 3;
+  google.protobuf.Timestamp sent_at = 3;
 
   Chat chat = 5;
 
