@@ -92,46 +92,49 @@ func AutoChat(c pb.StrikeClient, uname string, pubkey []byte) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	for {
-		now := time.Now()
-		timestamp := timestamppb.New(now)
-
-		newEnvelope := pb.Envelope{
-			SenderPublicKey: pubkey,
-			SentAt:          timestamp,
-			Chat:            &newChat,
-		}
-
-		stamp, err := c.SendMessages(ctx, &newEnvelope)
-		if err != nil {
-			log.Fatalf("SendMessages Failed: %v", err)
-			return err
-		}
-
-		fmt.Println("Stamp: ", stamp.KeyUsed)
-
-		stream, err := c.GetMessages(ctx, &newChat)
-		if err != nil {
-			log.Fatalf("GetMessages Failed: %v", err)
-			return err
-		}
-
+	go func() {
 		for {
-			messageStream, err := stream.Recv()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				log.Fatalf("Recieve Failed: %v", err)
-				return err
-			}
-			fmt.Printf("Chat Name: %s\n", messageStream.Chat.Name)
-			fmt.Printf("Message: %s\n", messageStream.Chat.Message)
-		}
+			now := time.Now()
+			timestamp := timestamppb.New(now)
 
-		//Slow down
-		time.Sleep(5 * time.Second)
+			newEnvelope := pb.Envelope{
+				SenderPublicKey: pubkey,
+				SentAt:          timestamp,
+				Chat:            &newChat,
+			}
+
+			stamp, err := c.SendMessages(ctx, &newEnvelope)
+			if err != nil {
+				log.Fatalf("SendMessages Failed: %v", err)
+			}
+
+			fmt.Println("Stamp: ", stamp.KeyUsed)
+
+			time.Sleep(5 * time.Second)
+		}
+	}()
+
+	stream, err := c.GetMessages(ctx, &newChat)
+	if err != nil {
+		log.Fatalf("GetMessages Failed: %v", err)
+		return err
 	}
+
+	for {
+		messageStream, err := stream.Recv()
+		if err == io.EOF {
+			log.Printf("Recieve Failed EOF: %v", err)
+			log.Printf("Awaiting Messages")
+			continue
+		}
+		if err != nil {
+			log.Fatalf("Recieve Failed: %v", err)
+			return err
+		}
+		fmt.Printf("Chat Name: %s\n", messageStream.Chat.Name)
+		fmt.Printf("Message: %s\n", messageStream.Chat.Message)
+	}
+
 }
 
 func RegisterClient(c pb.StrikeClient, uname string, pubkey []byte) error {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -20,22 +21,52 @@ type StrikeServer struct {
 	// mu sync.Mutex
 }
 
-// TODO: Fix Impelementation
 func (s *StrikeServer) GetMessages(chat *pb.Chat, stream pb.Strike_GetMessagesServer) error {
-	for _, envelope := range s.Env {
-		if envelope.Chat.Name == "endpoint0" {
-			if err := stream.Send(envelope); err != nil {
+	fmt.Println("Streaming messages for chat: endpoint0")
+
+	messageChannel := make(chan *pb.Envelope)
+
+	go func() {
+		for {
+			//TODO: DB query? Load from DB into cache?
+			messages, err := s.fetchMessages()
+			if err != nil {
+				fmt.Printf("Error Fetching messages")
+			}
+
+			for _, msg := range messages {
+				messageChannel <- msg
+			}
+
+			time.Sleep(1 * time.Second) // Slow down
+		}
+	}()
+
+	for {
+		select {
+		case <-stream.Context().Done():
+			// TODO: Graceful Disconnect/Shutdown
+			fmt.Println("Client disconnected.")
+			return nil
+		case msg := <-messageChannel:
+			// Send message on stream
+			if err := stream.Send(msg); err != nil {
+				fmt.Printf("Failed to stream message: %v\n", err)
 				return err
 			}
+		case <-time.After(1 * time.Second):
+			// TODO: Keep-alive/Heartbeat
 		}
 	}
-
-	return nil
 }
 
-// TODO: Fix Impelementation
 func (s *StrikeServer) SendMessages(ctx context.Context, envelope *pb.Envelope) (*pb.Stamp, error) {
-	fmt.Printf("Received message: %s\n", envelope)
+	// fmt.Printf("Received message: %s\n", envelope)
+	err := s.storeMessage(envelope)
+	if err != nil {
+		fmt.Printf("Error storing message")
+		return nil, err
+	}
 	return &pb.Stamp{KeyUsed: envelope.SenderPublicKey}, nil
 }
 
@@ -69,4 +100,22 @@ func (s *StrikeServer) KeyHandshake(ctx context.Context, clientinit *pb.ClientIn
 	}
 
 	return &pb.Stamp{KeyUsed: clientinit.PublicKey}, nil
+}
+
+func (s *StrikeServer) storeMessage(envelope *pb.Envelope) error {
+	//TODO: DB operations here - slice for now
+	s.Env = append(s.Env, envelope)
+	return nil
+}
+
+// TODO: RecieveMessages instead of GetMessages, then getMessages
+func (s *StrikeServer) fetchMessages() ([]*pb.Envelope, error) {
+	var result []*pb.Envelope
+	// TODO: make channels for chats
+	for _, envelope := range s.Env {
+		if envelope.Chat.Name == "endpoint0" {
+			result = append(result, envelope)
+		}
+	}
+	return result, nil
 }
