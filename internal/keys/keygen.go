@@ -2,56 +2,54 @@ package keys
 
 import (
 	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/pem"
 	"fmt"
 	"os"
 )
 
-func Keygen() string {
+func Keygen() error {
 
-	var keyFileName string
+	//TODO: There is definetly a better way to do this
+	fmt.Println("WARNING: You (the user) are responsible for the safety of these key files. You will not be able to recover these files if they are lost")
 
-	// TODO: Ask user if they want to generate, or add their own public key
-	public, private, err := ed25519.GenerateKey(nil)
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
-		fmt.Printf("Error Generating key: %v", err)
+		return fmt.Errorf("error Generating key: %v", err)
 	}
 
-	fmt.Println("WARNING: You (the user) are responsible for the safety of these key files")
-	//user input for filename
-	fmt.Println("Please enter a name for your keyfiles:")
-	_, err = fmt.Scan(&keyFileName)
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		fmt.Printf("Error naming key files: %v", err)
+		return fmt.Errorf("error finding user home directory: %v", err)
 	}
 
-	//public key
-	publicKeyFile, err := os.Create("./cfg/" + keyFileName + ".pub")
+	//TODO:Hidden Home for now, handle storing this in Library/Application Support : Cross Platform
+	err = os.Mkdir(homeDir+"/.strike-keys", 0755)
 	if err != nil {
-		fmt.Printf("Error creating public key file: %v", err)
-	}
-	defer publicKeyFile.Close()
-
-	//private key
-	privateKeyFile, err := os.Create("./cfg/" + keyFileName)
-	if err != nil {
-		fmt.Printf("Error creating private key file: %v", err)
-	}
-	defer privateKeyFile.Close()
-
-	//Writing the keys to files as byte arrays
-	//Bad Idea? Can't be used elsewhere?
-	//TODO: Fix this?
-	_, err = publicKeyFile.Write(public)
-	if err != nil {
-		fmt.Printf("Error writing private key: %v", err)
+		return fmt.Errorf("error creating key directory: %v", err)
 	}
 
-	_, err = privateKeyFile.Write(private)
+	//Private
+	privateKeyPEM := pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: privateKey.Seed(),
+	}
+	err = os.WriteFile(homeDir+"/.strike-keys/strike.pem", pem.EncodeToMemory(&privateKeyPEM), 0600)
 	if err != nil {
-		fmt.Printf("Error writing private key: %v", err)
+		return fmt.Errorf("failed to write private key: %v", err)
 	}
 
-	//TODO: write the path to config
-	return "./cfg/" + keyFileName + ".pub"
+	//Public
+	publicKeyPEM := pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: publicKey,
+	}
+	err = os.WriteFile(homeDir+"/.strike-keys/strike_public.pem", pem.EncodeToMemory(&publicKeyPEM), 0600)
+	if err != nil {
+		return fmt.Errorf("failed to write public key: %v", err)
+	}
+
+	fmt.Printf("Strike Keys generated and saved to: %v/strike-keys\n", homeDir)
+	return nil
 
 }

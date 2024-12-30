@@ -4,8 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/JohnnyGlynn/strike/internal/client"
+	"github.com/JohnnyGlynn/strike/internal/keys"
 
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 
@@ -17,11 +19,23 @@ func main() {
 	fmt.Println("Strike client")
 
 	configFilePath := flag.String("config", "", "Path to configuration JSON file")
+	keygen := flag.Bool("keygen", false, "Launch Strike Key generation, creating keypair for user not bringing existing PKI")
 	flag.Parse()
 
 	//Avoid shadowing
 	var config *client.Config
 	var err error
+
+	//If user wants to create keys to use with strike - no existing PKI
+	if *keygen {
+		err := keys.Keygen()
+		if err != nil {
+			fmt.Printf("error generating keys: %v\n", err)
+			return
+		}
+		fmt.Println("User keys generated successfully ")
+		os.Exit(0)
+	}
 
 	/*
 		Flag check - Provide a config file, otherwise look for env vars
@@ -66,6 +80,13 @@ func main() {
 	}
 
 	// client.RegisterClient(newClient, config.Username, pubkey)
-	client.Login(newClient, config.Username, pubkey)
-	client.AutoChat(newClient, config.Username, pubkey)
+	err = client.Login(newClient, config.Username, pubkey)
+	if err != nil {
+		log.Fatalf("error logging in: %v", err)
+	}
+
+	err = client.AutoChat(newClient, config.Username, pubkey)
+	if err != nil {
+		log.Fatalf("error starting AutoChat: %v", err)
+	}
 }
