@@ -3,8 +3,10 @@ package keys
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"os"
 )
 
@@ -52,4 +54,60 @@ func Keygen() error {
 	fmt.Printf("Strike Keys generated and saved to: %v/strike-keys\n", homeDir)
 	return nil
 
+}
+
+func GetKeyFromPath(path string) ([]byte, error) {
+	keyFile, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("error opening key file: %v", err)
+	}
+	defer keyFile.Close()
+
+	key, err := io.ReadAll(keyFile)
+	if err != nil {
+		return nil, fmt.Errorf("error reading key file: %v", err)
+	}
+
+	return key, nil
+}
+
+func ValidateKeys(keyBytes []byte) error {
+	// Decode PEM.
+	block, _ := pem.Decode(keyBytes)
+	if block == nil {
+		return fmt.Errorf("failed to decode PEM block")
+	}
+
+	// Check for Private or Public Key
+	switch block.Type {
+
+	case "PRIVATE KEY":
+		//Check key type
+		key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		if err != nil {
+			return fmt.Errorf("failed to parse private key: %w", err)
+		}
+		//ok if ed25519
+		_, ok := key.(ed25519.PrivateKey)
+		if !ok {
+			return fmt.Errorf("invalid ED25519 private key")
+		}
+		fmt.Println("Valid ED25519 private key detected.")
+
+	case "PUBLIC KEY":
+		key, err := x509.ParsePKIXPublicKey(block.Bytes)
+		if err != nil {
+			return fmt.Errorf("failed to parse public key: %w", err)
+		}
+		_, ok := key.(ed25519.PublicKey)
+		if !ok {
+			return fmt.Errorf("invalid ED25519 public key")
+		}
+		fmt.Println("Valid ED25519 public key detected.")
+
+	default:
+		return fmt.Errorf("unsupported key type: %s", block.Type)
+	}
+
+	return nil
 }

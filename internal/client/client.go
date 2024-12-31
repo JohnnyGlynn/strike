@@ -65,23 +65,6 @@ func (c *Config) ValidateConfig() error {
 	return nil
 }
 
-func GetKeyFromPath(path string) ([]byte, error) {
-	publickeyfile, err := os.Open(path)
-	if err != nil {
-		fmt.Println("Error public key file:", err)
-		return nil, err
-	}
-	defer publickeyfile.Close()
-
-	publickey, err := io.ReadAll(publickeyfile)
-	if err != nil {
-		fmt.Println("Error reading public key:", err)
-		return nil, err
-	}
-
-	return publickey, nil
-}
-
 func AutoChat(c pb.StrikeClient, uname string, pubkey []byte) error {
 
 	newChat := pb.Chat{
