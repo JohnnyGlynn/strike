@@ -1,6 +1,8 @@
 {
     "server_host": "localhost:8080",
     "username": "client0",
-    "private_key_path": "~/.strike-keys/strike.pem",
-    "public_key_path": "~/.strike-keys/strike_public.pem"
+    "private_signing_key_path": "~/.strike-keys/strike_signing.pem",
+    "public_signing_key_path": "~/.strike-keys/strike_public_signing.pem",
+    "private_encryption_key_path": "~/.strike-keys/strike_encryption.pem",
+    "public_encryption_key_path": "~/.strike-keys/strike_public_encryption.pem"
 }

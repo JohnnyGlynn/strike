@@ -10,15 +10,14 @@ The makefile will account for whether you are using Docker or Podman (target: ch
 
 ## Keys
 
-Strike uses/will be using ED25519 signing keys to ensure that the sender of a message is authentic.
+Signing: ED25519 key pair is used for signing messages to ensure that the sender of a message is authentic.
+Encryption: Curve25519 key pair is used for message encryption Key-Exchange/Encryption/Key derivation
 
 Keys that are yet to be implemented:
-- Curve25519 Key Pair - Key-Exchange/Encryption/Key derivation
 - Ephemeral Key Pair - Session keys
-- Symmetric Key Pair - Message Encryption (Short lived)
+- Symmetric Key Pair - Message Encryption
 
-Configuration references a key path for `~/.strike-keys/`,
-You can generate a set of ED25519 signing keys by using the strike client binary and passing the `--keygen` flag.
+Configuration references a key path for `~/.strike-keys/`, this is where keys will be placed by default if you make use of the strike client binary `--keygen` flag. This generates 2 sets of long term keys (ED25519 signing keys & Curve25519 encryption keys)
 
 This will generate you a private and public key that can be then used with the client.
 
@@ -29,8 +28,10 @@ If you wish to run the Client in a container use make target `client-container-r
 
     SERVER_HOST="localhost:8080"
     USERNAME=<Username of your choice>
-    PRIVATE_KEY_PATH="~/.strike-keys/strike.pem"
-    PUBLIC_KEY_PATH="~/.strike-keys/strike_public.pem"
+    PRIVATE_SIGNING_KEY_PATH="~/.strike-keys/strike_signing.pem"
+    PUBLIC_SIGNING_KEY_PATH="~/.strike-keys/strike_public_signing.pem"
+    PRIVATE_ENCRYPTION_KEY_PATH="~/.strike-keys/strike_encryption.pem"
+    PUBLIC_ENCRYPTION_KEY_PATH="~/.strike-keys/strike_public_encryption.pem"
 
 ### Container runtime network
 Create a network for strike using the following:

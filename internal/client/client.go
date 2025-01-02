@@ -15,18 +15,22 @@ import (
 )
 
 type Config struct {
-	ServerHost     string `json:"server_host" yaml:"server_host"`
-	Username       string `json:"username" yaml:"username"`
-	PrivateKeyPath string `json:"private_key_path" yaml:"private_key_path"`
-	PublicKeyPath  string `json:"public_key_path" yaml:"public_key_path"`
+	ServerHost               string `json:"server_host" yaml:"server_host"`
+	Username                 string `json:"username" yaml:"username"`
+	SigningPrivateKeyPath    string `json:"private_signing_key_path" yaml:"private_singing_key_path"`
+	SigningPublicKeyPath     string `json:"public_signing_key_path" yaml:"public_signing_key_path"`
+	EncryptionPrivateKeyPath string `json:"private_encryption_key_path" yaml:"private_encryption_key_path"`
+	EncryptionPublicKeyPath  string `json:"public_encryption_key_path" yaml:"public_encryption_key_path"`
 }
 
 func LoadConfigEnv() *Config {
 	return &Config{
-		ServerHost:     os.Getenv("SERVER_HOST"),
-		Username:       os.Getenv("USERNAME"),
-		PrivateKeyPath: os.Getenv("PRIVATE_KEY_PATH"),
-		PublicKeyPath:  os.Getenv("PUBLIC_KEY_PATH"),
+		ServerHost:               os.Getenv("SERVER_HOST"),
+		Username:                 os.Getenv("USERNAME"),
+		SigningPrivateKeyPath:    os.Getenv("PRIVATE_SIGNING_KEY_PATH"),
+		SigningPublicKeyPath:     os.Getenv("PUBLIC_SIGNING_KEY_PATH"),
+		EncryptionPrivateKeyPath: os.Getenv("PRIVATE_ENCRYPTION_KEY_PATH"),
+		EncryptionPublicKeyPath:  os.Getenv("PUBLIC_ENCRYPTION_KEY_PATH"),
 	}
 }
 
@@ -56,11 +60,17 @@ func (c *Config) ValidateConfig() error {
 	if c.Username == "" {
 		return fmt.Errorf("username is required")
 	}
-	if c.PrivateKeyPath == "" {
-		return fmt.Errorf("private_key_path is required")
+	if c.SigningPrivateKeyPath == "" {
+		return fmt.Errorf("private_signing_key_path is required")
 	}
-	if c.PublicKeyPath == "" {
-		return fmt.Errorf("public_key_path is required")
+	if c.SigningPublicKeyPath == "" {
+		return fmt.Errorf("public_signing_key_path is required")
+	}
+	if c.EncryptionPrivateKeyPath == "" {
+		return fmt.Errorf("private_encryption_key_path is required")
+	}
+	if c.EncryptionPublicKeyPath == "" {
+		return fmt.Errorf("public_encryption_key_path is required")
 	}
 	return nil
 }

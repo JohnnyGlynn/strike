@@ -27,12 +27,32 @@ func main() {
 	flag.Parse()
 
 	/*
-		Flag check - Provide a config file, otherwise look for env vars
+		Flag check:
+		-config: Provide a config file, otherwise look for env vars
 		Average user who just wants to connect to a server can run binary+json file,
 		meanwhile running a server you can have a client contianer present with env vars provided to pod
+
+		-keygen: Generate user keys
 	*/
 
-	if *configFilePath != "" {
+	//If user wants to create keys to use with strike - no existing PKI
+	if *keygen {
+		err := keys.SigningKeygen()
+		if err != nil {
+			fmt.Printf("error generating signing keys: %v\n", err)
+			return
+		}
+		fmt.Println("Signing keys generated successfully ")
+		err = keys.EncryptionKeygen()
+		if err != nil {
+			fmt.Printf("error generating encryption keys: %v\n", err)
+			return
+		}
+		fmt.Println("Encryption keys generated successfully ")
+		os.Exit(0)
+	}
+
+	if *configFilePath != "" && !*keygen {
 		log.Println("Loading Config from File")
 		config, err = client.LoadConfigFile(*configFilePath)
 		if err != nil {
@@ -42,7 +62,7 @@ func main() {
 		if err := config.ValidateConfig(); err != nil {
 			log.Fatalf("Invalid client config: %v", err)
 		}
-	} else {
+	} else if !*keygen {
 		log.Println("Loading Config from Envrionment Variables")
 		config = client.LoadConfigEnv()
 		if err := config.ValidateConfig(); err != nil {
@@ -50,39 +70,50 @@ func main() {
 		}
 	}
 
-	//If user wants to create keys to use with strike - no existing PKI
-	if *keygen {
-		err := keys.Keygen()
-		if err != nil {
-			fmt.Printf("error generating keys: %v\n", err)
-			return
-		}
-		fmt.Println("User keys generated successfully ")
-		os.Exit(0)
-	}
-
 	// +v to print struct fields too
 	log.Printf("Loaded client Config: %+v", config)
 
-	//Get our keys then validate them - facilitates BYO pki compliance to ed25519
-	publicKey, err := keys.GetKeyFromPath(config.PublicKeyPath)
+	//TODO: Clean up these calls to read and validate keys
+
+	//Get our keys then validate them - facilitates BYO pki compliance to ed25519 and curve25519
+	signingPublicKey, err := keys.GetKeyFromPath(config.SigningPublicKeyPath)
 	if err != nil {
-		log.Fatalf("failed to get public key: %v", err)
+		log.Fatalf("failed to get public signing key: %v", err)
 	}
 
-	err = keys.ValidateKeys(publicKey)
+	err = keys.ValidateSigningKeys(signingPublicKey)
 	if err != nil {
-		log.Fatalf("failed to validate public key: %v", err)
+		log.Fatalf("failed to validate public signing key: %v", err)
 	}
 
-	privateKey, err := keys.GetKeyFromPath(config.PrivateKeyPath)
+	signingPrivateKey, err := keys.GetKeyFromPath(config.SigningPrivateKeyPath)
 	if err != nil {
-		log.Fatalf("failed to get public key: %v", err)
+		log.Fatalf("failed to get private signing key: %v", err)
 	}
 
-	err = keys.ValidateKeys(privateKey)
+	err = keys.ValidateSigningKeys(signingPrivateKey)
 	if err != nil {
-		log.Fatalf("failed to validate private key: %v", err)
+		log.Fatalf("failed to validate private signing key: %v", err)
+	}
+
+	encryptionPrivateKey, err := keys.GetKeyFromPath(config.EncryptionPrivateKeyPath)
+	if err != nil {
+		log.Fatalf("failed to get private encryption key: %v", err)
+	}
+
+	err = keys.ValidateEncryptionKeys(encryptionPrivateKey)
+	if err != nil {
+		log.Fatalf("failed to validate private encryption key: %v", err)
+	}
+
+	encryptionPublicKey, err := keys.GetKeyFromPath(config.EncryptionPublicKeyPath)
+	if err != nil {
+		log.Fatalf("failed to get public encryption key: %v", err)
+	}
+
+	err = keys.ValidateEncryptionKeys(encryptionPublicKey)
+	if err != nil {
+		log.Fatalf("failed to validate public encryption key: %v", err)
 	}
 
 	// Begin GRPC setup
@@ -98,12 +129,12 @@ func main() {
 	newClient := pb.NewStrikeClient(conn)
 
 	// client.RegisterClient(newClient, config.Username, pubkey)
-	err = client.Login(newClient, config.Username, publicKey)
+	err = client.Login(newClient, config.Username, signingPublicKey)
 	if err != nil {
 		log.Fatalf("error logging in: %v", err)
 	}
 
-	err = client.AutoChat(newClient, config.Username, publicKey)
+	err = client.AutoChat(newClient, config.Username, signingPublicKey)
 	if err != nil {
 		log.Fatalf("error starting AutoChat: %v", err)
 	}
