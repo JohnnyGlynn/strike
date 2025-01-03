@@ -5,13 +5,28 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
 	"io"
+	"log"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
+
+var homeDir string
+
+func init() {
+	// Initialize the global homeDir variable
+	var err error
+	homeDir, err = os.UserHomeDir()
+	if err != nil {
+		panic(fmt.Errorf("error finding user home directory: %v", err))
+	}
+}
 
 func SigningKeygen() error {
 
@@ -159,11 +174,6 @@ func ValidateEncryptionKeys(keyBytes []byte) error {
 
 func GetKeyFromPath(path string) ([]byte, error) {
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
-	}
-
 	//TODO: Remove this hacky way of ensuring that ~ is handled if provided in config
 	if strings.HasPrefix(path, "~") {
 		path = filepath.Join(homeDir, path[1:])
@@ -184,11 +194,6 @@ func GetKeyFromPath(path string) ([]byte, error) {
 }
 
 func writeToPem(keyBytes []byte, keyType string, keyNameDotPem string) error {
-
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("error finding user home directory: %v", err)
-	}
 
 	strikeKeyDir := filepath.Join(homeDir, "/.strike-keys/")
 	fullPath := filepath.Join(strikeKeyDir, keyNameDotPem)
@@ -211,11 +216,116 @@ func writeToPem(keyBytes []byte, keyType string, keyNameDotPem string) error {
 		Bytes: keyBytes,
 	}
 
-	err = os.WriteFile(fullPath, pem.EncodeToMemory(&keyPEM), 0600)
+	err := os.WriteFile(fullPath, pem.EncodeToMemory(&keyPEM), 0600)
 	if err != nil {
 		return fmt.Errorf("failed to write public key: %v", err)
 	}
 
 	fmt.Printf("Strike Key \"%v\" generated and saved to: %v\n", keyNameDotPem, strikeKeyDir)
 	return nil
+}
+
+// TODO: REFACTOR above functions to be more generic and robust, for now this will be fine
+func GenerateServerKeysAndCert() error {
+
+	fmt.Println("Server Keys and Cert Generator")
+
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return fmt.Errorf("error Generating Server Signing keys: %v", err)
+	}
+
+	// Encode PKCS#8 format
+	privateKeyBytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
+	if err != nil {
+		return fmt.Errorf("error encoding private key: %v", err)
+	}
+
+	// Encode PKIX format
+	publicKeyBytes, err := x509.MarshalPKIXPublicKey(publicKey)
+	if err != nil {
+		return fmt.Errorf("error encoding public key: %v", err)
+	}
+
+	strikeKeyDir := filepath.Join(homeDir, "/.strike-server/")
+	//TODO: Not great
+	pubFullPath := filepath.Join(strikeKeyDir, "strike_server.pem")
+	privFullPath := filepath.Join(strikeKeyDir, "strike_server_public.pem")
+	certFullPath := filepath.Join(strikeKeyDir, "strike_server.crt")
+
+	if _, err := os.Stat(strikeKeyDir); os.IsNotExist(err) {
+		fmt.Println("~/.strike-server not found. Creating ~/.strike-server")
+		err = os.Mkdir(strikeKeyDir, 0755)
+		if err != nil {
+			return fmt.Errorf("error creating key directory: %v", err)
+		}
+	} else if err == nil {
+		fmt.Println("~/.strike-server found, Writing keys")
+	}
+
+	pubKeyPEM := pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: publicKeyBytes,
+	}
+
+	privKeyPEM := pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: privateKeyBytes,
+	}
+
+	err = os.WriteFile(pubFullPath, pem.EncodeToMemory(&pubKeyPEM), 0600)
+	if err != nil {
+		return fmt.Errorf("failed to write server public key: %v", err)
+	}
+
+	err = os.WriteFile(privFullPath, pem.EncodeToMemory(&privKeyPEM), 0600)
+	if err != nil {
+		return fmt.Errorf("failed to write server private key: %v", err)
+	}
+
+	// Generate x509 serial no bigger than 20 bytes
+	twentyBytes := new(big.Int).Lsh(big.NewInt(1), 160)
+	serialNumber, err := rand.Int(rand.Reader, twentyBytes)
+	if err != nil {
+		return err
+	}
+
+	// Make sure non-negative
+	if serialNumber.Sign() < 0 {
+		// The absolute value (or modulus) | x | of a real number x is the non-negative value of x without regard to its sign
+		serialNumber.Abs(serialNumber)
+	}
+
+	// first4 := publicKey[:4]
+
+	//Server template
+	strikeCert := x509.Certificate{
+		SerialNumber:          serialNumber,
+		Subject:               pkix.Name{CommonName: "strike-server"},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(365 * 24 * time.Hour), // 1 year
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		BasicConstraintsValid: true,
+	}
+
+	// Self-sign TODO: More robust (i.e no self parent)
+	signedCert, err := x509.CreateCertificate(rand.Reader, &strikeCert, &strikeCert, publicKey, privateKey)
+	if err != nil {
+		log.Fatalf("Failed to create server certificate: %v", err)
+	}
+
+	certPEM := pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: signedCert,
+	}
+
+	err = os.WriteFile(certFullPath, pem.EncodeToMemory(&certPEM), 0600)
+	if err != nil {
+		return fmt.Errorf("failed to create server.crt: %v", err)
+	}
+
+	fmt.Println("Strike Server Signing Keys and Certificate generated and saved to ~/.strike-server")
+	return nil
+
 }

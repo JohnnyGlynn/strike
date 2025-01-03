@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net"
+	"os"
 
 	"github.com/JohnnyGlynn/strike/internal/db"
+	"github.com/JohnnyGlynn/strike/internal/keys"
 	"github.com/JohnnyGlynn/strike/internal/server"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 
@@ -17,6 +20,18 @@ import (
 func main() {
 	fmt.Println("Strike Server")
 	ctx := context.Background()
+
+	keygen := flag.Bool("keygen", false, "Launch Strike Server Key generation, creating keypair and certificate")
+	flag.Parse()
+
+	if *keygen {
+		err := keys.GenerateServerKeysAndCert()
+		if err != nil {
+			fmt.Printf("error generating server signing keys and certificate: %v\n", err)
+			return
+		}
+		os.Exit(0)
+	}
 
 	config, err := pgxpool.ParseConfig("postgres://strikeadmin:plaintextisbad@strike_db:5432/strike")
 	if err != nil {
