@@ -249,8 +249,8 @@ func GenerateServerKeysAndCert() error {
 
 	strikeKeyDir := filepath.Join(homeDir, "/.strike-server/")
 	//TODO: Not great
-	pubFullPath := filepath.Join(strikeKeyDir, "strike_server.pem")
-	privFullPath := filepath.Join(strikeKeyDir, "strike_server_public.pem")
+	pubFullPath := filepath.Join(strikeKeyDir, "strike_server_public.pem")
+	privFullPath := filepath.Join(strikeKeyDir, "strike_server.pem")
 	certFullPath := filepath.Join(strikeKeyDir, "strike_server.crt")
 
 	if _, err := os.Stat(strikeKeyDir); os.IsNotExist(err) {

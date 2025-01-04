@@ -21,6 +21,7 @@ type Config struct {
 	SigningPublicKeyPath     string `json:"public_signing_key_path" yaml:"public_signing_key_path"`
 	EncryptionPrivateKeyPath string `json:"private_encryption_key_path" yaml:"private_encryption_key_path"`
 	EncryptionPublicKeyPath  string `json:"public_encryption_key_path" yaml:"public_encryption_key_path"`
+	ServerCertificatePath    string `json:"server_certificate_path" yaml:"server_certificate_key_path"`
 }
 
 func LoadConfigEnv() *Config {
@@ -31,6 +32,7 @@ func LoadConfigEnv() *Config {
 		SigningPublicKeyPath:     os.Getenv("PUBLIC_SIGNING_KEY_PATH"),
 		EncryptionPrivateKeyPath: os.Getenv("PRIVATE_ENCRYPTION_KEY_PATH"),
 		EncryptionPublicKeyPath:  os.Getenv("PUBLIC_ENCRYPTION_KEY_PATH"),
+		ServerCertificatePath:    os.Getenv("SERVER_CERTIFICATE_PATH"),
 	}
 }
 
@@ -71,6 +73,9 @@ func (c *Config) ValidateConfig() error {
 	}
 	if c.EncryptionPublicKeyPath == "" {
 		return fmt.Errorf("public_encryption_key_path is required")
+	}
+	if c.ServerCertificatePath == "" {
+		return fmt.Errorf("server_certificate_path is required")
 	}
 	return nil
 }

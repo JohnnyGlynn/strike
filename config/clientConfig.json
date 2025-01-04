@@ -4,5 +4,7 @@
     "private_signing_key_path": "~/.strike-keys/strike_signing.pem",
     "public_signing_key_path": "~/.strike-keys/strike_public_signing.pem",
     "private_encryption_key_path": "~/.strike-keys/strike_encryption.pem",
-    "public_encryption_key_path": "~/.strike-keys/strike_public_encryption.pem"
+    "public_encryption_key_path": "~/.strike-keys/strike_public_encryption.pem",
+    "certificate_path": "~/.strike-server/strike_server.crt"
+
 }
