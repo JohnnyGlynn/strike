@@ -32,7 +32,7 @@ type Config struct {
 
 func LoadConfigEnv() *Config {
 	return &Config{
-		ServerName:            os.Getenv("SERVER_HOST"),
+		ServerName:            os.Getenv("SERVER_NAME"),
 		SigningPrivateKeyPath: os.Getenv("PRIVATE_SIGNING_KEY_PATH"),
 		SigningPublicKeyPath:  os.Getenv("PUBLIC_SIGNING_KEY_PATH"),
 		CertificatePath:       os.Getenv("SERVER_CERT_PATH"),

@@ -1,5 +1,5 @@
 {
-    "server_name": "localhost:8080",
+    "server_name": "endpoint0",
     "private_signing_key_path": "~/.strike-server/strike_server.pem",
     "public_signing_key_path": "~/.strike-server/strike_server_public.pem",
     "certificate_path": "~/.strike-server/strike_server.crt"

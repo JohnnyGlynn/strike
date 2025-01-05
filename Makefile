@@ -35,7 +35,7 @@ server-container-build: check-runtime
 # Run server container after checking runtime
 .PHONY: server-container-run
 server-container-run: check-runtime
-	$(CONTAINER_RUNTIME) run  --name strike_server --network=strikenw -p 8080:8080 localhost/strike_server:latest
+	$(CONTAINER_RUNTIME) run --env-file=./config/env.server -v ~/.strike-server/:/tmp/strike-server/ --name strike_server --network=strikenw -p 8080:8080 localhost/strike_server:latest
 
 # Run server container and attach stdout
 .PHONY: server-container-start
