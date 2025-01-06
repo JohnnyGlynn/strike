@@ -21,17 +21,33 @@ Configuration references a key path for `~/.strike-keys/`, this is where keys wi
 
 This will generate you a private and public key that can be then used with the client.
 
+## Certificate
+To use Strike with TLS enabled you will need to generate a Certificate for your server using its private key and distribute that to your users.
+Using the `--keygen` flag with the server binary (`go build cmd/strike-server/main.go && ./cmd/strike-server/main.go --keygen`) will automatically generate a certificate for you.
+Like the server keys these can be found at `~/.strike-server`.
+
 ### Configuration
-The Client currently supports config from either a JSON file or ENV vars. Current recommended method of running the Client is via binary with clientConfig.json found in config/ (see make target `client-binary-run`)
+The Client currently supports config from either a JSON file or ENV vars.
 
 If you wish to run the Client in a container use make target `client-container-run`, but ensure that you provide config to the container correctly, ENV vars recommended:
 
-    SERVER_HOST="localhost:8080"
+    SERVER_HOST=strike_server:8080
     USERNAME=<Username of your choice>
-    PRIVATE_SIGNING_KEY_PATH="~/.strike-keys/strike_signing.pem"
-    PUBLIC_SIGNING_KEY_PATH="~/.strike-keys/strike_public_signing.pem"
-    PRIVATE_ENCRYPTION_KEY_PATH="~/.strike-keys/strike_encryption.pem"
-    PUBLIC_ENCRYPTION_KEY_PATH="~/.strike-keys/strike_public_encryption.pem"
+    PRIVATE_SIGNING_KEY_PATH=/home/.strike-keys/strike_signing.pem
+    PUBLIC_SIGNING_KEY_PATH=/home/.strike-keys/strike_public_signing.pem
+    PRIVATE_ENCRYPTION_KEY_PATH=/home/.strike-keys/strike_encryption.pem
+    PUBLIC_ENCRYPTION_KEY_PATH=/home/.strike-keys/strike_public_encryption.pem
+    CLIENT_SERVER_CERT_PATH=/home/strike-client/strike_server.crt
+
+The Server container also requires Env vars to specify paths to keys and its certificate.
+
+    SERVER_NAME=endpoint0
+    PRIVATE_SIGNING_KEY_PATH=/home/strike-server/strike_server.pem
+    PUBLIC_SIGNING_KEY_PATH=/home/strike-server/strike_server_public.pem
+    SERVER_CERT_PATH=/home/strike-server/strike_server.crt
+
+These Env vars are loaded into the containers by their repective Makefile targets and currently only work for a local deployment,
+but should you wish to deploy Strike another way, `env.server` & `env.client` can be found in the config directory.
 
 ### Container runtime network
 Create a network for strike using the following:
