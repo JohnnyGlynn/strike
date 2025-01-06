@@ -298,15 +298,19 @@ func GenerateServerKeysAndCert() error {
 
 	// first4 := publicKey[:4]
 
-	//Server template
+	//Server template - TODO: Make the CommonName/DNSNames configurable during keygen, Maybe include First 4?
 	strikeCert := x509.Certificate{
-		SerialNumber:          serialNumber,
-		Subject:               pkix.Name{CommonName: "strike-server"},
-		NotBefore:             time.Now(),
-		NotAfter:              time.Now().Add(365 * 24 * time.Hour), // 1 year
-		KeyUsage:              x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		SerialNumber: serialNumber,
+		Subject:      pkix.Name{CommonName: "strike_server"},
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(365 * 24 * time.Hour), // 1 year
+		KeyUsage:     x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage: []x509.ExtKeyUsage{
+			x509.ExtKeyUsageClientAuth,
+			x509.ExtKeyUsageServerAuth,
+		},
 		BasicConstraintsValid: true,
+		DNSNames:              []string{"strike_server"},
 	}
 
 	// Self-sign TODO: More robust (i.e no self parent)

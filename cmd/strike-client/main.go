@@ -12,7 +12,7 @@ import (
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 )
 
 func main() {
@@ -117,8 +117,14 @@ func main() {
 	}
 
 	// Begin GRPC setup
+
+	creds, err := credentials.NewClientTLSFromFile(config.ServerCertificatePath, "")
+	if err != nil {
+		log.Fatalf("Failed to load server certificate: %v", err)
+	}
+
 	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	opts = append(opts, grpc.WithTransportCredentials(creds))
 
 	conn, err := grpc.NewClient(config.ServerHost, opts...)
 	if err != nil {

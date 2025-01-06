@@ -20,8 +20,8 @@
 # Go workspace file
 go.work
 
-strike
 vendor
 cmd/strike-client/client
+cmd/strike-server/main
 build/
 cfg/

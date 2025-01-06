@@ -80,14 +80,16 @@ func main() {
 	// +v to print struct fields too
 	log.Printf("Loaded Server Config: %+v", config)
 
+	//TODO: Gross Home directory handling.
 	expandedCertPath := pathExpansion(config.CertificatePath)
-
 	expandedPrivKeyPath := pathExpansion(config.SigningPrivateKeyPath)
 
 	serverCreds, err := credentials.NewServerTLSFromFile(expandedCertPath, expandedPrivKeyPath)
 	if err != nil {
 		log.Fatalf("Failed to load TLS credentials: %v", err)
 	}
+
+	log.Println("Loaded TLS credentials")
 
 	strikeServerConfig := &server.StrikeServer{
 		DBpool:      pool,

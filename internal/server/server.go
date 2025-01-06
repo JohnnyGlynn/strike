@@ -33,8 +33,8 @@ type Config struct {
 func LoadConfigEnv() *Config {
 	return &Config{
 		ServerName:            os.Getenv("SERVER_NAME"),
-		SigningPrivateKeyPath: os.Getenv("PRIVATE_SIGNING_KEY_PATH"),
-		SigningPublicKeyPath:  os.Getenv("PUBLIC_SIGNING_KEY_PATH"),
+		SigningPrivateKeyPath: os.Getenv("PRIVATE_SERVER_SIGNING_KEY_PATH"),
+		SigningPublicKeyPath:  os.Getenv("PUBLIC_SERVER_SIGNING_KEY_PATH"),
 		CertificatePath:       os.Getenv("SERVER_CERT_PATH"),
 	}
 }
@@ -61,7 +61,7 @@ func LoadConfigFile(filePath string) (*Config, error) {
 // TODO: Handle this better
 func (c *Config) ValidateConfig() error {
 	if c.ServerName == "" {
-		return fmt.Errorf("server_host is required")
+		return fmt.Errorf("server_name is required")
 	}
 	if c.SigningPrivateKeyPath == "" {
 		return fmt.Errorf("private_signing_key_path is required")
@@ -70,7 +70,7 @@ func (c *Config) ValidateConfig() error {
 		return fmt.Errorf("public_signing_key_path is required")
 	}
 	if c.CertificatePath == "" {
-		return fmt.Errorf("private_encryption_key_path is required")
+		return fmt.Errorf("certificate_path is required")
 	}
 	return nil
 }

@@ -21,7 +21,7 @@ type Config struct {
 	SigningPublicKeyPath     string `json:"public_signing_key_path" yaml:"public_signing_key_path"`
 	EncryptionPrivateKeyPath string `json:"private_encryption_key_path" yaml:"private_encryption_key_path"`
 	EncryptionPublicKeyPath  string `json:"public_encryption_key_path" yaml:"public_encryption_key_path"`
-	ServerCertificatePath    string `json:"server_certificate_path" yaml:"server_certificate_key_path"`
+	ServerCertificatePath    string `json:"client_server_certificate_path" yaml:"client_server_certificate_key_path"`
 }
 
 func LoadConfigEnv() *Config {
@@ -32,7 +32,7 @@ func LoadConfigEnv() *Config {
 		SigningPublicKeyPath:     os.Getenv("PUBLIC_SIGNING_KEY_PATH"),
 		EncryptionPrivateKeyPath: os.Getenv("PRIVATE_ENCRYPTION_KEY_PATH"),
 		EncryptionPublicKeyPath:  os.Getenv("PUBLIC_ENCRYPTION_KEY_PATH"),
-		ServerCertificatePath:    os.Getenv("SERVER_CERTIFICATE_PATH"),
+		ServerCertificatePath:    os.Getenv("CLIENT_SERVER_CERT_PATH"),
 	}
 }
 

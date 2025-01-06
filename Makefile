@@ -35,7 +35,7 @@ server-container-build: check-runtime
 # Run server container after checking runtime
 .PHONY: server-container-run
 server-container-run: check-runtime
-	$(CONTAINER_RUNTIME) run --env-file=./config/env.server -v ~/.strike-server/:/tmp/strike-server/ --name strike_server --network=strikenw -p 8080:8080 localhost/strike_server:latest
+	$(CONTAINER_RUNTIME) run --env-file=./config/env.server -v ~/.strike-server/:/home/strike-server/ --name strike_server --network=strikenw -p 8080:8080 localhost/strike_server:latest
 
 # Run server container and attach stdout
 .PHONY: server-container-start
@@ -68,7 +68,7 @@ client-container-build: check-runtime
 
 .PHONY: client-container-run
 client-container-run: check-runtime
-	$(CONTAINER_RUNTIME) run -it --name strike_client --network=strikenw localhost/strike_client:latest
+	$(CONTAINER_RUNTIME) run -it --env-file=./config/env.client -v ~/.strike-keys/:/home/strike-client/ -v ~/.strike-server/strike_server.crt:/home/strike-client/strike_server.crt --name strike_client --network=strikenw localhost/strike_client:latest
 
 .PHONY: client-container-start
 client-container-start: check-runtime
