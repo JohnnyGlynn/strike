@@ -13,6 +13,8 @@ COPY ./ ./
 # rm -rf rather than implementing multipel .dockerignores
 RUN rm -rf ./internal/db ./internal/server ./deployment ./config ./cmd/strike-server
 
-RUN go mod download && CGO_ENABLED=0 go build -o /go/strike-client cmd/strike-client/main.go 
+RUN go mod download 
+
+RUN CGO_ENABLED=0 go build -o /go/strike-client cmd/strike-client/main.go 
 
 CMD ["/go/strike-client"]

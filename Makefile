@@ -53,7 +53,7 @@ db-container-build: check-runtime
 
 .PHONY: db-container-run
 db-container-run: check-runtime
-	$(CONTAINER_RUNTIME) run --name strike_db --network=strikenw -p 5432:5432 localhost/strike_db:latest
+	$(CONTAINER_RUNTIME) run --env-file=./config/env.db --name strike_db --network=strikenw -p 5432:5432 localhost/strike_db:latest
 
 .PHONY: db-container-start
 db-container-start: check-runtime
