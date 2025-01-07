@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/JohnnyGlynn/strike/internal/client"
+	"github.com/JohnnyGlynn/strike/internal/config"
 	"github.com/JohnnyGlynn/strike/internal/keys"
 
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
@@ -16,11 +17,11 @@ import (
 )
 
 func main() {
-	//Avoid shadowing
-	var config *client.Config
-	var err error
-
 	fmt.Println("Strike client")
+
+	//Avoid shadowing
+	var clientCfg config.ClientConfig
+	var err error
 
 	configFilePath := flag.String("config", "", "Path to configuration JSON file")
 	keygen := flag.Bool("keygen", false, "Launch Strike Key generation, creating keypair for user not bringing existing PKI")
@@ -42,41 +43,47 @@ func main() {
 			fmt.Printf("error generating signing keys: %v\n", err)
 			return
 		}
+
 		fmt.Println("Signing keys generated successfully ")
+
 		err = keys.EncryptionKeygen()
 		if err != nil {
 			fmt.Printf("error generating encryption keys: %v\n", err)
 			return
 		}
+
 		fmt.Println("Encryption keys generated successfully ")
 		os.Exit(0)
 	}
 
 	if *configFilePath != "" && !*keygen {
 		log.Println("Loading Config from File")
-		config, err = client.LoadConfigFile(*configFilePath)
+
+		clientCfg, err = config.LoadConfigFile[config.ClientConfig](*configFilePath)
 		if err != nil {
 			log.Fatalf("Failed to load client config: %v", err)
 		}
-		//TODO: Looks gross
-		if err := config.ValidateConfig(); err != nil {
+
+		if err := clientCfg.ValidateConfig(); err != nil {
 			log.Fatalf("Invalid client config: %v", err)
 		}
 	} else if !*keygen {
 		log.Println("Loading Config from Envrionment Variables")
-		config = client.LoadConfigEnv()
-		if err := config.ValidateConfig(); err != nil {
+
+		clientCfg = *config.LoadClientConfigEnv()
+
+		if err := clientCfg.ValidateEnv(); err != nil {
 			log.Fatalf("Invalid client config: %v", err)
 		}
 	}
 
 	// +v to print struct fields too
-	log.Printf("Loaded client Config: %+v", config)
+	log.Printf("Loaded client Config: %+v", clientCfg)
 
 	//TODO: Clean up these calls to read and validate keys
 
 	//Get our keys then validate them - facilitates BYO pki compliance to ed25519 and curve25519
-	signingPublicKey, err := keys.GetKeyFromPath(config.SigningPublicKeyPath)
+	signingPublicKey, err := keys.GetKeyFromPath(clientCfg.SigningPublicKeyPath)
 	if err != nil {
 		log.Fatalf("failed to get public signing key: %v", err)
 	}
@@ -86,7 +93,7 @@ func main() {
 		log.Fatalf("failed to validate public signing key: %v", err)
 	}
 
-	signingPrivateKey, err := keys.GetKeyFromPath(config.SigningPrivateKeyPath)
+	signingPrivateKey, err := keys.GetKeyFromPath(clientCfg.SigningPrivateKeyPath)
 	if err != nil {
 		log.Fatalf("failed to get private signing key: %v", err)
 	}
@@ -96,7 +103,7 @@ func main() {
 		log.Fatalf("failed to validate private signing key: %v", err)
 	}
 
-	encryptionPrivateKey, err := keys.GetKeyFromPath(config.EncryptionPrivateKeyPath)
+	encryptionPrivateKey, err := keys.GetKeyFromPath(clientCfg.EncryptionPrivateKeyPath)
 	if err != nil {
 		log.Fatalf("failed to get private encryption key: %v", err)
 	}
@@ -106,7 +113,7 @@ func main() {
 		log.Fatalf("failed to validate private encryption key: %v", err)
 	}
 
-	encryptionPublicKey, err := keys.GetKeyFromPath(config.EncryptionPublicKeyPath)
+	encryptionPublicKey, err := keys.GetKeyFromPath(clientCfg.EncryptionPublicKeyPath)
 	if err != nil {
 		log.Fatalf("failed to get public encryption key: %v", err)
 	}
@@ -117,8 +124,7 @@ func main() {
 	}
 
 	// Begin GRPC setup
-
-	creds, err := credentials.NewClientTLSFromFile(config.ServerCertificatePath, "")
+	creds, err := credentials.NewClientTLSFromFile(clientCfg.ServerCertificatePath, "")
 	if err != nil {
 		log.Fatalf("Failed to load server certificate: %v", err)
 	}
@@ -126,7 +132,7 @@ func main() {
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithTransportCredentials(creds))
 
-	conn, err := grpc.NewClient(config.ServerHost, opts...)
+	conn, err := grpc.NewClient(clientCfg.ServerHost, opts...)
 	if err != nil {
 		log.Fatalf("fail to dial: %v", err)
 	}
@@ -135,12 +141,12 @@ func main() {
 	newClient := pb.NewStrikeClient(conn)
 
 	// client.RegisterClient(newClient, config.Username, pubkey)
-	err = client.Login(newClient, config.Username, signingPublicKey)
+	err = client.Login(newClient, clientCfg.Username, signingPublicKey)
 	if err != nil {
 		log.Fatalf("error logging in: %v", err)
 	}
 
-	err = client.AutoChat(newClient, config.Username, signingPublicKey)
+	err = client.AutoChat(newClient, clientCfg.Username, signingPublicKey)
 	if err != nil {
 		log.Fatalf("error starting AutoChat: %v", err)
 	}

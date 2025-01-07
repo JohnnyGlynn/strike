@@ -7,9 +7,8 @@ import (
 	"log"
 	"net"
 	"os"
-	"path/filepath"
-	"strings"
 
+	"github.com/JohnnyGlynn/strike/internal/config"
 	"github.com/JohnnyGlynn/strike/internal/db"
 	"github.com/JohnnyGlynn/strike/internal/keys"
 	"github.com/JohnnyGlynn/strike/internal/server"
@@ -25,7 +24,7 @@ func main() {
 	ctx := context.Background()
 
 	//Avoid shadowing
-	var config *server.Config
+	var serverCfg config.ServerConfig
 	var err error
 
 	//TODO: Refactor, replicated from client
@@ -44,21 +43,28 @@ func main() {
 
 	if *configFilePath != "" && !*keygen {
 		log.Println("Loading Config from File")
-		config, err = server.LoadConfigFile(*configFilePath)
+
+		serverCfg, err = config.LoadConfigFile[config.ServerConfig](*configFilePath)
 		if err != nil {
 			log.Fatalf("Failed to load server config: %v", err)
 		}
-		//TODO: Looks gross
-		if err = config.ValidateConfig(); err != nil {
+
+		if err = serverCfg.ValidateConfig(); err != nil {
 			log.Fatalf("Invalid Server config: %v", err)
 		}
+
 	} else if !*keygen {
 		log.Println("Loading Config from Envrionment Variables")
-		config = server.LoadConfigEnv()
-		if err = config.ValidateConfig(); err != nil {
+
+		serverCfg = *config.LoadServerConfigEnv()
+
+		if err = serverCfg.ValidateEnv(); err != nil {
 			log.Fatalf("Invalid Server config: %v", err)
 		}
 	}
+
+	// +v to print struct fields too
+	log.Printf("Loaded Server Config: %+v", serverCfg)
 
 	//PostgreSQL setup
 	pgConfig, err := pgxpool.ParseConfig("postgres://strikeadmin:plaintextisbad@strike_db:5432/strike")
@@ -77,14 +83,7 @@ func main() {
 		log.Fatalf("Failed to prepare statements: %v", err)
 	}
 
-	// +v to print struct fields too
-	log.Printf("Loaded Server Config: %+v", config)
-
-	//TODO: Gross Home directory handling.
-	expandedCertPath := pathExpansion(config.CertificatePath)
-	expandedPrivKeyPath := pathExpansion(config.SigningPrivateKeyPath)
-
-	serverCreds, err := credentials.NewServerTLSFromFile(expandedCertPath, expandedPrivKeyPath)
+	serverCreds, err := credentials.NewServerTLSFromFile(serverCfg.CertificatePath, serverCfg.SigningPrivateKeyPath)
 	if err != nil {
 		log.Fatalf("Failed to load TLS credentials: %v", err)
 	}
@@ -114,17 +113,4 @@ func main() {
 		fmt.Printf("Error listening: %v\n", err)
 	}
 
-}
-
-func pathExpansion(path string) string {
-	//TODO Handle ~ conversion better
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		panic(fmt.Errorf("error finding user home directory: %v", err))
-	}
-
-	if strings.HasPrefix(path, "~") {
-		path = filepath.Join(homeDir, path[1:])
-	}
-	return path
 }

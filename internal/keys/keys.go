@@ -13,7 +13,6 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -173,11 +172,6 @@ func ValidateEncryptionKeys(keyBytes []byte) error {
 }
 
 func GetKeyFromPath(path string) ([]byte, error) {
-
-	//TODO: Remove this hacky way of ensuring that ~ is handled if provided in config
-	if strings.HasPrefix(path, "~") {
-		path = filepath.Join(homeDir, path[1:])
-	}
 
 	keyFile, err := os.Open(path)
 	if err != nil {

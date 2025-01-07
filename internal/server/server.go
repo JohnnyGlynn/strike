@@ -2,10 +2,8 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -21,58 +19,6 @@ type StrikeServer struct {
 	DBpool      *pgxpool.Pool
 	PStatements *db.PreparedStatements
 	// mu sync.Mutex
-}
-
-type Config struct {
-	ServerName            string `json:"server_name" yaml:"server_name"`
-	SigningPrivateKeyPath string `json:"private_signing_key_path" yaml:"private_singing_key_path"`
-	SigningPublicKeyPath  string `json:"public_signing_key_path" yaml:"public_signing_key_path"`
-	CertificatePath       string `json:"certificate_path" yaml:"certificate_path"`
-}
-
-func LoadConfigEnv() *Config {
-	return &Config{
-		ServerName:            os.Getenv("SERVER_NAME"),
-		SigningPrivateKeyPath: os.Getenv("PRIVATE_SERVER_SIGNING_KEY_PATH"),
-		SigningPublicKeyPath:  os.Getenv("PUBLIC_SERVER_SIGNING_KEY_PATH"),
-		CertificatePath:       os.Getenv("SERVER_CERT_PATH"),
-	}
-}
-
-// TODO: Fine for binary testing but probably just going to provide env vars to container
-func LoadConfigFile(filePath string) (*Config, error) {
-	configFile, err := os.ReadFile(filePath)
-	if err != nil {
-		log.Fatalf("Failed to read config file: %v", err)
-		return nil, err
-	}
-
-	var config Config
-
-	err = json.Unmarshal(configFile, &config)
-	if err != nil {
-		log.Fatalf("Unmarshall Failed: %v", err)
-		return nil, err
-	}
-
-	return &config, nil
-}
-
-// TODO: Handle this better
-func (c *Config) ValidateConfig() error {
-	if c.ServerName == "" {
-		return fmt.Errorf("server_name is required")
-	}
-	if c.SigningPrivateKeyPath == "" {
-		return fmt.Errorf("private_signing_key_path is required")
-	}
-	if c.SigningPublicKeyPath == "" {
-		return fmt.Errorf("public_signing_key_path is required")
-	}
-	if c.CertificatePath == "" {
-		return fmt.Errorf("certificate_path is required")
-	}
-	return nil
 }
 
 func (s *StrikeServer) GetMessages(chat *pb.Chat, stream pb.Strike_GetMessagesServer) error {
