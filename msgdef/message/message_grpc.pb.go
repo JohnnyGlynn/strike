@@ -19,6 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion8
 
 const (
+	Strike_Signup_FullMethodName       = "/message.Strike/Signup"
+	Strike_BeginChat_FullMethodName    = "/message.Strike/BeginChat"
+	Strike_ConfirmChat_FullMethodName  = "/message.Strike/ConfirmChat"
 	Strike_KeyHandshake_FullMethodName = "/message.Strike/KeyHandshake"
 	Strike_Login_FullMethodName        = "/message.Strike/Login"
 	Strike_SendMessages_FullMethodName = "/message.Strike/SendMessages"
@@ -29,6 +32,9 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type StrikeClient interface {
+	Signup(ctx context.Context, in *ClientInit, opts ...grpc.CallOption) (*ServerResponse, error)
+	BeginChat(ctx context.Context, in *BeginChatRequest, opts ...grpc.CallOption) (*BeginChatResponse, error)
+	ConfirmChat(ctx context.Context, in *ConfirmChatRequest, opts ...grpc.CallOption) (*ServerResponse, error)
 	KeyHandshake(ctx context.Context, in *ClientInit, opts ...grpc.CallOption) (*Stamp, error)
 	Login(ctx context.Context, in *ClientLogin, opts ...grpc.CallOption) (*Stamp, error)
 	SendMessages(ctx context.Context, in *Envelope, opts ...grpc.CallOption) (*Stamp, error)
@@ -41,6 +47,36 @@ type strikeClient struct {
 
 func NewStrikeClient(cc grpc.ClientConnInterface) StrikeClient {
 	return &strikeClient{cc}
+}
+
+func (c *strikeClient) Signup(ctx context.Context, in *ClientInit, opts ...grpc.CallOption) (*ServerResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ServerResponse)
+	err := c.cc.Invoke(ctx, Strike_Signup_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *strikeClient) BeginChat(ctx context.Context, in *BeginChatRequest, opts ...grpc.CallOption) (*BeginChatResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BeginChatResponse)
+	err := c.cc.Invoke(ctx, Strike_BeginChat_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *strikeClient) ConfirmChat(ctx context.Context, in *ConfirmChatRequest, opts ...grpc.CallOption) (*ServerResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ServerResponse)
+	err := c.cc.Invoke(ctx, Strike_ConfirmChat_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *strikeClient) KeyHandshake(ctx context.Context, in *ClientInit, opts ...grpc.CallOption) (*Stamp, error) {
@@ -110,6 +146,9 @@ func (x *strikeGetMessagesClient) Recv() (*Envelope, error) {
 // All implementations must embed UnimplementedStrikeServer
 // for forward compatibility
 type StrikeServer interface {
+	Signup(context.Context, *ClientInit) (*ServerResponse, error)
+	BeginChat(context.Context, *BeginChatRequest) (*BeginChatResponse, error)
+	ConfirmChat(context.Context, *ConfirmChatRequest) (*ServerResponse, error)
 	KeyHandshake(context.Context, *ClientInit) (*Stamp, error)
 	Login(context.Context, *ClientLogin) (*Stamp, error)
 	SendMessages(context.Context, *Envelope) (*Stamp, error)
@@ -121,6 +160,15 @@ type StrikeServer interface {
 type UnimplementedStrikeServer struct {
 }
 
+func (UnimplementedStrikeServer) Signup(context.Context, *ClientInit) (*ServerResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Signup not implemented")
+}
+func (UnimplementedStrikeServer) BeginChat(context.Context, *BeginChatRequest) (*BeginChatResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BeginChat not implemented")
+}
+func (UnimplementedStrikeServer) ConfirmChat(context.Context, *ConfirmChatRequest) (*ServerResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConfirmChat not implemented")
+}
 func (UnimplementedStrikeServer) KeyHandshake(context.Context, *ClientInit) (*Stamp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method KeyHandshake not implemented")
 }
@@ -144,6 +192,60 @@ type UnsafeStrikeServer interface {
 
 func RegisterStrikeServer(s grpc.ServiceRegistrar, srv StrikeServer) {
 	s.RegisterService(&Strike_ServiceDesc, srv)
+}
+
+func _Strike_Signup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClientInit)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StrikeServer).Signup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Strike_Signup_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StrikeServer).Signup(ctx, req.(*ClientInit))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Strike_BeginChat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BeginChatRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StrikeServer).BeginChat(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Strike_BeginChat_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StrikeServer).BeginChat(ctx, req.(*BeginChatRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Strike_ConfirmChat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConfirmChatRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StrikeServer).ConfirmChat(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Strike_ConfirmChat_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StrikeServer).ConfirmChat(ctx, req.(*ConfirmChatRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Strike_KeyHandshake_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -228,6 +330,18 @@ var Strike_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "message.Strike",
 	HandlerType: (*StrikeServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Signup",
+			Handler:    _Strike_Signup_Handler,
+		},
+		{
+			MethodName: "BeginChat",
+			Handler:    _Strike_BeginChat_Handler,
+		},
+		{
+			MethodName: "ConfirmChat",
+			Handler:    _Strike_ConfirmChat_Handler,
+		},
 		{
 			MethodName: "KeyHandshake",
 			Handler:    _Strike_KeyHandshake_Handler,

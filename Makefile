@@ -103,6 +103,11 @@ clean:
 fmt:
 	go fmt ./...
 
+# Protobuf generate
+.PHONY: proto
+proto:
+	cd msgdef && protoc --go_out=. --go-grpc_out=. message.proto && cd -
+
 # Lint code
 .PHONY: lint
 lint:

@@ -7,6 +7,12 @@ package message;
 option go_package="./message";
 
 service Strike {
+  rpc Signup(ClientInit) returns (ServerResponse) {}
+
+  rpc BeginChat(BeginChatRequest) returns (BeginChatResponse) {}
+
+  rpc ConfirmChat(ConfirmChatRequest) returns (ServerResponse) {}
+
   rpc KeyHandshake(ClientInit) returns (Stamp) {}
 
   rpc Login(ClientLogin) returns (Stamp) {}
@@ -19,9 +25,28 @@ service Strike {
 message ClientInit {
   string uname = 1;
   //byte array - https://protobuf.dev/programming-guides/proto3/#scalar
-  bytes public_key = 2;
+  bytes encryption_key = 2; // client Curve25519 public key
+  bytes signing_key = 3; // client ED25519 signing key
 }
 
+message BeginChatRequest {
+  string initiator = 1; // client beginning chat username
+  string target = 2;    // target client username
+}
+
+message BeginChatResponse {
+  bool success = 1;
+  string chat_id = 2;           // chat name
+  bytes target_public_key = 3;  // public Curve25519 target user
+  bytes target_signing_key = 4; // public ED25519 target user
+}
+
+message ConfirmChatRequest {
+  string chat_id = 1; // chat name
+  string confirmer = 2; // target user accepting chat
+}
+
+//TODO rework into a challenge
 message ClientLogin {
   string uname = 1;
   bytes public_key = 2;
@@ -32,18 +57,35 @@ message Chat {
   string message = 2;
 }
 
+message ChatStreamRequest {
+  string chat_id = 1; // chat name
+}
+
+message ServerResponse {
+  bool success = 1;
+  string message = 2;
+  //TODO: Have server sign this?
+}
+
+//Replace with ServerResponse
 message Stamp {
   bytes key_used = 1;
 }
 
 // -----------------------------------Messages---------------------------------------------
 message Envelope {
-
   bytes Sender_public_key = 1;
-
   google.protobuf.Timestamp sent_at = 3;
-
   Chat chat = 5;
 
+}
+
+message EncryptedEnvelope {
+  bytes sender_public_key = 1; // public Curve25519 sender
+  bytes recipient_public_key = 2; // public Curve25519 recipient
+  bytes signature = 3; // sender ED25519 signature of encrypted_payload
+  bytes nonce = 4; // number once - encryption
+  bytes encrypted_payload = 5; // encrypted message content
+  google.protobuf.Timestamp sent_at = 6; // timestamp
 }
 
