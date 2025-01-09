@@ -67,23 +67,23 @@ func AutoChat(c pb.StrikeClient, uname string, pubkey []byte) error {
 
 }
 
-func RegisterClient(c pb.StrikeClient, uname string, pubkey []byte) error {
+func ClientSignup(c pb.StrikeClient, uname string, curve25519key []byte, ed25519key []byte) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	initClient := pb.ClientInit{
-		Uname:     uname,
-		PublicKey: pubkey,
+		Uname:         uname,
+		EncryptionKey: curve25519key,
+		SigningKey:    ed25519key,
 	}
 
-	stamp, err := c.KeyHandshake(ctx, &initClient)
+	serverRes, err := c.Signup(ctx, &initClient)
 	if err != nil {
-		log.Fatalf("KeyHandshake Failed: %v", err)
+		log.Fatalf("signup failed: %v", err)
 		return err
 	}
 
-	// TODO: Print actual SenderPublicKey
-	fmt.Printf("Stamp: %v\n", stamp.KeyUsed)
+	fmt.Printf("Server Response: %+v\n", serverRes)
 	return nil
 }
 

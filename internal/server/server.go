@@ -90,16 +90,18 @@ func (s *StrikeServer) Login(ctx context.Context, clientLogin *pb.ClientLogin) (
 	return &pb.Stamp{KeyUsed: clientLogin.PublicKey}, nil
 }
 
-func (s *StrikeServer) KeyHandshake(ctx context.Context, clientinit *pb.ClientInit) (*pb.Stamp, error) {
-	fmt.Printf("New User signup: %s\n", clientinit.Uname)
-	fmt.Printf("%v's Public Key: %v\n", clientinit.Uname, clientinit.PublicKey)
+func (s *StrikeServer) Signup(ctx context.Context, clientInit *pb.ClientInit) (*pb.ServerResponse, error) {
+	fmt.Printf("New User signup: %s\n", clientInit.Uname)
 
-	_, err := s.DBpool.Exec(ctx, s.PStatements.CreateUser, clientinit.Uname, clientinit.PublicKey)
+	_, err := s.DBpool.Exec(ctx, s.PStatements.CreateUser, clientInit.Uname, clientInit.EncryptionKey, clientInit.SigningKey)
 	if err != nil {
-		log.Fatalf("Insert failed: %v", err)
+		return &pb.ServerResponse{Success: false, Message: "failed to register user"}, err
 	}
 
-	return &pb.Stamp{KeyUsed: clientinit.PublicKey}, nil
+	return &pb.ServerResponse{
+		Success: true,
+		Message: "Signup successful",
+	}, nil
 }
 
 func (s *StrikeServer) storeMessage(envelope *pb.Envelope) error {

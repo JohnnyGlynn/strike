@@ -140,6 +140,11 @@ func main() {
 
 	newClient := pb.NewStrikeClient(conn)
 
+	err = client.ClientSignup(newClient, clientCfg.Username, encryptionPublicKey, signingPublicKey)
+	if err != nil {
+		log.Fatalf("error with client signup: %v", err)
+	}
+
 	// client.RegisterClient(newClient, config.Username, pubkey)
 	err = client.Login(newClient, clientCfg.Username, signingPublicKey)
 	if err != nil {
