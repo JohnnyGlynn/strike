@@ -1,7 +1,5 @@
 # Variables
 APP_NAME=strike
-SERVER_CMD_DIR=cmd/strike-server
-CLIENT_CMD_DIR=cmd/strike-client
 BUILD_DIR=build
 
 # Default target
@@ -78,7 +76,7 @@ client-container-start: check-runtime
 .PHONY: client-binary-build
 client-binary-build:
 	mkdir -p $(BUILD_DIR)
-	go build -o $(BUILD_DIR)/$(APP_NAME)-client $(CLIENT_CMD_DIR)/main.go
+	go build -o $(BUILD_DIR)/$(APP_NAME)-client cmd/strike-client/main.go
 
 # Run strike-client
 .PHONY: client-binary-run

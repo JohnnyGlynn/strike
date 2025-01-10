@@ -140,19 +140,21 @@ func main() {
 
 	newClient := pb.NewStrikeClient(conn)
 
+	//TODO: Gate Signup with Login - i.e. Try to login, if user not found, signup, then login
 	err = client.ClientSignup(newClient, clientCfg.Username, encryptionPublicKey, signingPublicKey)
 	if err != nil {
 		log.Fatalf("error with client signup: %v", err)
 	}
 
-	// client.RegisterClient(newClient, config.Username, pubkey)
-	err = client.Login(newClient, clientCfg.Username, signingPublicKey)
+	//Login now connects to UserStatus stream to show wheter user is online
+	err = client.Login(newClient, clientCfg.Username)
 	if err != nil {
-		log.Fatalf("error logging in: %v", err)
+		log.Fatalf("error connecting: %v", err)
 	}
 
-	err = client.AutoChat(newClient, clientCfg.Username, signingPublicKey)
-	if err != nil {
-		log.Fatalf("error starting AutoChat: %v", err)
-	}
+	//Disable auto chat for now
+	// err = client.AutoChat(newClient, clientCfg.Username, signingPublicKey)
+	// if err != nil {
+	// 	log.Fatalf("error starting AutoChat: %v", err)
+	// }
 }

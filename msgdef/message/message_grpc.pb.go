@@ -25,6 +25,7 @@ const (
 	Strike_KeyHandshake_FullMethodName = "/message.Strike/KeyHandshake"
 	Strike_Login_FullMethodName        = "/message.Strike/Login"
 	Strike_SendMessages_FullMethodName = "/message.Strike/SendMessages"
+	Strike_UserStatus_FullMethodName   = "/message.Strike/UserStatus"
 	Strike_GetMessages_FullMethodName  = "/message.Strike/GetMessages"
 )
 
@@ -38,6 +39,7 @@ type StrikeClient interface {
 	KeyHandshake(ctx context.Context, in *ClientInit, opts ...grpc.CallOption) (*Stamp, error)
 	Login(ctx context.Context, in *ClientLogin, opts ...grpc.CallOption) (*Stamp, error)
 	SendMessages(ctx context.Context, in *Envelope, opts ...grpc.CallOption) (*Stamp, error)
+	UserStatus(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (Strike_UserStatusClient, error)
 	GetMessages(ctx context.Context, in *Chat, opts ...grpc.CallOption) (Strike_GetMessagesClient, error)
 }
 
@@ -109,9 +111,42 @@ func (c *strikeClient) SendMessages(ctx context.Context, in *Envelope, opts ...g
 	return out, nil
 }
 
+func (c *strikeClient) UserStatus(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (Strike_UserStatusClient, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Strike_ServiceDesc.Streams[0], Strike_UserStatus_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &strikeUserStatusClient{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Strike_UserStatusClient interface {
+	Recv() (*StatusUpdate, error)
+	grpc.ClientStream
+}
+
+type strikeUserStatusClient struct {
+	grpc.ClientStream
+}
+
+func (x *strikeUserStatusClient) Recv() (*StatusUpdate, error) {
+	m := new(StatusUpdate)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *strikeClient) GetMessages(ctx context.Context, in *Chat, opts ...grpc.CallOption) (Strike_GetMessagesClient, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &Strike_ServiceDesc.Streams[0], Strike_GetMessages_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &Strike_ServiceDesc.Streams[1], Strike_GetMessages_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -152,6 +187,7 @@ type StrikeServer interface {
 	KeyHandshake(context.Context, *ClientInit) (*Stamp, error)
 	Login(context.Context, *ClientLogin) (*Stamp, error)
 	SendMessages(context.Context, *Envelope) (*Stamp, error)
+	UserStatus(*StatusRequest, Strike_UserStatusServer) error
 	GetMessages(*Chat, Strike_GetMessagesServer) error
 	mustEmbedUnimplementedStrikeServer()
 }
@@ -177,6 +213,9 @@ func (UnimplementedStrikeServer) Login(context.Context, *ClientLogin) (*Stamp, e
 }
 func (UnimplementedStrikeServer) SendMessages(context.Context, *Envelope) (*Stamp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendMessages not implemented")
+}
+func (UnimplementedStrikeServer) UserStatus(*StatusRequest, Strike_UserStatusServer) error {
+	return status.Errorf(codes.Unimplemented, "method UserStatus not implemented")
 }
 func (UnimplementedStrikeServer) GetMessages(*Chat, Strike_GetMessagesServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetMessages not implemented")
@@ -302,6 +341,27 @@ func _Strike_SendMessages_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Strike_UserStatus_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(StatusRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(StrikeServer).UserStatus(m, &strikeUserStatusServer{ServerStream: stream})
+}
+
+type Strike_UserStatusServer interface {
+	Send(*StatusUpdate) error
+	grpc.ServerStream
+}
+
+type strikeUserStatusServer struct {
+	grpc.ServerStream
+}
+
+func (x *strikeUserStatusServer) Send(m *StatusUpdate) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 func _Strike_GetMessages_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(Chat)
 	if err := stream.RecvMsg(m); err != nil {
@@ -356,6 +416,11 @@ var Strike_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "UserStatus",
+			Handler:       _Strike_UserStatus_Handler,
+			ServerStreams: true,
+		},
 		{
 			StreamName:    "GetMessages",
 			Handler:       _Strike_GetMessages_Handler,

@@ -29,17 +29,17 @@ func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*PreparedStat
 	}
 
 	//Create User
-	if _, err := poolConnection.Conn().Prepare(ctx, statements.CreateUser, "INSERT INTO userkeys (uname, public_key, signing_key) VALUES ($1, $2, $3)"); err != nil {
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.CreateUser, "INSERT INTO users (username, encryption_key, signing_key) VALUES ($1, $2, $3)"); err != nil {
 		return nil, err
 	}
 
 	//LoginUser
-	if _, err := poolConnection.Conn().Prepare(ctx, statements.LoginUser, "SELECT EXISTS (SELECT 1 FROM userkeys WHERE uname = $1 AND publickey = $2)"); err != nil {
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.LoginUser, "SELECT EXISTS (SELECT 1 FROM users WHERE username = $1 AND encryption_key = $2)"); err != nil {
 		return nil, err
 	}
 
 	//Get keys to start chat
-	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetUserKeys, "SELECT public_key, signing_key FROM users WHERE uname = $1;"); err != nil {
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetUserKeys, "SELECT encryption_key, signing_key FROM users WHERE username = $1;"); err != nil {
 		return nil, err
 	}
 

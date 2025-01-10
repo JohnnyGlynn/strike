@@ -12,7 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func AutoChat(c pb.StrikeClient, uname string, pubkey []byte) error {
+func AutoChat(c pb.StrikeClient, username string, pubkey []byte) error {
 
 	newChat := pb.Chat{
 		Name:    "endpoint0",
@@ -67,12 +67,12 @@ func AutoChat(c pb.StrikeClient, uname string, pubkey []byte) error {
 
 }
 
-func ClientSignup(c pb.StrikeClient, uname string, curve25519key []byte, ed25519key []byte) error {
+func ClientSignup(c pb.StrikeClient, username string, curve25519key []byte, ed25519key []byte) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	initClient := pb.ClientInit{
-		Uname:         uname,
+		Username:      username,
 		EncryptionKey: curve25519key,
 		SigningKey:    ed25519key,
 	}
@@ -87,23 +87,29 @@ func ClientSignup(c pb.StrikeClient, uname string, curve25519key []byte, ed25519
 	return nil
 }
 
-func Login(c pb.StrikeClient, uname string, pubkey []byte) error {
+func Login(c pb.StrikeClient, username string) error {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	loginClient := pb.ClientLogin{
-		Uname:     uname,
-		PublicKey: pubkey,
+	getOnline := pb.StatusRequest{
+		Username: username,
 	}
 
-	stamp, err := c.Login(ctx, &loginClient)
+	stream, err := c.UserStatus(ctx, &getOnline)
 	if err != nil {
 		log.Fatalf("Login Failed: %v", err)
 		return err
 	}
 
-	// TODO: Print actual SenderPublicKey
-	log.Printf("Stamp: %v\n", stamp.KeyUsed)
-	return nil
+	for {
+		connectionStream, err := stream.Recv()
+		if err != nil {
+			log.Fatalf("Failed to connect to Status stream: %v", err)
+			return err
+		}
+
+		fmt.Printf("%s Status: %s\n", username, connectionStream.Message)
+	}
+
 }

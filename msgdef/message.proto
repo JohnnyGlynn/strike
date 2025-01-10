@@ -19,11 +19,13 @@ service Strike {
 
   rpc SendMessages(Envelope) returns (Stamp) {}
 
+  rpc UserStatus(StatusRequest) returns (stream StatusUpdate) {}
+
   rpc GetMessages(Chat) returns (stream Envelope) {}
 }
 
 message ClientInit {
-  string uname = 1;
+  string username = 1;
   //byte array - https://protobuf.dev/programming-guides/proto3/#scalar
   bytes encryption_key = 2; // client Curve25519 public key
   bytes signing_key = 3; // client ED25519 signing key
@@ -32,13 +34,15 @@ message ClientInit {
 message BeginChatRequest {
   string initiator = 1; // client beginning chat username
   string target = 2;    // target client username
+  string chat_name = 3;    // target client username
 }
 
 message BeginChatResponse {
   bool success = 1;
-  string chat_id = 2;           // chat name
-  bytes target_public_key = 3;  // public Curve25519 target user
-  bytes target_signing_key = 4; // public ED25519 target user
+  string chat_id = 2;           // chat uuid (TODO: Postgres to handle this?)
+  string chat_name = 3;         // chat name
+  bytes target_public_key = 4;  // public Curve25519 target user
+  bytes target_signing_key = 5; // public ED25519 target user
 }
 
 message ConfirmChatRequest {
@@ -48,7 +52,7 @@ message ConfirmChatRequest {
 
 //TODO rework into a challenge
 message ClientLogin {
-  string uname = 1;
+  string username = 1;
   bytes public_key = 2;
 }
 
@@ -71,6 +75,16 @@ message ServerResponse {
 message Stamp {
   bytes key_used = 1;
 }
+
+message StatusRequest {
+    string username = 1;
+}
+
+message StatusUpdate {
+    string message = 1;  //"online/offline"
+    google.protobuf.Timestamp updated_at = 2;
+}
+
 
 // -----------------------------------Messages---------------------------------------------
 message Envelope {
