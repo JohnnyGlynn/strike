@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/JohnnyGlynn/strike/internal/client"
 	"github.com/JohnnyGlynn/strike/internal/config"
@@ -146,15 +147,31 @@ func main() {
 		log.Fatalf("error with client signup: %v", err)
 	}
 
-	//Login now connects to UserStatus stream to show wheter user is online
-	err = client.Login(newClient, clientCfg.Username)
-	if err != nil {
-		log.Fatalf("error connecting: %v", err)
-	}
+	//Spawn a goroutine so we can have the login function maintain userstatus stream aka Online
+	//TODO: Clean this up, Login isnt really correct now, RegisterStatus?
+	go func() {
+		//Login now connects to UserStatus stream to show wheter user is online
+		err = client.Login(newClient, clientCfg.Username)
+		if err != nil {
+			log.Fatalf("error connecting: %v", err)
+		}
+	}()
 
-	//Disable auto chat for now
-	// err = client.AutoChat(newClient, clientCfg.Username, signingPublicKey)
-	// if err != nil {
-	// 	log.Fatalf("error starting AutoChat: %v", err)
-	// }
+	// go func() {
+	// 	// Disable auto chat for now
+	// 	err = client.AutoChat(newClient, clientCfg.Username, signingPublicKey)
+	// 	if err != nil {
+	// 		log.Fatalf("error starting AutoChat: %v", err)
+	// 	}
+	// }()
+
+	time.Sleep(30 * time.Second)
+	fmt.Println("ATTEMPTING TO BEING CHAT")
+
+	//TODO: make configurable, allow  for client input
+	//As it stands, we need to spawn a container with a client user client12345 to test this function
+	err = client.BeginChat(newClient, clientCfg.Username, "client12345")
+	if err != nil {
+		log.Fatalf("error begining chat: %v", err)
+	}
 }

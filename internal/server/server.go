@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -15,15 +16,34 @@ import (
 
 type StrikeServer struct {
 	pb.UnimplementedStrikeServer
-	Env         []*pb.Envelope
-	DBpool      *pgxpool.Pool
-	PStatements *db.PreparedStatements
-	OnlineUsers map[string]pb.Strike_UserStatusServer
-	mu          sync.Mutex
+	Env            []*pb.Envelope
+	DBpool         *pgxpool.Pool
+	PStatements    *db.PreparedStatements
+	OnlineUsers    map[string]pb.Strike_UserStatusServer
+	MessageStreams map[string]pb.Strike_GetMessagesServer
+	mu             sync.Mutex
 }
 
-func (s *StrikeServer) GetMessages(chat *pb.Chat, stream pb.Strike_GetMessagesServer) error {
-	fmt.Println("Streaming messages for chat: endpoint0")
+func (s *StrikeServer) GetMessages(username *pb.Username, stream pb.Strike_GetMessagesServer) error {
+	fmt.Println("------Streaming--messages------")
+
+	// TODO: cleaner map initilization
+	if s.MessageStreams == nil {
+		s.MessageStreams = make(map[string]pb.Strike_GetMessagesServer)
+	}
+
+	// Register the users message steam
+	s.mu.Lock()
+	s.MessageStreams[username.Username] = stream
+	s.mu.Unlock()
+
+	// Defer so regardless of how we exit (gracefully or an error), the user is removed from OnlineUsers
+	defer func() {
+		s.mu.Lock()
+		delete(s.MessageStreams, username.Username)
+		s.mu.Unlock()
+		fmt.Printf("%s can no longer recieve messages.\n", username)
+	}()
 
 	messageChannel := make(chan *pb.Envelope)
 
@@ -148,6 +168,47 @@ func (s *StrikeServer) UserStatus(req *pb.StatusRequest, stream pb.Strike_UserSt
 	}
 }
 
+func (s *StrikeServer) BeginChat(ctx context.Context, req *pb.BeginChatRequest) (*pb.BeginChatResponse, error) {
+
+	fmt.Printf("Begining Chat: %s\n", req.ChatName)
+	_, exists := s.MessageStreams[req.Target]
+	if !exists {
+		return nil, fmt.Errorf("%v not found", req.Target)
+	}
+
+	// ReadWrite mutex
+	s.mu.Lock()
+	targetMessageStream := s.MessageStreams[req.Target]
+	s.mu.Unlock()
+
+	creationEvent := fmt.Sprintf("SYSTEM NOTIFICATION - CHAT CREATION: %s (Init: %s, Trgt: %s)", req.ChatName, req.Target, req.Initiator)
+	initiationMessage := fmt.Sprintf("ATTN %s: %s wants to begin a chat! y/n?", req.Target, req.Initiator)
+
+	err := targetMessageStream.Send(&pb.Envelope{
+		SenderPublicKey: []byte{},
+		SentAt:          timestamppb.Now(),
+		Chat: &pb.Chat{
+			Name:    creationEvent,
+			Message: initiationMessage,
+		},
+	})
+	if err != nil {
+		fmt.Printf("Failed to send message on %s's stream: %v\n", req.Target, err)
+		return nil, err
+	}
+
+	//TODO: Pass initiator keys, then db query for target keys here
+
+	return &pb.BeginChatResponse{
+		Success:          true,
+		ChatId:           uuid.New().String(),
+		ChatName:         req.ChatName,
+		TargetPublicKey:  []byte{},
+		TargetSigningKey: []byte{},
+	}, nil
+
+}
+
 func (s *StrikeServer) storeMessage(envelope *pb.Envelope) error {
 	//TODO: DB operations here - slice for now
 	s.Env = append(s.Env, envelope)
@@ -159,9 +220,8 @@ func (s *StrikeServer) fetchMessages() ([]*pb.Envelope, error) {
 	var result []*pb.Envelope
 	// TODO: make channels for chats
 	for _, envelope := range s.Env {
-		if envelope.Chat.Name == "endpoint0" {
-			result = append(result, envelope)
-		}
+		result = append(result, envelope)
 	}
+
 	return result, nil
 }

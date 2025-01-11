@@ -22,6 +22,7 @@ func AutoChat(c pb.StrikeClient, username string, pubkey []byte) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	//TODO: This has to go
 	go func() {
 		for {
 			now := time.Now()
@@ -40,11 +41,12 @@ func AutoChat(c pb.StrikeClient, username string, pubkey []byte) error {
 
 			fmt.Println("Stamp: ", stamp.KeyUsed)
 
-			time.Sleep(5 * time.Second)
+			time.Sleep(1 * time.Minute)
 		}
 	}()
 
-	stream, err := c.GetMessages(ctx, &newChat)
+	//Pass your own username to register your stream
+	stream, err := c.GetMessages(ctx, &pb.Username{Username: username})
 	if err != nil {
 		log.Fatalf("GetMessages Failed: %v", err)
 		return err
@@ -112,4 +114,26 @@ func Login(c pb.StrikeClient, username string) error {
 		fmt.Printf("%s Status: %s\n", username, connectionStream.Message)
 	}
 
+}
+
+func BeginChat(c pb.StrikeClient, username string, chatTarget string) error {
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	beginChat := pb.BeginChatRequest{
+		Initiator: username,
+		Target:    chatTarget,
+		ChatName:  "Foreign Policy of the Bulgarian Police Force",
+	}
+
+	beginChatResponse, err := c.BeginChat(ctx, &beginChat)
+	if err != nil {
+		log.Fatalf("Begin Chat failed Failed: %v", err)
+		return err
+	}
+
+	fmt.Printf("Chat Created: %+v", beginChatResponse)
+
+	return nil
 }

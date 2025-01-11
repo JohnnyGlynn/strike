@@ -21,7 +21,12 @@ service Strike {
 
   rpc UserStatus(StatusRequest) returns (stream StatusUpdate) {}
 
-  rpc GetMessages(Chat) returns (stream Envelope) {}
+  rpc GetMessages(Username) returns (stream Envelope) {}
+}
+
+//TODO: Lots of cleaning
+message Username {
+    string username = 1;
 }
 
 message ClientInit {
