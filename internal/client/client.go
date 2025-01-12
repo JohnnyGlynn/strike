@@ -69,6 +69,56 @@ func AutoChat(c pb.StrikeClient, username string, pubkey []byte) error {
 
 }
 
+// TODO: Take this out to the main client function and we can have an easier time manipulating.
+func ConnectMessageStream(c pb.StrikeClient, username string) error {
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	//Pass your own username to register your stream
+	stream, err := c.GetMessages(ctx, &pb.Username{Username: username})
+	if err != nil {
+		log.Fatalf("GetMessages Failed: %v", err)
+		return err
+	}
+
+	for {
+		messageStream, err := stream.Recv()
+		if err == io.EOF {
+			log.Printf("Recieve Failed EOF: %v", err)
+			log.Printf("Awaiting Messages")
+			continue
+		}
+		if err != nil {
+			log.Fatalf("Recieve Failed: %v", err)
+			return err
+		}
+
+		//TODO: Modify the type here, pass either a Envelope or a System envelope
+		if messageStream.Chat.Name == "SERVER-CHAT_REQUEST" {
+			log.Printf("\nWE CAN SEE A CHAT REQUEST\n")
+			//TODO: Chaining these is a mess
+			ConfirmChat(ctx, c, username, messageStream)
+
+		}
+
+		fmt.Printf("Msg: %v\n", messageStream.Chat.Message)
+	}
+}
+
+func ConfirmChat(ctx context.Context, c pb.StrikeClient, username string, chatContent *pb.Envelope) error {
+
+	ConfirmChatResp, err := c.ConfirmChat(ctx, &pb.ConfirmChatRequest{ChatId: chatContent.Chat.Message, Confirmer: username})
+	if err != nil {
+		log.Fatalf("GetMessages Failed: %v", err)
+		return err
+	}
+
+	fmt.Printf("Chat Confirmed: %+v", ConfirmChatResp)
+
+	return nil
+}
+
 func ClientSignup(c pb.StrikeClient, username string, curve25519key []byte, ed25519key []byte) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

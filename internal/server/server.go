@@ -16,9 +16,11 @@ import (
 
 type StrikeServer struct {
 	pb.UnimplementedStrikeServer
-	Env            []*pb.Envelope
-	DBpool         *pgxpool.Pool
-	PStatements    *db.PreparedStatements
+	Env         []*pb.Envelope
+	DBpool      *pgxpool.Pool
+	PStatements *db.PreparedStatements
+
+	//TODO: Replace with channels
 	OnlineUsers    map[string]pb.Strike_UserStatusServer
 	MessageStreams map[string]pb.Strike_GetMessagesServer
 	mu             sync.Mutex
@@ -38,12 +40,12 @@ func (s *StrikeServer) GetMessages(username *pb.Username, stream pb.Strike_GetMe
 	s.mu.Unlock()
 
 	// Defer so regardless of how we exit (gracefully or an error), the user is removed from OnlineUsers
-	defer func() {
-		s.mu.Lock()
-		delete(s.MessageStreams, username.Username)
-		s.mu.Unlock()
-		fmt.Printf("%s can no longer recieve messages.\n", username)
-	}()
+	// defer func() {
+	// 	s.mu.Lock()
+	// 	delete(s.MessageStreams, username.Username)
+	// 	s.mu.Unlock()
+	// 	fmt.Printf("%s can no longer recieve messages.\n", username)
+	// }()
 
 	messageChannel := make(chan *pb.Envelope)
 
@@ -181,15 +183,15 @@ func (s *StrikeServer) BeginChat(ctx context.Context, req *pb.BeginChatRequest) 
 	targetMessageStream := s.MessageStreams[req.Target]
 	s.mu.Unlock()
 
-	creationEvent := fmt.Sprintf("SYSTEM NOTIFICATION - CHAT CREATION: %s (Init: %s, Trgt: %s)", req.ChatName, req.Target, req.Initiator)
-	initiationMessage := fmt.Sprintf("ATTN %s: %s wants to begin a chat! y/n?", req.Target, req.Initiator)
+	// creationEvent := fmt.Sprintf("SYSTEM NOTIFICATION - CHAT CREATION: %s (Init: %s, Trgt: %s)", req.ChatName, req.Target, req.Initiator)
+	// initiationMessage := fmt.Sprintf("ATTN %s: %s wants to begin a chat! y/n?", req.Target, req.Initiator)
 
 	err := targetMessageStream.Send(&pb.Envelope{
 		SenderPublicKey: []byte{},
 		SentAt:          timestamppb.Now(),
 		Chat: &pb.Chat{
-			Name:    creationEvent,
-			Message: initiationMessage,
+			Name:    "SERVER-CHAT_REQUEST",
+			Message: req.ChatName,
 		},
 	})
 	if err != nil {
@@ -205,6 +207,21 @@ func (s *StrikeServer) BeginChat(ctx context.Context, req *pb.BeginChatRequest) 
 		ChatName:         req.ChatName,
 		TargetPublicKey:  []byte{},
 		TargetSigningKey: []byte{},
+	}, nil
+
+}
+
+func (s *StrikeServer) ConfirmChat(ctx context.Context, req *pb.ConfirmChatRequest) (*pb.ServerResponse, error) {
+
+	fmt.Printf("Confirming Chat: %s\n", req.ChatId)
+
+	//TODO: Pass initiator keys, then db query for target keys here
+
+	Confirmed := fmt.Sprintf("%v has accepted chat request, entering Chat", req.Confirmer)
+
+	return &pb.ServerResponse{
+		Success: true,
+		Message: Confirmed,
 	}, nil
 
 }

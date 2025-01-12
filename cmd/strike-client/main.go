@@ -166,12 +166,17 @@ func main() {
 	// }()
 
 	time.Sleep(30 * time.Second)
-	fmt.Println("ATTEMPTING TO BEING CHAT")
+	fmt.Println("ATTEMPTING TO BEGIN CHAT")
+
+	go client.ConnectMessageStream(newClient, clientCfg.Username)
 
 	//TODO: make configurable, allow  for client input
-	//As it stands, we need to spawn a container with a client user client12345 to test this function
-	err = client.BeginChat(newClient, clientCfg.Username, "client12345")
+	err = client.BeginChat(newClient, clientCfg.Username, "client0")
 	if err != nil {
 		log.Fatalf("error begining chat: %v", err)
 	}
+
+	fmt.Println("ATTEMPTING TO CONFIRM CHAT")
+	time.Sleep(30 * time.Second)
+
 }
