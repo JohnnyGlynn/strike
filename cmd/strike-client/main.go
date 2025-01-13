@@ -1,11 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"log"
 	"os"
-	"time"
+	"strings"
 
 	"github.com/JohnnyGlynn/strike/internal/client"
 	"github.com/JohnnyGlynn/strike/internal/config"
@@ -141,21 +142,49 @@ func main() {
 
 	newClient := pb.NewStrikeClient(conn)
 
-	//TODO: Gate Signup with Login - i.e. Try to login, if user not found, signup, then login
-	err = client.ClientSignup(newClient, clientCfg.Username, encryptionPublicKey, signingPublicKey)
-	if err != nil {
-		log.Fatalf("error with client signup: %v", err)
+	inputReader := bufio.NewReader(os.Stdin)
+
+	fmt.Println("Type /login to log into the Strike Messaging service")
+	fmt.Println("Type /exit to quit.")
+
+	for {
+		// Prompt for input
+		fmt.Print("> ")
+		input, err := inputReader.ReadString('\n')
+		if err != nil {
+			log.Printf("Error reading input: %v\n", err)
+			continue
+		}
+
+		input = strings.TrimSpace(input)
+		if input == "" {
+			continue
+		}
+
+		switch input {
+		case "/login":
+			//Spawn a goroutine so we can have the login function maintain userstatus stream aka Online
+			//TODO: Clean this up, Login isnt really correct now, RegisterStatus?
+			go func() {
+				//Login now connects to UserStatus stream to show wheter user is online
+				err = client.Login(newClient, clientCfg.Username)
+				if err != nil {
+					log.Fatalf("error connecting: %v", err)
+				}
+			}()
+		case "/exit":
+			fmt.Println("Strike Client shutting down")
+			return
+		default:
+			fmt.Printf("Unknown command: %s\n", input)
+		}
 	}
 
-	//Spawn a goroutine so we can have the login function maintain userstatus stream aka Online
-	//TODO: Clean this up, Login isnt really correct now, RegisterStatus?
-	go func() {
-		//Login now connects to UserStatus stream to show wheter user is online
-		err = client.Login(newClient, clientCfg.Username)
-		if err != nil {
-			log.Fatalf("error connecting: %v", err)
-		}
-	}()
+	//TODO: Gate Signup with Login - i.e. Try to login, if user not found, signup, then login
+	// err = client.ClientSignup(newClient, clientCfg.Username, encryptionPublicKey, signingPublicKey)
+	// if err != nil {
+	// 	log.Fatalf("error with client signup: %v", err)
+	// }
 
 	// go func() {
 	// 	// Disable auto chat for now
@@ -165,18 +194,20 @@ func main() {
 	// 	}
 	// }()
 
-	time.Sleep(30 * time.Second)
-	fmt.Println("ATTEMPTING TO BEGIN CHAT")
+	// time.Sleep(30 * time.Second)
+	// fmt.Println("ATTEMPTING TO BEGIN CHAT")
 
-	go client.ConnectMessageStream(newClient, clientCfg.Username)
+	// go func() {
+	// 	client.ConnectMessageStream(newClient, clientCfg.Username)
+	// }()
 
-	//TODO: make configurable, allow  for client input
-	err = client.BeginChat(newClient, clientCfg.Username, "client0")
-	if err != nil {
-		log.Fatalf("error begining chat: %v", err)
-	}
+	// //TODO: make configurable, allow  for client input
+	// err = client.BeginChat(newClient, clientCfg.Username, "client0")
+	// if err != nil {
+	// 	log.Fatalf("error begining chat: %v", err)
+	// }
 
-	fmt.Println("ATTEMPTING TO CONFIRM CHAT")
-	time.Sleep(30 * time.Second)
+	// fmt.Println("ATTEMPTING TO CONFIRM CHAT")
+	// time.Sleep(30 * time.Second)
 
 }
