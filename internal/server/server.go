@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -20,14 +21,14 @@ type StrikeServer struct {
 	DBpool      *pgxpool.Pool
 	PStatements *db.PreparedStatements
 
-	//TODO: Replace with channels
-	OnlineUsers    map[string]pb.Strike_UserStatusServer
-	MessageStreams map[string]pb.Strike_GetMessagesServer
-	mu             sync.Mutex
+	OnlineUsers     map[string]pb.Strike_UserStatusServer
+	MessageStreams  map[string]pb.Strike_GetMessagesServer
+	MessageChannels map[string]chan *pb.Envelope
+	mu              sync.Mutex
 }
 
 func (s *StrikeServer) GetMessages(username *pb.Username, stream pb.Strike_GetMessagesServer) error {
-	fmt.Println("------Streaming--messages------")
+	log.Printf("Stream Established: %v online \n", username.Username)
 
 	// TODO: cleaner map initilization
 	if s.MessageStreams == nil {
@@ -39,29 +40,33 @@ func (s *StrikeServer) GetMessages(username *pb.Username, stream pb.Strike_GetMe
 	s.MessageStreams[username.Username] = stream
 	s.mu.Unlock()
 
-	// Defer so regardless of how we exit (gracefully or an error), the user is removed from OnlineUsers
-	// defer func() {
-	// 	s.mu.Lock()
-	// 	delete(s.MessageStreams, username.Username)
-	// 	s.mu.Unlock()
-	// 	fmt.Printf("%s can no longer recieve messages.\n", username)
-	// }()
+	//create a channel for each connected client
+	messageChannel := make(chan *pb.Envelope, 100)
 
-	messageChannel := make(chan *pb.Envelope)
+	// Register the users message channel
+	s.mu.Lock()
+	s.MessageChannels[username.Username] = messageChannel
+	s.mu.Unlock()
 
+	//Defer our cleanup of stream map and message channel
+	defer func() {
+		s.mu.Lock()
+		//TODO: removed streams and just use channels
+		delete(s.MessageStreams, username.Username)
+		delete(s.MessageChannels, username.Username)
+		close(messageChannel) // Safely close the channel
+		s.mu.Unlock()
+		fmt.Printf("Client %s disconnected.\n", username.Username)
+	}()
+
+	//Goroutine to send messages from channel
+	//Only exits when the channel is closed thanks to the for/range
 	go func() {
-		for {
-			//TODO: DB query? Load from DB into cache?
-			messages, err := s.fetchMessages()
-			if err != nil {
-				fmt.Printf("Error Fetching messages")
+		for msg := range messageChannel {
+			if err := stream.Send(msg); err != nil {
+				fmt.Printf("Failed to send message to %s: %v\n", username.Username, err)
+				return
 			}
-
-			for _, msg := range messages {
-				messageChannel <- msg
-			}
-
-			time.Sleep(1 * time.Second) // Slow down
 		}
 	}()
 
@@ -71,26 +76,45 @@ func (s *StrikeServer) GetMessages(username *pb.Username, stream pb.Strike_GetMe
 			// TODO: Graceful Disconnect/Shutdown
 			fmt.Println("Client disconnected.")
 			return nil
-		case msg := <-messageChannel:
-			// Send message on stream
-			if err := stream.Send(msg); err != nil {
-				fmt.Printf("Failed to stream message: %v\n", err)
+		case <-time.After(1 * time.Second):
+			keepAlive := pb.Envelope{
+				SenderPublicKey: []byte{}, //Send server key
+				FromUser:        "SERVER",
+				ToUser:          username.Username,
+				SentAt:          timestamppb.Now(),
+				Chat: &pb.Chat{
+					Name:    "SERVER INFO",
+					Message: "Ping: Keep alive",
+				}}
+			if err := stream.Send(&keepAlive); err != nil {
+				fmt.Printf("Failed to Keep Alive: %v\n", err)
 				return err
 			}
-		case <-time.After(1 * time.Second):
-			// TODO: Keep-alive/Heartbeat
 		}
 	}
 }
 
 func (s *StrikeServer) SendMessages(ctx context.Context, envelope *pb.Envelope) (*pb.Stamp, error) {
-	// fmt.Printf("Received message: %s\n", envelope)
-	err := s.storeMessage(envelope)
-	if err != nil {
-		fmt.Printf("Error storing message")
-		return nil, err
+	//TODO: Work out the most effecient Syncing for mutexs, this is a lot of locking and unlocking
+	s.mu.Lock()
+	channel, ok := s.MessageChannels[envelope.ToUser]
+	s.mu.Unlock()
+
+	if !ok {
+		fmt.Printf("%s is not able to recieve messages.\n", envelope.ToUser)
+		//TODO: time to get rid of stamps
+		return &pb.Stamp{}, fmt.Errorf("no message channel available for: %s", envelope.ToUser)
 	}
-	return &pb.Stamp{KeyUsed: envelope.SenderPublicKey}, nil
+
+	//Push Message into Channel TODO: handle full channel case
+	select {
+	case channel <- envelope:
+		fmt.Printf("Message Sent: To %s, From %s\n", envelope.ToUser, envelope.FromUser)
+		return &pb.Stamp{KeyUsed: envelope.SenderPublicKey}, nil
+	default:
+		fmt.Printf("Message not sent. %s's channel is full.\n", envelope.ToUser)
+		return &pb.Stamp{}, fmt.Errorf("%s's channel is full", envelope.ToUser)
+	}
 }
 
 // func (s *StrikeServer) Login(ctx context.Context, clientLogin *pb.ClientLogin) (*pb.Stamp, error) {
@@ -224,21 +248,4 @@ func (s *StrikeServer) ConfirmChat(ctx context.Context, req *pb.ConfirmChatReque
 		Message: Confirmed,
 	}, nil
 
-}
-
-func (s *StrikeServer) storeMessage(envelope *pb.Envelope) error {
-	//TODO: DB operations here - slice for now
-	s.Env = append(s.Env, envelope)
-	return nil
-}
-
-// TODO: RecieveMessages instead of GetMessages, then getMessages
-func (s *StrikeServer) fetchMessages() ([]*pb.Envelope, error) {
-	var result []*pb.Envelope
-	// TODO: make channels for chats
-	for _, envelope := range s.Env {
-		result = append(result, envelope)
-	}
-
-	return result, nil
 }

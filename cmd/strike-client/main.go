@@ -161,7 +161,14 @@ func main() {
 			continue
 		}
 
-		switch input {
+		commandAndArgs := strings.SplitN(input, " ", 2) //Check for space then splint into command and argument
+		command := commandAndArgs[0]
+		var arg string //Make it exist
+		if len(commandAndArgs) > 1 {
+			arg = commandAndArgs[1]
+		}
+
+		switch command {
 		case "/login":
 			//Spawn a goroutine so we can have the login function maintain userstatus stream aka Online
 			//TODO: Clean this up, Login isnt really correct now, RegisterStatus?
@@ -170,6 +177,18 @@ func main() {
 				err = client.Login(newClient, clientCfg.Username)
 				if err != nil {
 					log.Fatalf("error connecting: %v", err)
+				}
+			}()
+		case "/beginchat":
+			if arg == "" {
+				fmt.Println("Usage: /beginchat <username you want to chat with>")
+				continue
+			}
+			go func() {
+				err = client.BeginChat(newClient, clientCfg.Username, arg)
+				//TODO: Not fatal?
+				if err != nil {
+					log.Fatalf("error beginning chat: %v", err)
 				}
 			}()
 		case "/exit":

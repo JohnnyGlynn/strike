@@ -94,7 +94,9 @@ message StatusUpdate {
 // -----------------------------------Messages---------------------------------------------
 message Envelope {
   bytes Sender_public_key = 1;
-  google.protobuf.Timestamp sent_at = 3;
+  google.protobuf.Timestamp sent_at = 2;
+  string to_user = 3;
+  string from_user = 4;
   Chat chat = 5;
 
 }
