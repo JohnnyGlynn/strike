@@ -184,16 +184,16 @@ func main() {
 				fmt.Println("Usage: /beginchat <username you want to chat with>")
 				continue
 			}
-			go func() {
-				err = client.BeginChat(newClient, clientCfg.Username, arg)
-				//TODO: Not fatal?
-				if err != nil {
-					log.Fatalf("error beginning chat: %v", err)
-				}
-			}()
+			err = client.BeginChat(newClient, clientCfg.Username, arg)
+			//TODO: Not fatal?
+			if err != nil {
+				log.Fatalf("error beginning chat: %v", err)
+			}
 		case "/exit":
 			fmt.Println("Strike Client shutting down")
 			return
+		case "/msgshell":
+			client.MessagingShell(newClient, clientCfg.Username, signingPublicKey)
 		default:
 			fmt.Printf("Unknown command: %s\n", input)
 		}

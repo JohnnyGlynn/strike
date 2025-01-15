@@ -40,6 +40,10 @@ func (s *StrikeServer) GetMessages(username *pb.Username, stream pb.Strike_GetMe
 	s.MessageStreams[username.Username] = stream
 	s.mu.Unlock()
 
+	if s.MessageChannels == nil {
+		s.MessageChannels = make(map[string]chan *pb.Envelope)
+	}
+
 	//create a channel for each connected client
 	messageChannel := make(chan *pb.Envelope, 100)
 
@@ -76,7 +80,8 @@ func (s *StrikeServer) GetMessages(username *pb.Username, stream pb.Strike_GetMe
 			// TODO: Graceful Disconnect/Shutdown
 			fmt.Println("Client disconnected.")
 			return nil
-		case <-time.After(1 * time.Second):
+		case <-time.After(1 * time.Minute):
+			//TODO: Check if active otherwise close connection
 			keepAlive := pb.Envelope{
 				SenderPublicKey: []byte{}, //Send server key
 				FromUser:        "SERVER",
