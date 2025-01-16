@@ -82,7 +82,8 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 		return err
 	}
 
-	fmt.Println("Message Stream Connected: Listening...")
+	//Interfering with output/input in shell
+	// fmt.Println("Message Stream Connected: Listening...")
 
 	for {
 		msg, err := stream.Recv()
@@ -95,6 +96,7 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 		}
 
 		fmt.Printf("[%s] [%s] [From:%s] : %s\n", msg.SentAt.AsTime(), msg.Chat.Name, msg.FromUser, msg.Chat.Message)
+
 	}
 
 	//TODO: Modify the type here, pass either a Envelope or a System envelope
@@ -243,7 +245,8 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 
 		input = strings.TrimSpace(input)
 		if input == "/exit" {
-			cancel() //TODO: Handle a cancel serverside
+			//TODO: Handle a cancel serverside
+			cancel()
 			fmt.Println("Exiting msgshell...")
 			return
 		}
@@ -255,6 +258,7 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 		}
 
 		target, message := userAndMessage[0], userAndMessage[1]
+		//Print what was sent to the shell for full chat history
 		fmt.Printf("[YOU]: %s\n", message)
 		SendMessage(c, username, publicKey, target, message, "The Foreign Policy of the Bulgarian Police Force")
 	}
