@@ -18,6 +18,19 @@ import (
 
 var homeDir string
 
+type KeyType int
+
+// enum
+const (
+	SigningKey    KeyType = iota
+	EncryptionKey KeyType = iota
+)
+
+type KeyDefinition struct {
+	Path string
+	Type KeyType
+}
+
 func init() {
 	// Initialize the global homeDir variable
 	var err error
@@ -169,6 +182,37 @@ func ValidateEncryptionKeys(keyBytes []byte) error {
 	}
 
 	return nil
+}
+
+func LoadAndValidateKeys(keyMap map[string]KeyDefinition) (map[string][]byte, error) {
+
+	loadedKeys := make(map[string][]byte)
+
+	for name, def := range keyMap {
+		key, err := GetKeyFromPath(def.Path)
+		if err != nil {
+			log.Fatalf("failed to read key from path: %v", err)
+		}
+
+		switch def.Type {
+		case SigningKey:
+			err = ValidateSigningKeys(key)
+		case EncryptionKey:
+			err = ValidateEncryptionKeys(key)
+		default:
+			return nil, fmt.Errorf("unknown type for key %s", name)
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to validate %s: %v", name, err)
+		}
+
+		loadedKeys[name] = key
+		log.Printf("%s loaded and validated successfully", name)
+
+	}
+
+	return loadedKeys, nil
 }
 
 func GetKeyFromPath(path string) ([]byte, error) {

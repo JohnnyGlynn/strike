@@ -82,47 +82,16 @@ func main() {
 	// +v to print struct fields too
 	log.Printf("Loaded client Config: %+v", clientCfg)
 
-	//TODO: Clean up these calls to read and validate keys
-
-	//Get our keys then validate them - facilitates BYO pki compliance to ed25519 and curve25519
-	signingPublicKey, err := keys.GetKeyFromPath(clientCfg.SigningPublicKeyPath)
-	if err != nil {
-		log.Fatalf("failed to get public signing key: %v", err)
+	keysMap := map[string]keys.KeyDefinition{
+		"SigningPrivateKey":    {Path: clientCfg.SigningPrivateKeyPath, Type: keys.SigningKey},
+		"SigningPublicKey":     {Path: clientCfg.SigningPublicKeyPath, Type: keys.SigningKey},
+		"EncryptionPrivateKey": {Path: clientCfg.EncryptionPrivateKeyPath, Type: keys.EncryptionKey},
+		"EncryptionPublicKey":  {Path: clientCfg.EncryptionPublicKeyPath, Type: keys.EncryptionKey},
 	}
 
-	err = keys.ValidateSigningKeys(signingPublicKey)
+	loadedKeys, err := keys.LoadAndValidateKeys(keysMap)
 	if err != nil {
-		log.Fatalf("failed to validate public signing key: %v", err)
-	}
-
-	signingPrivateKey, err := keys.GetKeyFromPath(clientCfg.SigningPrivateKeyPath)
-	if err != nil {
-		log.Fatalf("failed to get private signing key: %v", err)
-	}
-
-	err = keys.ValidateSigningKeys(signingPrivateKey)
-	if err != nil {
-		log.Fatalf("failed to validate private signing key: %v", err)
-	}
-
-	encryptionPrivateKey, err := keys.GetKeyFromPath(clientCfg.EncryptionPrivateKeyPath)
-	if err != nil {
-		log.Fatalf("failed to get private encryption key: %v", err)
-	}
-
-	err = keys.ValidateEncryptionKeys(encryptionPrivateKey)
-	if err != nil {
-		log.Fatalf("failed to validate private encryption key: %v", err)
-	}
-
-	encryptionPublicKey, err := keys.GetKeyFromPath(clientCfg.EncryptionPublicKeyPath)
-	if err != nil {
-		log.Fatalf("failed to get public encryption key: %v", err)
-	}
-
-	err = keys.ValidateEncryptionKeys(encryptionPublicKey)
-	if err != nil {
-		log.Fatalf("failed to validate public encryption key: %v", err)
+		log.Fatalf("error loading and validating keys: %v", err)
 	}
 
 	// Begin GRPC setup
@@ -193,7 +162,7 @@ func main() {
 			fmt.Println("Strike Client shutting down")
 			return
 		case "/msgshell":
-			client.MessagingShell(newClient, clientCfg.Username, signingPublicKey)
+			client.MessagingShell(newClient, clientCfg.Username, loadedKeys["SigningPublicKey"])
 		default:
 			fmt.Printf("Unknown command: %s\n", input)
 		}
@@ -204,14 +173,6 @@ func main() {
 	// if err != nil {
 	// 	log.Fatalf("error with client signup: %v", err)
 	// }
-
-	// go func() {
-	// 	// Disable auto chat for now
-	// 	err = client.AutoChat(newClient, clientCfg.Username, signingPublicKey)
-	// 	if err != nil {
-	// 		log.Fatalf("error starting AutoChat: %v", err)
-	// 	}
-	// }()
 
 	// time.Sleep(30 * time.Second)
 	// fmt.Println("ATTEMPTING TO BEGIN CHAT")

@@ -8,69 +8,11 @@ import (
 	"log"
 	"os"
 	"strings"
-	"time"
 
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
-
-func AutoChat(c pb.StrikeClient, username string, pubkey []byte) error {
-
-	newChat := pb.Chat{
-		Name:    "endpoint0",
-		Message: "Hello from client0",
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	//TODO: This has to go
-	go func() {
-		for {
-			now := time.Now()
-			timestamp := timestamppb.New(now)
-
-			newEnvelope := pb.Envelope{
-				SenderPublicKey: pubkey,
-				SentAt:          timestamp,
-				Chat:            &newChat,
-			}
-
-			stamp, err := c.SendMessages(ctx, &newEnvelope)
-			if err != nil {
-				log.Fatalf("SendMessages Failed: %v", err)
-			}
-
-			fmt.Println("Stamp: ", stamp.KeyUsed)
-
-			time.Sleep(1 * time.Minute)
-		}
-	}()
-
-	//Pass your own username to register your stream
-	stream, err := c.GetMessages(ctx, &pb.Username{Username: username})
-	if err != nil {
-		log.Fatalf("GetMessages Failed: %v", err)
-		return err
-	}
-
-	for {
-		messageStream, err := stream.Recv()
-		if err == io.EOF {
-			log.Printf("Recieve Failed EOF: %v", err)
-			log.Printf("Awaiting Messages")
-			continue
-		}
-		if err != nil {
-			log.Fatalf("Recieve Failed: %v", err)
-			return err
-		}
-		fmt.Printf("Chat Name: %s\n", messageStream.Chat.Name)
-		fmt.Printf("Message: %s\n", messageStream.Chat.Message)
-	}
-
-}
 
 // TODO: Take this out to the main client function and we can have an easier time manipulating.
 func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username string) error {
@@ -86,17 +28,24 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 	// fmt.Println("Message Stream Connected: Listening...")
 
 	for {
-		msg, err := stream.Recv()
-		if err == io.EOF {
-			log.Println("Stream closed by server.")
-			break
-		}
-		if err != nil {
-			log.Fatalf("Error receiving message: %v", err)
-		}
+		select {
+		case <-ctx.Done():
+			//Graceful exit
+			log.Println("Message stream context canceled. Exiting...")
+			return nil
+		default:
+			msg, err := stream.Recv()
+			if err == io.EOF {
+				log.Println("Stream closed by server.")
+				return nil
+			}
+			if err != nil {
+				log.Printf("Error receiving message: %v", err)
+				return err
+			}
 
-		fmt.Printf("[%s] [%s] [From:%s] : %s\n", msg.SentAt.AsTime(), msg.Chat.Name, msg.FromUser, msg.Chat.Message)
-
+			fmt.Printf("[%s] [%s] [From:%s] : %s\n", msg.SentAt.AsTime(), msg.Chat.Name, msg.FromUser, msg.Chat.Message)
+		}
 	}
 
 	//TODO: Modify the type here, pass either a Envelope or a System envelope
@@ -106,7 +55,6 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 	// 	ConfirmChat(ctx, c, username, messageStream)
 
 	// }
-	return nil
 }
 
 func SendMessage(c pb.StrikeClient, username string, publicKey []byte, target string, message string, chatName string) {
