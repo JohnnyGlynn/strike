@@ -113,59 +113,109 @@ func main() {
 
 	inputReader := bufio.NewReader(os.Stdin)
 
-	fmt.Println("Type /login to log into the Strike Messaging service")
-	fmt.Println("Type /exit to quit.")
+	isLoggedIn := false
 
 	for {
-		// Prompt for input
-		fmt.Print("> ")
-		input, err := inputReader.ReadString('\n')
-		if err != nil {
-			log.Printf("Error reading input: %v\n", err)
-			continue
-		}
 
-		input = strings.TrimSpace(input)
-		if input == "" {
-			continue
-		}
+		if !isLoggedIn {
+			fmt.Println("Type /login to log into the Strike Messaging service")
+			fmt.Println("Type /signup to signup to the Strike Messaging service")
+			fmt.Println("Type /exit to quit.")
 
-		commandAndArgs := strings.SplitN(input, " ", 2) //Check for space then splint into command and argument
-		command := commandAndArgs[0]
-		var arg string //Make it exist
-		if len(commandAndArgs) > 1 {
-			arg = commandAndArgs[1]
-		}
+			// Prompt for input
+			fmt.Print("> ")
+			input, err := inputReader.ReadString('\n')
+			if err != nil {
+				log.Printf("Error reading input: %v\n", err)
+				continue
+			}
 
-		switch command {
-		case "/login":
-			//Spawn a goroutine so we can have the login function maintain userstatus stream aka Online
-			//TODO: Clean this up, Login isnt really correct now, RegisterStatus?
-			go func() {
-				//Login now connects to UserStatus stream to show wheter user is online
-				err = client.Login(newClient, clientCfg.Username)
+			input = strings.TrimSpace(input)
+			if input == "" {
+				continue
+			}
+
+			switch input {
+			case "/login":
+				//Spawn a goroutine so we can have the login function maintain userstatus stream aka Online
+				//TODO: Clean this up, Login isnt really correct now, RegisterStatus?
+				go func() {
+					//Login now connects to UserStatus stream to show wheter user is online
+					err = client.Login(newClient, clientCfg.Username)
+					if err != nil {
+						log.Fatalf("error connecting: %v", err)
+					}
+				}()
+				isLoggedIn = true
+				fmt.Println("Logged In!")
+			case "/signup":
+				//TODO: Username and Password, handle keygen here?
+				err = client.ClientSignup(newClient, clientCfg.Username, loadedKeys["EncryptionPublicKey"], loadedKeys["SigningPublicKey"])
 				if err != nil {
 					log.Fatalf("error connecting: %v", err)
 				}
-			}()
-		case "/beginchat":
-			if arg == "" {
-				fmt.Println("Usage: /beginchat <username you want to chat with>")
+
+				go func() {
+					//Login now connects to UserStatus stream to show wheter user is online
+					err = client.Login(newClient, clientCfg.Username)
+					if err != nil {
+						log.Fatalf("error connecting: %v", err)
+					}
+				}()
+				isLoggedIn = true
+				fmt.Println("Logged In!")
+			case "/exit":
+				fmt.Println("Strike Client shutting down")
+				return
+			default:
+				fmt.Printf("Unknown command: %s\n", input)
+			}
+
+		} else {
+			//Logged in
+
+			fmt.Printf("Welcome back %s!\n", clientCfg.Username)
+			fmt.Print("> ")
+			input, err := inputReader.ReadString('\n')
+			if err != nil {
+				log.Printf("Error reading input: %v\n", err)
 				continue
 			}
-			err = client.BeginChat(newClient, clientCfg.Username, arg)
-			//TODO: Not fatal?
-			if err != nil {
-				log.Fatalf("error beginning chat: %v", err)
+
+			input = strings.TrimSpace(input)
+			if input == "" {
+				continue
 			}
-		case "/exit":
-			fmt.Println("Strike Client shutting down")
-			return
-		case "/msgshell":
-			client.MessagingShell(newClient, clientCfg.Username, loadedKeys["SigningPublicKey"])
-		default:
-			fmt.Printf("Unknown command: %s\n", input)
+
+			commandAndArgs := strings.SplitN(input, " ", 2) //Check for space then splint into command and argument
+			command := commandAndArgs[0]
+			var arg string //Make it exist
+			if len(commandAndArgs) > 1 {
+				arg = commandAndArgs[1]
+			}
+
+			switch command {
+			case "/beginchat":
+				if arg == "" {
+					fmt.Println("Usage: /beginchat <username you want to chat with>")
+					continue
+				}
+				err = client.BeginChat(newClient, clientCfg.Username, arg)
+				//TODO: Not fatal?
+				if err != nil {
+					log.Fatalf("error beginning chat: %v", err)
+				}
+			case "/msgshell":
+				client.MessagingShell(newClient, clientCfg.Username, loadedKeys["SigningPublicKey"])
+			case "/exit":
+				fmt.Println("Strike Client shutting down")
+				return
+			default:
+				fmt.Printf("Unknown command: %s\n", input)
+			}
+
 		}
+
 	}
 
 	//TODO: Gate Signup with Login - i.e. Try to login, if user not found, signup, then login
