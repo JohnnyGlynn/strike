@@ -7,15 +7,15 @@ package message;
 option go_package="./message";
 
 service Strike {
-  rpc Signup(ClientInit) returns (ServerResponse) {}
+  rpc Signup(InitUser) returns (ServerResponse) {}
 
   rpc BeginChat(BeginChatRequest) returns (BeginChatResponse) {}
 
   rpc ConfirmChat(ConfirmChatRequest) returns (ServerResponse) {}
 
-  rpc KeyHandshake(ClientInit) returns (Stamp) {}
+  // rpc KeyHandshake(ClientInit) returns (Stamp) {}
 
-  rpc Login(ClientLogin) returns (Stamp) {}
+  rpc Login(LoginRequest) returns (ServerResponse) {}
 
   rpc SendMessages(Envelope) returns (Stamp) {}
 
@@ -29,11 +29,12 @@ message Username {
     string username = 1;
 }
 
-message ClientInit {
+message InitUser {
   string username = 1;
+  string password_hash = 2;
   //byte array - https://protobuf.dev/programming-guides/proto3/#scalar
-  bytes encryption_key = 2; // client Curve25519 public key
-  bytes signing_key = 3; // client ED25519 signing key
+  bytes encryption_public_key = 3; // client Curve25519 public key
+  bytes signing_public_key = 4; // client ED25519 signing key
 }
 
 message BeginChatRequest {
@@ -55,10 +56,9 @@ message ConfirmChatRequest {
   string confirmer = 2; // target user accepting chat
 }
 
-//TODO rework into a challenge
-message ClientLogin {
+message LoginRequest {
   string username = 1;
-  bytes public_key = 2;
+  string password_hash = 2;
 }
 
 message Chat {

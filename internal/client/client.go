@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/JohnnyGlynn/strike/internal/auth"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -100,17 +101,23 @@ func ConfirmChat(ctx context.Context, c pb.StrikeClient, username string, chatCo
 	return nil
 }
 
-func ClientSignup(c pb.StrikeClient, username string, curve25519key []byte, ed25519key []byte) error {
+func ClientSignup(c pb.StrikeClient, username string, password string, curve25519key []byte, ed25519key []byte) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	initClient := pb.ClientInit{
-		Username:      username,
-		EncryptionKey: curve25519key,
-		SigningKey:    ed25519key,
+	passwordHash, err := auth.HashPassword(password)
+	if err != nil {
+		return fmt.Errorf("password input error: %v", err)
 	}
 
-	serverRes, err := c.Signup(ctx, &initClient)
+	initUser := pb.InitUser{
+		Username:            username,
+		PasswordHash:        passwordHash,
+		EncryptionPublicKey: curve25519key,
+		SigningPublicKey:    ed25519key,
+	}
+
+	serverRes, err := c.Signup(ctx, &initUser)
 	if err != nil {
 		log.Fatalf("signup failed: %v", err)
 		return err
@@ -120,18 +127,37 @@ func ClientSignup(c pb.StrikeClient, username string, curve25519key []byte, ed25
 	return nil
 }
 
-func Login(c pb.StrikeClient, username string) error {
+func Login(c pb.StrikeClient, username string, password string) error {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	getOnline := pb.StatusRequest{
+	passwordHash, err := auth.HashPassword(password)
+	if err != nil {
+		return fmt.Errorf("password input error: %v", err)
+	}
+
+	loginUP := pb.LoginRequest{
+		Username:     username,
+		PasswordHash: passwordHash,
+	}
+
+	userStatus := pb.StatusRequest{
 		Username: username,
 	}
 
-	stream, err := c.UserStatus(ctx, &getOnline)
+	loginReq, err := c.Login(ctx, &loginUP)
 	if err != nil {
-		log.Fatalf("Login Failed: %v", err)
+		log.Fatalf("login failed: %v", err)
+		return err
+	}
+
+	fmt.Printf("%v:%s\n", loginReq.Success, loginReq.Message)
+
+	//TODO: handle this elsewhere?
+	stream, err := c.UserStatus(ctx, &userStatus)
+	if err != nil {
+		log.Fatalf("status failure: %v", err)
 		return err
 	}
 
@@ -210,4 +236,14 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 		fmt.Printf("[YOU]: %s\n", message)
 		SendMessage(c, username, publicKey, target, message, "The Foreign Policy of the Bulgarian Police Force")
 	}
+}
+
+// TODO: Handle all input like this?
+func LoginInput(prompt string, reader *bufio.Reader) (string, error) {
+	fmt.Print(prompt)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return "", fmt.Errorf("error reading input: %w", err)
+	}
+	return strings.TrimSpace(input), nil
 }

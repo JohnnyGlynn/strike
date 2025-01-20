@@ -137,11 +137,30 @@ func main() {
 
 			switch input {
 			case "/login":
+				inputReader.Reset(os.Stdin)
+
+				username, err := client.LoginInput("Username > ", inputReader)
+				if err != nil {
+					log.Printf("error reading username: %v\n", err)
+					continue
+				}
+
+				password, err := client.LoginInput("Password > ", inputReader)
+				if err != nil {
+					log.Printf("error reading username: %v\n", err)
+					continue
+				}
+
+				if username == "" || password == "" {
+					fmt.Println("Username and password cannot be empty.")
+					continue
+				}
+
 				//Spawn a goroutine so we can have the login function maintain userstatus stream aka Online
 				//TODO: Clean this up, Login isnt really correct now, RegisterStatus?
 				go func() {
 					//Login now connects to UserStatus stream to show wheter user is online
-					err = client.Login(newClient, clientCfg.Username)
+					err = client.Login(newClient, username, password)
 					if err != nil {
 						log.Fatalf("error connecting: %v", err)
 					}
@@ -150,14 +169,34 @@ func main() {
 				fmt.Println("Logged In!")
 			case "/signup":
 				//TODO: Username and Password, handle keygen here?
-				err = client.ClientSignup(newClient, clientCfg.Username, loadedKeys["EncryptionPublicKey"], loadedKeys["SigningPublicKey"])
+
+				inputReader.Reset(os.Stdin)
+
+				username, err := client.LoginInput("Username > ", inputReader)
+				if err != nil {
+					log.Printf("error reading username: %v\n", err)
+					continue
+				}
+
+				password, err := client.LoginInput("Password > ", inputReader)
+				if err != nil {
+					log.Printf("error reading username: %v\n", err)
+					continue
+				}
+
+				if username == "" || password == "" {
+					fmt.Println("Username and password cannot be empty.")
+					continue
+				}
+
+				err = client.ClientSignup(newClient, username, password, loadedKeys["EncryptionPublicKey"], loadedKeys["SigningPublicKey"])
 				if err != nil {
 					log.Fatalf("error connecting: %v", err)
 				}
 
 				go func() {
 					//Login now connects to UserStatus stream to show wheter user is online
-					err = client.Login(newClient, clientCfg.Username)
+					err = client.Login(newClient, username, password)
 					if err != nil {
 						log.Fatalf("error connecting: %v", err)
 					}

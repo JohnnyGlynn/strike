@@ -8,9 +8,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/JohnnyGlynn/strike/internal/auth"
 	"github.com/JohnnyGlynn/strike/internal/db"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 )
@@ -122,32 +124,55 @@ func (s *StrikeServer) SendMessages(ctx context.Context, envelope *pb.Envelope) 
 	}
 }
 
-// func (s *StrikeServer) Login(ctx context.Context, clientLogin *pb.ClientLogin) (*pb.Stamp, error) {
-// 	fmt.Println("Logging in...")
+func (s *StrikeServer) Login(ctx context.Context, clientLogin *pb.LoginRequest) (*pb.ServerResponse, error) {
+	fmt.Printf("%s logging in...\n", clientLogin.Username)
 
-// 	var exists bool
+	var storedHash string
 
-// 	err := s.DBpool.QueryRow(ctx, s.PStatements.LoginUser, clientLogin.Username, clientLogin.PublicKey).Scan(&exists)
-// 	if err != nil {
-// 		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
-// 			log.Fatalf("Unable to login: %v", err)
-// 			return nil, nil
-// 		}
-// 		log.Fatalf("An Error occured while logging in: %v", err)
-// 		return nil, nil
-// 	}
+	err := s.DBpool.QueryRow(ctx, s.PStatements.LoginUser, clientLogin.Username).Scan(&storedHash)
+	if err != nil {
+		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
+			log.Fatalf("Unable to login: %v", err)
+			return nil, nil
+		}
+		log.Fatalf("An Error occured while logging in: %v", err)
+		return nil, nil
+	}
 
-// 	fmt.Println("Login Successful...")
+	//verify our password is right
+	//TODO: Check efficiency here, i.e. argon2 using 128mb ram
+	passMatch, err := auth.VerifyPassword(clientLogin.PasswordHash, storedHash)
+	if err != nil {
+		return &pb.ServerResponse{Success: false, Message: "an error occured"}, err
+	}
 
-// 	return &pb.Stamp{KeyUsed: clientLogin.PublicKey}, nil
-// }
+	if passMatch {
+		fmt.Printf("%s login successful\n", clientLogin.Username)
+		return &pb.ServerResponse{Success: passMatch, Message: "login successful"}, nil
+	} else if !passMatch {
+		fmt.Printf("failed login attempt for: %s\n", clientLogin.Username)
+		return &pb.ServerResponse{Success: passMatch, Message: "login unsuccessful"}, nil
+	}
 
-func (s *StrikeServer) Signup(ctx context.Context, clientInit *pb.ClientInit) (*pb.ServerResponse, error) {
-	fmt.Printf("New User signup: %s\n", clientInit.Username)
+	//TODO: Make this unreachable?
+	return &pb.ServerResponse{Success: false, Message: "How is this not unreachable???"}, nil
+}
 
-	_, err := s.DBpool.Exec(ctx, s.PStatements.CreateUser, clientInit.Username, clientInit.EncryptionKey, clientInit.SigningKey)
+func (s *StrikeServer) Signup(ctx context.Context, userInit *pb.InitUser) (*pb.ServerResponse, error) {
+	fmt.Printf("New User signup: %s\n", userInit.Username)
+
+	newId := uuid.New()
+
+	//user: uuid, username, password_hash
+	_, err := s.DBpool.Exec(ctx, s.PStatements.CreateUser, newId, userInit.Username, userInit.PasswordHash)
 	if err != nil {
 		return &pb.ServerResponse{Success: false, Message: "failed to register user"}, err
+	}
+
+	//keys: uuid, encryption, signing
+	_, err = s.DBpool.Exec(ctx, s.PStatements.CreatePublicKeys, newId, userInit.EncryptionPublicKey, userInit.SigningPublicKey)
+	if err != nil {
+		return &pb.ServerResponse{Success: false, Message: "failed to register user keys"}, err
 	}
 
 	return &pb.ServerResponse{
