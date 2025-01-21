@@ -3,9 +3,15 @@
 #Strike Client
 
 # Use an official Go image based on Alpine
-FROM golang:alpine
+FROM golang:alpine as builder
 
 WORKDIR /go/strike
+
+# Copy go dependency files
+COPY go.mod go.sum ./
+
+# Use cached dependencies if mod/sum not changed
+RUN go mod download
 
 # Copy everything and chop out whats not needed
 COPY ./ ./
@@ -13,8 +19,11 @@ COPY ./ ./
 # rm -rf rather than implementing multipel .dockerignores
 RUN rm -rf ./internal/db ./internal/server ./deployment ./config ./cmd/strike-server
 
-RUN go mod download 
-
 RUN CGO_ENABLED=0 go build -o /go/strike-client cmd/strike-client/main.go 
 
-CMD ["/go/strike-client"]
+# minimal base image
+FROM alpine:latest
+WORKDIR /root/
+COPY --from=builder /go/strike-client .
+
+CMD ["./strike-client"]

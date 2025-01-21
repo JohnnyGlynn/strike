@@ -124,6 +124,24 @@ func (s *StrikeServer) SendMessages(ctx context.Context, envelope *pb.Envelope) 
 	}
 }
 
+func (s *StrikeServer) SaltMine(ctx context.Context, user *pb.Username) (*pb.Salt, error) {
+
+	var salt []byte
+
+	err := s.DBpool.QueryRow(ctx, s.PStatements.SaltMine, user.Username).Scan(&salt)
+	if err != nil {
+		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
+			log.Fatalf("Unable mine salt: %v", err)
+			return nil, nil
+		}
+		log.Fatalf("An Error occured while mining salt: %v", err)
+		return nil, nil
+	}
+
+	return &pb.Salt{Salt: salt}, nil
+
+}
+
 func (s *StrikeServer) Login(ctx context.Context, clientLogin *pb.LoginRequest) (*pb.ServerResponse, error) {
 	fmt.Printf("%s logging in...\n", clientLogin.Username)
 
@@ -163,8 +181,8 @@ func (s *StrikeServer) Signup(ctx context.Context, userInit *pb.InitUser) (*pb.S
 
 	newId := uuid.New()
 
-	//user: uuid, username, password_hash
-	_, err := s.DBpool.Exec(ctx, s.PStatements.CreateUser, newId, userInit.Username, userInit.PasswordHash)
+	//user: uuid, username, password_hash, salt
+	_, err := s.DBpool.Exec(ctx, s.PStatements.CreateUser, newId, userInit.Username, userInit.PasswordHash, userInit.Salt)
 	if err != nil {
 		return &pb.ServerResponse{Success: false, Message: "failed to register user"}, err
 	}

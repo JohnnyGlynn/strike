@@ -14,6 +14,7 @@ type PreparedStatements struct {
 	GetPublicKeys    string
 	GetUserId        string
 	CreatePublicKeys string
+	SaltMine         string
 }
 
 func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*PreparedStatements, error) {
@@ -32,10 +33,16 @@ func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*PreparedStat
 		GetPublicKeys:    "getPublicKeys",
 		GetUserId:        "getUserId",
 		CreatePublicKeys: "createPublicKeys",
+		SaltMine:         "saltMine",
 	}
 
 	//LoginUser
 	if _, err := poolConnection.Conn().Prepare(ctx, statements.LoginUser, "SELECT password_hash FROM users WHERE username = $1"); err != nil {
+		return nil, err
+	}
+
+	//salt retrieval
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.SaltMine, "SELECT salt FROM users WHERE username = $1"); err != nil {
 		return nil, err
 	}
 
@@ -55,7 +62,7 @@ func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*PreparedStat
 	}
 
 	//Insert Users with password
-	if _, err := poolConnection.Conn().Prepare(ctx, statements.CreateUser, "INSERT INTO users (id, username, password_hash) VALUES ($1, $2, $3)"); err != nil {
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.CreateUser, "INSERT INTO users (id, username, password_hash, salt) VALUES ($1, $2, $3, $4)"); err != nil {
 		return nil, err
 	}
 

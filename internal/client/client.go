@@ -3,6 +3,7 @@ package client
 import (
 	"bufio"
 	"context"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"log"
@@ -105,7 +106,14 @@ func ClientSignup(c pb.StrikeClient, username string, password string, curve2551
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	passwordHash, err := auth.HashPassword(password)
+	salt := make([]byte, 16)
+	//add salt
+	_, err := rand.Read(salt)
+	if err != nil {
+		return fmt.Errorf("failed to generate salt: %w", err)
+	}
+
+	passwordHash, err := auth.HashPassword(password, salt)
 	if err != nil {
 		return fmt.Errorf("password input error: %v", err)
 	}
@@ -113,6 +121,7 @@ func ClientSignup(c pb.StrikeClient, username string, password string, curve2551
 	initUser := pb.InitUser{
 		Username:            username,
 		PasswordHash:        passwordHash,
+		Salt:                salt,
 		EncryptionPublicKey: curve25519key,
 		SigningPublicKey:    ed25519key,
 	}
@@ -132,7 +141,17 @@ func Login(c pb.StrikeClient, username string, password string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	passwordHash, err := auth.HashPassword(password)
+	saltMine := pb.Username{
+		Username: username,
+	}
+
+	salt, err := c.SaltMine(ctx, &saltMine)
+	if err != nil {
+		log.Fatalf("Salt retrieval failed: %v", err)
+		return err
+	}
+
+	passwordHash, err := auth.HashPassword(password, salt.Salt)
 	if err != nil {
 		return fmt.Errorf("password input error: %v", err)
 	}

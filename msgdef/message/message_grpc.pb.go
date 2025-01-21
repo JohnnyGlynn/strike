@@ -23,6 +23,7 @@ const (
 	Strike_BeginChat_FullMethodName    = "/message.Strike/BeginChat"
 	Strike_ConfirmChat_FullMethodName  = "/message.Strike/ConfirmChat"
 	Strike_Login_FullMethodName        = "/message.Strike/Login"
+	Strike_SaltMine_FullMethodName     = "/message.Strike/SaltMine"
 	Strike_SendMessages_FullMethodName = "/message.Strike/SendMessages"
 	Strike_UserStatus_FullMethodName   = "/message.Strike/UserStatus"
 	Strike_GetMessages_FullMethodName  = "/message.Strike/GetMessages"
@@ -36,6 +37,7 @@ type StrikeClient interface {
 	BeginChat(ctx context.Context, in *BeginChatRequest, opts ...grpc.CallOption) (*BeginChatResponse, error)
 	ConfirmChat(ctx context.Context, in *ConfirmChatRequest, opts ...grpc.CallOption) (*ServerResponse, error)
 	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*ServerResponse, error)
+	SaltMine(ctx context.Context, in *Username, opts ...grpc.CallOption) (*Salt, error)
 	SendMessages(ctx context.Context, in *Envelope, opts ...grpc.CallOption) (*Stamp, error)
 	UserStatus(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (Strike_UserStatusClient, error)
 	GetMessages(ctx context.Context, in *Username, opts ...grpc.CallOption) (Strike_GetMessagesClient, error)
@@ -83,6 +85,16 @@ func (c *strikeClient) Login(ctx context.Context, in *LoginRequest, opts ...grpc
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ServerResponse)
 	err := c.cc.Invoke(ctx, Strike_Login_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *strikeClient) SaltMine(ctx context.Context, in *Username, opts ...grpc.CallOption) (*Salt, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Salt)
+	err := c.cc.Invoke(ctx, Strike_SaltMine_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -173,6 +185,7 @@ type StrikeServer interface {
 	BeginChat(context.Context, *BeginChatRequest) (*BeginChatResponse, error)
 	ConfirmChat(context.Context, *ConfirmChatRequest) (*ServerResponse, error)
 	Login(context.Context, *LoginRequest) (*ServerResponse, error)
+	SaltMine(context.Context, *Username) (*Salt, error)
 	SendMessages(context.Context, *Envelope) (*Stamp, error)
 	UserStatus(*StatusRequest, Strike_UserStatusServer) error
 	GetMessages(*Username, Strike_GetMessagesServer) error
@@ -194,6 +207,9 @@ func (UnimplementedStrikeServer) ConfirmChat(context.Context, *ConfirmChatReques
 }
 func (UnimplementedStrikeServer) Login(context.Context, *LoginRequest) (*ServerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Login not implemented")
+}
+func (UnimplementedStrikeServer) SaltMine(context.Context, *Username) (*Salt, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SaltMine not implemented")
 }
 func (UnimplementedStrikeServer) SendMessages(context.Context, *Envelope) (*Stamp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendMessages not implemented")
@@ -289,6 +305,24 @@ func _Strike_Login_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Strike_SaltMine_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Username)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StrikeServer).SaltMine(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Strike_SaltMine_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StrikeServer).SaltMine(ctx, req.(*Username))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Strike_SendMessages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Envelope)
 	if err := dec(in); err != nil {
@@ -371,6 +405,10 @@ var Strike_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Login",
 			Handler:    _Strike_Login_Handler,
+		},
+		{
+			MethodName: "SaltMine",
+			Handler:    _Strike_SaltMine_Handler,
 		},
 		{
 			MethodName: "SendMessages",

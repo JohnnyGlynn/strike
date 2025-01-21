@@ -17,6 +17,8 @@ service Strike {
 
   rpc Login(LoginRequest) returns (ServerResponse) {}
 
+  rpc SaltMine(Username) returns (Salt) {}
+
   rpc SendMessages(Envelope) returns (Stamp) {}
 
   rpc UserStatus(StatusRequest) returns (stream StatusUpdate) {}
@@ -28,13 +30,18 @@ service Strike {
 message Username {
     string username = 1;
 }
+//TODO: Getting very verbose here, prune
+message Salt {
+    bytes salt = 1;
+}
 
 message InitUser {
   string username = 1;
   string password_hash = 2;
+  bytes salt = 3;
   //byte array - https://protobuf.dev/programming-guides/proto3/#scalar
-  bytes encryption_public_key = 3; // client Curve25519 public key
-  bytes signing_public_key = 4; // client ED25519 signing key
+  bytes encryption_public_key = 4; // client Curve25519 public key
+  bytes signing_public_key = 5; // client ED25519 signing key
 }
 
 message BeginChatRequest {
