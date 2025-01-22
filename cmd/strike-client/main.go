@@ -115,6 +115,8 @@ func main() {
 
 	isLoggedIn := false
 
+	var username string
+
 	for {
 
 		if !isLoggedIn {
@@ -139,7 +141,7 @@ func main() {
 			case "/login":
 				inputReader.Reset(os.Stdin)
 
-				username, err := client.LoginInput("Username > ", inputReader)
+				username, err = client.LoginInput("Username > ", inputReader)
 				if err != nil {
 					log.Printf("error reading username: %v\n", err)
 					continue
@@ -172,7 +174,7 @@ func main() {
 
 				inputReader.Reset(os.Stdin)
 
-				username, err := client.LoginInput("Username > ", inputReader)
+				username, err = client.LoginInput("Username > ", inputReader)
 				if err != nil {
 					log.Printf("error reading username: %v\n", err)
 					continue
@@ -213,7 +215,7 @@ func main() {
 		} else {
 			//Logged in
 
-			fmt.Printf("Welcome back %s!\n", clientCfg.Username)
+			fmt.Printf("Welcome back %s!\n", username)
 			fmt.Print("> ")
 			input, err := inputReader.ReadString('\n')
 			if err != nil {
@@ -239,13 +241,13 @@ func main() {
 					fmt.Println("Usage: /beginchat <username you want to chat with>")
 					continue
 				}
-				err = client.BeginChat(newClient, clientCfg.Username, arg)
+				err = client.BeginChat(newClient, username, arg)
 				//TODO: Not fatal?
 				if err != nil {
 					log.Fatalf("error beginning chat: %v", err)
 				}
 			case "/msgshell":
-				client.MessagingShell(newClient, clientCfg.Username, loadedKeys["SigningPublicKey"])
+				client.MessagingShell(newClient, username, loadedKeys["SigningPublicKey"])
 			case "/exit":
 				fmt.Println("Strike Client shutting down")
 				return
@@ -256,15 +258,6 @@ func main() {
 		}
 
 	}
-
-	//TODO: Gate Signup with Login - i.e. Try to login, if user not found, signup, then login
-	// err = client.ClientSignup(newClient, clientCfg.Username, encryptionPublicKey, signingPublicKey)
-	// if err != nil {
-	// 	log.Fatalf("error with client signup: %v", err)
-	// }
-
-	// time.Sleep(30 * time.Second)
-	// fmt.Println("ATTEMPTING TO BEGIN CHAT")
 
 	// go func() {
 	// 	client.ConnectMessageStream(newClient, clientCfg.Username)

@@ -251,6 +251,7 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 		}
 
 		target, message := userAndMessage[0], userAndMessage[1]
+
 		//Print what was sent to the shell for full chat history
 		fmt.Printf("[YOU]: %s\n", message)
 		SendMessage(c, username, publicKey, target, message, "The Foreign Policy of the Bulgarian Police Force")

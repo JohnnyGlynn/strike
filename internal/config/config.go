@@ -17,7 +17,6 @@ type ServerConfig struct {
 
 type ClientConfig struct {
 	ServerHost               string `json:"server_host" yaml:"server_host"`
-	Username                 string `json:"username" yaml:"username"`
 	SigningPrivateKeyPath    string `json:"private_signing_key_path" yaml:"private_singing_key_path"`
 	SigningPublicKeyPath     string `json:"public_signing_key_path" yaml:"public_signing_key_path"`
 	EncryptionPrivateKeyPath string `json:"private_encryption_key_path" yaml:"private_encryption_key_path"`
@@ -37,7 +36,6 @@ func LoadServerConfigEnv() *ServerConfig {
 func LoadClientConfigEnv() *ClientConfig {
 	return &ClientConfig{
 		ServerHost:               os.Getenv("SERVER_HOST"),
-		Username:                 os.Getenv("USERNAME"),
 		SigningPrivateKeyPath:    os.Getenv("PRIVATE_SIGNING_KEY_PATH"),
 		SigningPublicKeyPath:     os.Getenv("PUBLIC_SIGNING_KEY_PATH"),
 		EncryptionPrivateKeyPath: os.Getenv("PRIVATE_ENCRYPTION_KEY_PATH"),
@@ -97,7 +95,6 @@ func (c *ServerConfig) ValidateConfig() error {
 func (c *ClientConfig) ValidateConfig() error {
 	return ValidateFields(map[string]*string{
 		"server_host":                 &c.ServerHost,
-		"username":                    &c.Username,
 		"private_signing_key_path":    &c.SigningPrivateKeyPath,
 		"public_signing_key_path":     &c.SigningPublicKeyPath,
 		"private_encryption_key_path": &c.EncryptionPrivateKeyPath,
@@ -118,7 +115,6 @@ func (c *ServerConfig) ValidateEnv() error {
 func (c *ClientConfig) ValidateEnv() error {
 	return ValidateFields(map[string]*string{
 		"SERVER_HOST":                 &c.ServerHost,
-		"USERNAME":                    &c.Username,
 		"PRIVATE_SIGNING_KEY_PATH":    &c.SigningPrivateKeyPath,
 		"PUBLIC_SIGNING_KEY_PATH":     &c.SigningPublicKeyPath,
 		"PRIVATE_ENCRYPTION_KEY_PATH": &c.EncryptionPrivateKeyPath,

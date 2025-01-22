@@ -8,7 +8,6 @@ FROM golang:alpine
 # Install base packages
 RUN apk add --no-cache bash curl
 
-
 # Install alpine respositories
 RUN echo 'http://dl-cdn.alpinelinux.org/alpine/v3.6/main' >> /etc/apk/repositories
 RUN echo 'http://dl-cdn.alpinelinux.org/alpine/v3.6/community' >> /etc/apk/repositories
