@@ -9,11 +9,9 @@ option go_package="./message";
 service Strike {
   rpc Signup(InitUser) returns (ServerResponse) {}
 
-  rpc BeginChat(BeginChatRequest) returns (BeginChatResponse) {}
+  rpc BeginChat(BeginChatRequest) returns (ServerResponse) {}
 
   rpc ConfirmChat(ConfirmChatRequest) returns (ServerResponse) {}
-
-  // rpc KeyHandshake(ClientInit) returns (Stamp) {}
 
   rpc Login(LoginRequest) returns (ServerResponse) {}
 
@@ -24,6 +22,8 @@ service Strike {
   rpc UserStatus(StatusRequest) returns (stream StatusUpdate) {}
 
   rpc GetMessages(Username) returns (stream Envelope) {}
+
+  rpc MessageStream(Username) returns (stream MessageStreamPayload) {}
 }
 
 //TODO: Lots of cleaning
@@ -48,14 +48,6 @@ message BeginChatRequest {
   string initiator = 1; // client beginning chat username
   string target = 2;    // target client username
   string chat_name = 3;    // target client username
-}
-
-message BeginChatResponse {
-  bool success = 1;
-  string chat_id = 2;           // chat uuid (TODO: Postgres to handle this?)
-  string chat_name = 3;         // chat name
-  bytes target_public_key = 4;  // public Curve25519 target user
-  bytes target_signing_key = 5; // public ED25519 target user
 }
 
 message ConfirmChatRequest {
@@ -97,6 +89,13 @@ message StatusUpdate {
     google.protobuf.Timestamp updated_at = 2;
 }
 
+message MessageStreamPayload {
+  oneof payload {
+    BeginChatRequest chat_request = 1;
+    ConfirmChatRequest chat_confirm = 2;
+    Envelope envelope = 3;
+  }
+}
 
 // -----------------------------------Messages---------------------------------------------
 message Envelope {
