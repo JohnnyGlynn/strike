@@ -24,103 +24,102 @@ type StrikeServer struct {
 	PStatements *db.PreparedStatements
 
 	OnlineUsers     map[string]pb.Strike_UserStatusServer
-	MessageStreams  map[string]pb.Strike_GetMessagesServer
-	MessageChannels map[string]chan *pb.Envelope
+	MessageStreams  map[string]pb.Strike_MessageStreamServer
+	MessageChannels map[string]chan *pb.MessageStreamPayload
 	mu              sync.Mutex
 }
 
-func (s *StrikeServer) GetMessages(username *pb.Username, stream pb.Strike_GetMessagesServer) error {
-	log.Printf("Stream Established: %v online \n", username.Username)
+// func (s *StrikeServer) GetMessages(username *pb.Username, stream pb.Strike_GetMessagesServer) error {
+// 	log.Printf("Stream Established: %v online \n", username.Username)
 
-	// TODO: cleaner map initilization
-	if s.MessageStreams == nil {
-		s.MessageStreams = make(map[string]pb.Strike_GetMessagesServer)
-	}
+// 	// TODO: cleaner map initilization
+// 	if s.MessageStreams == nil {
+// 		s.MessageStreams = make(map[string]pb.Strike_GetMessagesServer)
+// 	}
 
-	// Register the users message steam
-	s.mu.Lock()
-	s.MessageStreams[username.Username] = stream
-	s.mu.Unlock()
+// 	// Register the users message steam
+// 	s.mu.Lock()
+// 	s.MessageStreams[username.Username] = stream
+// 	s.mu.Unlock()
 
-	if s.MessageChannels == nil {
-		s.MessageChannels = make(map[string]chan *pb.Envelope)
-	}
+// 	if s.MessageChannels == nil {
+// 		s.MessageChannels = make(map[string]chan *pb.Envelope)
+// 	}
 
-	//create a channel for each connected client
-	messageChannel := make(chan *pb.Envelope, 100)
+// 	//create a channel for each connected client
+// 	messageChannel := make(chan *pb.Envelope, 100)
 
-	// Register the users message channel
-	s.mu.Lock()
-	s.MessageChannels[username.Username] = messageChannel
-	s.mu.Unlock()
+// 	// Register the users message channel
+// 	s.mu.Lock()
+// 	s.MessageChannels[username.Username] = messageChannel
+// 	s.mu.Unlock()
 
-	//Defer our cleanup of stream map and message channel
-	defer func() {
-		s.mu.Lock()
-		//TODO: removed streams and just use channels
-		delete(s.MessageStreams, username.Username)
-		delete(s.MessageChannels, username.Username)
-		close(messageChannel) // Safely close the channel
-		s.mu.Unlock()
-		fmt.Printf("Client %s disconnected.\n", username.Username)
-	}()
+// 	//Defer our cleanup of stream map and message channel
+// 	defer func() {
+// 		s.mu.Lock()
+// 		//TODO: removed streams and just use channels
+// 		delete(s.MessageStreams, username.Username)
+// 		delete(s.MessageChannels, username.Username)
+// 		close(messageChannel) // Safely close the channel
+// 		s.mu.Unlock()
+// 		fmt.Printf("Client %s disconnected.\n", username.Username)
+// 	}()
 
-	//Goroutine to send messages from channel
-	//Only exits when the channel is closed thanks to the for/range
-	go func() {
-		for msg := range messageChannel {
-			if err := stream.Send(msg); err != nil {
-				fmt.Printf("Failed to send message to %s: %v\n", username.Username, err)
-				return
-			}
-		}
-	}()
+// 	//Goroutine to send messages from channel
+// 	//Only exits when the channel is closed thanks to the for/range
+// 	go func() {
+// 		for msg := range messageChannel {
+// 			if err := stream.Send(msg); err != nil {
+// 				fmt.Printf("Failed to send message to %s: %v\n", username.Username, err)
+// 				return
+// 			}
+// 		}
+// 	}()
 
-	for {
-		select {
-		case <-stream.Context().Done():
-			// TODO: Graceful Disconnect/Shutdown
-			fmt.Println("Client disconnected.")
-			return nil
-		case <-time.After(1 * time.Minute):
-			//TODO: Check if active otherwise close connection
-			keepAlive := pb.Envelope{
-				SenderPublicKey: []byte{}, //Send server key
-				FromUser:        "SERVER",
-				ToUser:          username.Username,
-				SentAt:          timestamppb.Now(),
-				Chat: &pb.Chat{
-					Name:    "SERVER INFO",
-					Message: "Ping: Keep alive",
-				}}
-			if err := stream.Send(&keepAlive); err != nil {
-				fmt.Printf("Failed to Keep Alive: %v\n", err)
-				return err
-			}
-		}
-	}
-}
+// 	for {
+// 		select {
+// 		case <-stream.Context().Done():
+// 			// TODO: Graceful Disconnect/Shutdown
+// 			fmt.Println("Client disconnected.")
+// 			return nil
+// 		case <-time.After(1 * time.Minute):
+// 			//TODO: Check if active otherwise close connection
+// 			keepAlive := pb.Envelope{
+// 				SenderPublicKey: []byte{}, //Send server key
+// 				FromUser:        "SERVER",
+// 				ToUser:          username.Username,
+// 				SentAt:          timestamppb.Now(),
+// 				Chat: &pb.Chat{
+// 					Name:    "SERVER INFO",
+// 					Message: "Ping: Keep alive",
+// 				}}
+// 			if err := stream.Send(&keepAlive); err != nil {
+// 				fmt.Printf("Failed to Keep Alive: %v\n", err)
+// 				return err
+// 			}
+// 		}
+// 	}
+// }
 
-func (s *StrikeServer) SendMessages(ctx context.Context, envelope *pb.Envelope) (*pb.Stamp, error) {
+func (s *StrikeServer) SendMessages(ctx context.Context, payload *pb.MessageStreamPayload) (*pb.ServerResponse, error) {
 	//TODO: Work out the most effecient Syncing for mutexs, this is a lot of locking and unlocking
 	s.mu.Lock()
-	channel, ok := s.MessageChannels[envelope.ToUser]
+	channel, ok := s.MessageChannels[payload.Target]
 	s.mu.Unlock()
 
 	if !ok {
-		fmt.Printf("%s is not able to recieve messages.\n", envelope.ToUser)
+		fmt.Printf("%s is not able to recieve messages.\n", payload.Target)
 		//TODO: time to get rid of stamps
-		return &pb.Stamp{}, fmt.Errorf("no message channel available for: %s", envelope.ToUser)
+		return &pb.ServerResponse{Success: false}, fmt.Errorf("no message channel available for: %s", payload.Target)
 	}
 
 	//Push Message into Channel TODO: handle full channel case
 	select {
-	case channel <- envelope:
-		fmt.Printf("Message Sent: To %s, From %s\n", envelope.ToUser, envelope.FromUser)
-		return &pb.Stamp{KeyUsed: envelope.SenderPublicKey}, nil
+	case channel <- payload:
+		log.Printf("Payload Sent to: %s\n", payload.Target)
+    return &pb.ServerResponse{Success: true, Message: "PAYLOAD OK"}, nil
 	default:
-		fmt.Printf("Message not sent. %s's channel is full.\n", envelope.ToUser)
-		return &pb.Stamp{}, fmt.Errorf("%s's channel is full", envelope.ToUser)
+    return &pb.ServerResponse{Success: false}, fmt.Errorf("%s's channel is full", payload.Target)
 	}
 }
 
@@ -242,45 +241,27 @@ func (s *StrikeServer) UserStatus(req *pb.StatusRequest, stream pb.Strike_UserSt
 	}
 }
 
-func (s *StrikeServer) BeginChat(ctx context.Context, req *pb.BeginChatRequest) (*pb.BeginChatResponse, error) {
+func (s *StrikeServer) BeginChat(ctx context.Context, req *pb.MessageStreamPayload_ChatRequest) (*pb.ServerResponse, error) {
 
-	fmt.Printf("Begining Chat: %s\n", req.ChatName)
-	_, exists := s.MessageStreams[req.Target]
+	fmt.Printf("Begining Chat: %s\n", req.ChatRequest.Target)
+	_, exists := s.MessageStreams[req.ChatRequest.Target]
 	if !exists {
-		return nil, fmt.Errorf("%v not found", req.Target)
+		return nil, fmt.Errorf("%v not found", req.ChatRequest.Target)
 	}
 
 	// ReadWrite mutex
 	s.mu.Lock()
-	targetMessageStream := s.MessageStreams[req.Target]
+	targetMessageStream := s.MessageStreams[req.ChatRequest.Target]
 	s.mu.Unlock()
 
-	// creationEvent := fmt.Sprintf("SYSTEM NOTIFICATION - CHAT CREATION: %s (Init: %s, Trgt: %s)", req.ChatName, req.Target, req.Initiator)
-	// initiationMessage := fmt.Sprintf("ATTN %s: %s wants to begin a chat! y/n?", req.Target, req.Initiator)
 
-	err := targetMessageStream.Send(&pb.Envelope{
-		SenderPublicKey: []byte{},
-		SentAt:          timestamppb.Now(),
-		Chat: &pb.Chat{
-			Name:    "SERVER-CHAT_REQUEST",
-			Message: req.ChatName,
-		},
-	})
+	err := targetMessageStream.Send(&pb.MessageStreamPayload{Target: req.ChatRequest.Target, Payload: req}) 
 	if err != nil {
-		fmt.Printf("Failed to send message on %s's stream: %v\n", req.Target, err)
+		fmt.Printf("Failed to send message on %s's stream: %v\n", req.ChatRequest.Target, err)
 		return nil, err
 	}
 
-	//TODO: Pass initiator keys, then db query for target keys here
-
-	return &pb.BeginChatResponse{
-		Success:          true,
-		ChatId:           uuid.New().String(),
-		ChatName:         req.ChatName,
-		TargetPublicKey:  []byte{},
-		TargetSigningKey: []byte{},
-	}, nil
-
+  return &pb.ServerResponse{Success: true, Message: "BeginChat OK"}, nil
 }
 
 func (s *StrikeServer) ConfirmChat(ctx context.Context, req *pb.ConfirmChatRequest) (*pb.ServerResponse, error) {
@@ -297,3 +278,76 @@ func (s *StrikeServer) ConfirmChat(ctx context.Context, req *pb.ConfirmChatReque
 	}, nil
 
 }
+
+func (s *StrikeServer) MessageStream(username *pb.Username, stream pb.Strike_MessageStreamServer) error {
+	log.Printf("Stream Established: %v online \n", username.Username)
+
+	// TODO: cleaner map initilization
+	if s.MessageStreams == nil {
+		s.MessageStreams = make(map[string]pb.Strike_MessageStreamServer)
+	}
+
+	// Register the users message steam
+	s.mu.Lock()
+	s.MessageStreams[username.Username] = stream
+	s.mu.Unlock()
+
+	if s.MessageChannels == nil {
+		s.MessageChannels = make(map[string]chan *pb.MessageStreamPayload)
+	}
+
+	//create a channel for each connected client
+	messageChannel := make(chan *pb.MessageStreamPayload, 100)
+
+	// Register the users message channel
+	s.mu.Lock()
+	s.MessageChannels[username.Username] = messageChannel
+	s.mu.Unlock()
+
+	//Defer our cleanup of stream map and message channel
+	defer func() {
+		s.mu.Lock()
+		//TODO: removed streams and just use channels
+		delete(s.MessageStreams, username.Username)
+		delete(s.MessageChannels, username.Username)
+		close(messageChannel) // Safely close the channel
+		s.mu.Unlock()
+		fmt.Printf("Client %s disconnected.\n", username.Username)
+	}()
+
+	//Goroutine to send messages from channel
+	//Only exits when the channel is closed thanks to the for/range
+	go func() {
+		for msg := range messageChannel {
+			if err := stream.Send(msg); err != nil {
+				fmt.Printf("Failed to send message to %s: %v\n", username.Username, err)
+				return
+			}
+		} 
+	}()
+
+	for {
+		select {
+		case <-stream.Context().Done():
+			// TODO: Graceful Disconnect/Shutdown
+			fmt.Println("Client disconnected.")
+			return nil
+		case <-time.After(1 * time.Minute):
+			// //TODO: Check if active otherwise close connection
+			// keepAlive := pb.Envelope{
+			// 	SenderPublicKey: []byte{}, //Send server key
+			// 	FromUser:        "SERVER",
+			// 	ToUser:          username.Username,
+			// 	SentAt:          timestamppb.Now(),
+			// 	Chat: &pb.Chat{
+			// 		Name:    "SERVER INFO",
+			// 		Message: "Ping: Keep alive",
+			// 	}}
+			// if err := stream.Send(&keepAlive); err != nil {
+			// 	fmt.Printf("Failed to Keep Alive: %v\n", err)
+			// 	return err
+			// }
+		}
+	}
+}
+

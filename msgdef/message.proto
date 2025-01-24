@@ -17,7 +17,7 @@ service Strike {
 
   rpc SaltMine(Username) returns (Salt) {}
 
-  rpc SendMessages(Envelope) returns (Stamp) {}
+  rpc SendMessages(Envelope) returns (ServerResponse) {}
 
   rpc UserStatus(StatusRequest) returns (stream StatusUpdate) {}
 
@@ -90,10 +90,11 @@ message StatusUpdate {
 }
 
 message MessageStreamPayload {
+  string target = 1;
   oneof payload {
-    BeginChatRequest chat_request = 1;
-    ConfirmChatRequest chat_confirm = 2;
-    Envelope envelope = 3;
+    BeginChatRequest chat_request = 2;
+    ConfirmChatRequest chat_confirm = 3;
+    Envelope envelope = 4;
   }
 }
 

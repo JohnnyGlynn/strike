@@ -50,13 +50,6 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 		}
 	}
 
-	//TODO: Modify the type here, pass either a Envelope or a System envelope
-	// if messageStream.Chat.Name == "SERVER-CHAT_REQUEST" {
-	// 	log.Printf("\nWE CAN SEE A CHAT REQUEST\n")
-	// 	//TODO: Chaining these is a mess
-	// 	ConfirmChat(ctx, c, username, messageStream)
-
-	// }
 }
 
 func SendMessage(c pb.StrikeClient, username string, publicKey []byte, target string, message string, chatName string) {
@@ -221,7 +214,10 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 
 	//Get messages
 	go func() {
-		ConnectMessageStream(ctx, c, username)
+    err := ConnectMessageStream(ctx, c, username)
+    if err != nil {
+      log.Fatalf("failed to connect message stream: %v\n", err)
+    } 
 	}()
 
 	inputReader := bufio.NewReader(os.Stdin)
