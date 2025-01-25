@@ -20,9 +20,9 @@ import (
 func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username string) error {
 
 	//Pass your own username to register your stream
-	stream, err := c.GetMessages(ctx, &pb.Username{Username: username})
+	stream, err := c.MessageStream(ctx, &pb.Username{Username: username})
 	if err != nil {
-		log.Fatalf("GetMessages Failed: %v", err)
+		log.Fatalf("MessageStream Failed: %v", err)
 		return err
 	}
 
@@ -45,8 +45,18 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 				log.Printf("Error receiving message: %v", err)
 				return err
 			}
-
-			fmt.Printf("[%s] [%s] [From:%s] : %s\n", msg.SentAt.AsTime(), msg.Chat.Name, msg.FromUser, msg.Chat.Message)
+      
+      //Dont think we actually need the type yet
+      switch payload := msg.Payload.(type) {
+        case *pb.MessageStreamPayload_Envelope:
+	  		  fmt.Printf("[%s] [%s] [From:%s] : %s\n", payload.Envelope.SentAt.AsTime(), payload.Envelope.Chat.Name, payload.Envelope.FromUser, payload.Envelope.Chat.Message)
+        case *pb.MessageStreamPayload_ChatRequest:
+          fmt.Printf("Chat request from: %v\n y[accept] or n[decline]?", payload.ChatRequest.Initiator)
+          //TODO:Handle some sort of blocking here to enforce a response
+        case *pb.MessageStreamPayload_ChatConfirm:
+          //Do nothing yet?
+      }
+      
 		}
 	}
 
@@ -54,7 +64,7 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 
 func SendMessage(c pb.StrikeClient, username string, publicKey []byte, target string, message string, chatName string) {
 
-	envelope := &pb.Envelope{
+	envelope := pb.Envelope{
 		SenderPublicKey: publicKey,
 		SentAt:          timestamppb.Now(),
 		FromUser:        username,
@@ -65,8 +75,14 @@ func SendMessage(c pb.StrikeClient, username string, publicKey []byte, target st
 		},
 	}
 
+ 
+  payloadEnvelope := pb.MessageStreamPayload{
+    Target: target,
+    Payload: &pb.MessageStreamPayload_Envelope{Envelope: &envelope},
+  } 
+
 	// resp, err := c.SendMessages(context.Background(), envelope)
-	_, err := c.SendMessages(context.Background(), envelope)
+	_, err := c.SendMessages(context.Background(), &payloadEnvelope)
 	if err != nil {
 		log.Fatalf("Error sending message: %v", err)
 	}
@@ -195,8 +211,14 @@ func BeginChat(c pb.StrikeClient, username string, chatTarget string) error {
 		Target:    chatTarget,
 		ChatName:  "General",
 	}
+  
+  payloadChatRequest := pb.MessageStreamPayload{
+    Target: chatTarget,
+    Payload: &pb.MessageStreamPayload_ChatRequest{ChatRequest: &beginChat},
+  } 
+  
 
-	beginChatResponse, err := c.BeginChat(ctx, &beginChat)
+	beginChatResponse, err := c.SendMessages(ctx, &payloadChatRequest)
 	if err != nil {
 		log.Fatalf("Begin Chat failed Failed: %v", err)
 		return err

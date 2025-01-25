@@ -9,7 +9,7 @@ option go_package="./message";
 service Strike {
   rpc Signup(InitUser) returns (ServerResponse) {}
 
-  rpc BeginChat(BeginChatRequest) returns (ServerResponse) {}
+  // rpc BeginChat(BeginChatRequest) returns (ServerResponse) {}
 
   rpc ConfirmChat(ConfirmChatRequest) returns (ServerResponse) {}
 
@@ -17,7 +17,7 @@ service Strike {
 
   rpc SaltMine(Username) returns (Salt) {}
 
-  rpc SendMessages(Envelope) returns (ServerResponse) {}
+  rpc SendMessages(MessageStreamPayload) returns (ServerResponse) {}
 
   rpc UserStatus(StatusRequest) returns (stream StatusUpdate) {}
 
