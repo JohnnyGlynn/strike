@@ -45,18 +45,47 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 				log.Printf("Error receiving message: %v", err)
 				return err
 			}
-      
-      //Dont think we actually need the type yet
-      switch payload := msg.Payload.(type) {
-        case *pb.MessageStreamPayload_Envelope:
-	  		  fmt.Printf("[%s] [%s] [From:%s] : %s\n", payload.Envelope.SentAt.AsTime(), payload.Envelope.Chat.Name, payload.Envelope.FromUser, payload.Envelope.Chat.Message)
-        case *pb.MessageStreamPayload_ChatRequest:
-          fmt.Printf("Chat request from: %v\n y[accept] or n[decline]?", payload.ChatRequest.Initiator)
-          //TODO:Handle some sort of blocking here to enforce a response
-        case *pb.MessageStreamPayload_ChatConfirm:
-          //Do nothing yet?
-      }
-      
+
+			//Dont think we actually need the type yet
+			switch payload := msg.Payload.(type) {
+			case *pb.MessageStreamPayload_Envelope:
+				fmt.Printf("[%s] [%s] [From:%s] : %s\n", payload.Envelope.SentAt.AsTime(), payload.Envelope.Chat.Name, payload.Envelope.FromUser, payload.Envelope.Chat.Message)
+			case *pb.MessageStreamPayload_ChatRequest:
+				//TODO:Handle some sort of blocking here to enforce a response
+				chatRequest := payload.ChatRequest
+				fmt.Printf("Chat request from: %v\n y[accept] or n[decline]?\n", chatRequest.Initiator)
+
+				fmt.Print("> ")
+				inputReader := bufio.NewReader(os.Stdin)
+
+				input, err := inputReader.ReadString('\n')
+				if err != nil {
+					log.Printf("Error reading input: %v\n", err)
+					continue
+				}
+
+				input = strings.TrimSpace(input)
+				accpeted := strings.ToLower(input) == "y"
+
+				if accpeted {
+					fmt.Printf("Chat Invite accpetd: %s with %s", chatRequest.ChatName, chatRequest.Initiator)
+					response := &pb.MessageStreamPayload_ChatConfirm{
+						ChatConfirm: &pb.ConfirmChatRequest{
+							ChatId:    chatRequest.ChatName,
+							Confirmer: chatRequest.Target,
+						},
+					}
+
+					if err := stream.SendMsg(response); err != nil {
+						log.Fatalf("error sending ChatConfirm: %v", err)
+					}
+				} else {
+					fmt.Println("Chat Invite Declined")
+				}
+			case *pb.MessageStreamPayload_ChatConfirm:
+				//Do nothing yet?
+			}
+
 		}
 	}
 
@@ -75,11 +104,10 @@ func SendMessage(c pb.StrikeClient, username string, publicKey []byte, target st
 		},
 	}
 
- 
-  payloadEnvelope := pb.MessageStreamPayload{
-    Target: target,
-    Payload: &pb.MessageStreamPayload_Envelope{Envelope: &envelope},
-  } 
+	payloadEnvelope := pb.MessageStreamPayload{
+		Target:  target,
+		Payload: &pb.MessageStreamPayload_Envelope{Envelope: &envelope},
+	}
 
 	// resp, err := c.SendMessages(context.Background(), envelope)
 	_, err := c.SendMessages(context.Background(), &payloadEnvelope)
@@ -211,12 +239,11 @@ func BeginChat(c pb.StrikeClient, username string, chatTarget string) error {
 		Target:    chatTarget,
 		ChatName:  "General",
 	}
-  
-  payloadChatRequest := pb.MessageStreamPayload{
-    Target: chatTarget,
-    Payload: &pb.MessageStreamPayload_ChatRequest{ChatRequest: &beginChat},
-  } 
-  
+
+	payloadChatRequest := pb.MessageStreamPayload{
+		Target:  chatTarget,
+		Payload: &pb.MessageStreamPayload_ChatRequest{ChatRequest: &beginChat},
+	}
 
 	beginChatResponse, err := c.SendMessages(ctx, &payloadChatRequest)
 	if err != nil {
@@ -236,10 +263,10 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 
 	//Get messages
 	go func() {
-    err := ConnectMessageStream(ctx, c, username)
-    if err != nil {
-      log.Fatalf("failed to connect message stream: %v\n", err)
-    } 
+		err := ConnectMessageStream(ctx, c, username)
+		if err != nil {
+			log.Fatalf("failed to connect message stream: %v\n", err)
+		}
 	}()
 
 	inputReader := bufio.NewReader(os.Stdin)

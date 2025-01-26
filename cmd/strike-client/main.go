@@ -169,6 +169,8 @@ func main() {
 				}()
 				isLoggedIn = true
 				fmt.Println("Logged In!")
+				//Logged in
+				fmt.Printf("Welcome back %s!\n", username)
 			case "/signup":
 				//TODO: Username and Password, handle keygen here?
 
@@ -205,6 +207,8 @@ func main() {
 				}()
 				isLoggedIn = true
 				fmt.Println("Logged In!")
+				//Logged in
+				fmt.Printf("Welcome back %s!\n", username)
 			case "/exit":
 				fmt.Println("Strike Client shutting down")
 				return
@@ -213,9 +217,7 @@ func main() {
 			}
 
 		} else {
-			//Logged in
 
-			fmt.Printf("Welcome back %s!\n", username)
 			fmt.Print("> ")
 			input, err := inputReader.ReadString('\n')
 			if err != nil {
@@ -258,18 +260,4 @@ func main() {
 		}
 
 	}
-
-	// go func() {
-	// 	client.ConnectMessageStream(newClient, clientCfg.Username)
-	// }()
-
-	// //TODO: make configurable, allow  for client input
-	// err = client.BeginChat(newClient, clientCfg.Username, "client0")
-	// if err != nil {
-	// 	log.Fatalf("error begining chat: %v", err)
-	// }
-
-	// fmt.Println("ATTEMPTING TO CONFIRM CHAT")
-	// time.Sleep(30 * time.Second)
-
 }
