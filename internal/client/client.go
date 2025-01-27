@@ -51,7 +51,7 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 			case *pb.MessageStreamPayload_Envelope:
 				fmt.Printf("[%s] [%s] [From:%s] : %s\n", payload.Envelope.SentAt.AsTime(), payload.Envelope.Chat.Name, payload.Envelope.FromUser, payload.Envelope.Chat.Message)
 			case *pb.MessageStreamPayload_ChatRequest:
-				//TODO:Handle some sort of blocking here to enforce a response
+				//TODO: Handle some sort of blocking here to enforce a response
 				chatRequest := payload.ChatRequest
 				fmt.Printf("Chat request from: %v\n y[accept] or n[decline]?\n", chatRequest.Initiator)
 
@@ -83,7 +83,13 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 					fmt.Println("Chat Invite Declined")
 				}
 			case *pb.MessageStreamPayload_ChatConfirm:
-				//Do nothing yet?
+				chatConfirm := payload.ChatConfirm
+
+				if chatConfirm.State {
+					fmt.Printf("Invitation for:%s, With: %s, Status: Accepted\n", chatConfirm.ChatId, chatConfirm.Confirmer)
+				} else {
+					fmt.Printf("Invitation for:%s, With: %s, Status: Declined\n", chatConfirm.ChatId, chatConfirm.Confirmer)
+				}
 			}
 
 		}

@@ -53,6 +53,7 @@ message BeginChatRequest {
 message ConfirmChatRequest {
   string chat_id = 1; // chat name
   string confirmer = 2; // target user accepting chat
+  bool state = 3; // yes/no
 }
 
 message LoginRequest {

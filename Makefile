@@ -68,6 +68,10 @@ client-container-build: check-runtime
 client-container-run: check-runtime
 	$(CONTAINER_RUNTIME) run -it --env-file=./config/env.client -v ~/.strike-keys/:/home/strike-client/ -v ~/.strike-server/strike_server.crt:/home/strike-client/strike_server.crt --name strike_client --network=strikenw localhost/strike_client:latest
 
+.PHONY: another-client-container-run
+another-client-container-run: check-runtime
+	$(CONTAINER_RUNTIME) run -it --env-file=./config/env.client -v ~/.strike-keys/:/home/strike-client/ -v ~/.strike-server/strike_server.crt:/home/strike-client/strike_server.crt --name strike_client1 --network=strikenw localhost/strike_client:latest
+
 .PHONY: client-container-start
 client-container-start: check-runtime
 	$(CONTAINER_RUNTIME) start -a strike_client 
