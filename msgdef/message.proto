@@ -45,15 +45,17 @@ message InitUser {
 }
 
 message BeginChatRequest {
-  string initiator = 1; // client beginning chat username
-  string target = 2;    // target client username
-  string chat_name = 3;    // target client username
+  string invite_id = 1; //UUID of invite
+  string initiator = 2; // client beginning chat username
+  string target = 3;    // target client username
+  string chat_name = 4;    // target client username
 }
 
 message ConfirmChatRequest {
-  string chat_id = 1; // chat name
-  string confirmer = 2; // target user accepting chat
-  bool state = 3; // yes/no
+  string invite_id = 1; //UUID of invite
+  string chat_name = 2; // chat name
+  string confirmer = 3; // target user accepting chat
+  bool state = 4; // yes/no
 }
 
 message LoginRequest {

@@ -12,6 +12,7 @@ import (
 
 	"github.com/JohnnyGlynn/strike/internal/auth"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
+	"github.com/google/uuid"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -68,10 +69,11 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 				accpeted := strings.ToLower(input) == "y"
 
 				if accpeted {
-					fmt.Printf("Chat Invite accpetd: %s with %s", chatRequest.ChatName, chatRequest.Initiator)
+					fmt.Printf("Chat Invite %v accpetd: %s with %s", chatRequest.InviteId, chatRequest.ChatName, chatRequest.Initiator)
 					response := &pb.MessageStreamPayload_ChatConfirm{
 						ChatConfirm: &pb.ConfirmChatRequest{
-							ChatId:    chatRequest.ChatName,
+              InviteId: chatRequest.InviteId,
+							ChatName:    chatRequest.ChatName,
 							Confirmer: chatRequest.Target,
 						},
 					}
@@ -86,9 +88,9 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 				chatConfirm := payload.ChatConfirm
 
 				if chatConfirm.State {
-					fmt.Printf("Invitation for:%s, With: %s, Status: Accepted\n", chatConfirm.ChatId, chatConfirm.Confirmer)
+					fmt.Printf("Invitation %v for:%s, With: %s, Status: Accepted\n", chatConfirm.InviteId, chatConfirm.ChatName, chatConfirm.Confirmer)
 				} else {
-					fmt.Printf("Invitation for:%s, With: %s, Status: Declined\n", chatConfirm.ChatId, chatConfirm.Confirmer)
+					fmt.Printf("Invitation %v for:%s, With: %s, Status: Declined\n", chatConfirm.InviteId, chatConfirm.ChatName, chatConfirm.Confirmer)
 				}
 			}
 
@@ -132,15 +134,29 @@ func SendMessage(c pb.StrikeClient, username string, publicKey []byte, target st
 
 }
 
-func ConfirmChat(ctx context.Context, c pb.StrikeClient, username string, chatContent *pb.Envelope) error {
+func ConfirmChat(ctx context.Context, c pb.StrikeClient, chatRequest *pb.BeginChatRequest, inviteState bool) error {
 
-	ConfirmChatResp, err := c.ConfirmChat(ctx, &pb.ConfirmChatRequest{ChatId: chatContent.Chat.Message, Confirmer: username})
-	if err != nil {
-		log.Fatalf("GetMessages Failed: %v", err)
-		return err
-	}
+  ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	fmt.Printf("Chat Confirmed: %+v", ConfirmChatResp)
+  confirmation := pb.ConfirmChatRequest{
+    InviteId: chatRequest.InviteId,
+    ChatName: chatRequest.ChatName,
+    Confirmer: chatRequest.Target,
+    State: inviteState, 
+  }
+  
+  payload := pb.MessageStreamPayload{
+    Target: chatRequest.Initiator,
+    Payload: &pb.MessageStreamPayload_ChatConfirm{ChatConfirm: &confirmation},
+  }
+
+  resp, err := c.SendMessages(ctx, &payload)
+  if err != nil {
+    fmt.Errorf("failed to confirm chat: %v", err)
+  }
+
+	fmt.Printf("Chat Confirmed: %+v", resp)
 
 	return nil
 }
@@ -241,6 +257,7 @@ func BeginChat(c pb.StrikeClient, username string, chatTarget string) error {
 	defer cancel()
 
 	beginChat := pb.BeginChatRequest{
+    InviteId: uuid.New().String(),
 		Initiator: username,
 		Target:    chatTarget,
 		ChatName:  "General",
