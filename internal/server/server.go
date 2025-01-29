@@ -117,9 +117,9 @@ func (s *StrikeServer) SendMessages(ctx context.Context, payload *pb.MessageStre
 	select {
 	case channel <- payload:
 		log.Printf("Payload Sent to: %s\n", payload.Target)
-    return &pb.ServerResponse{Success: true, Message: "PAYLOAD OK"}, nil
+		return &pb.ServerResponse{Success: true, Message: "PAYLOAD OK"}, nil
 	default:
-    return &pb.ServerResponse{Success: false}, fmt.Errorf("%s's channel is full", payload.Target)
+		return &pb.ServerResponse{Success: false}, fmt.Errorf("%s's channel is full", payload.Target)
 	}
 }
 
@@ -254,19 +254,18 @@ func (s *StrikeServer) BeginChat(ctx context.Context, req *pb.MessageStreamPaylo
 	targetMessageStream := s.MessageStreams[req.ChatRequest.Target]
 	s.mu.Unlock()
 
-
-	err := targetMessageStream.Send(&pb.MessageStreamPayload{Target: req.ChatRequest.Target, Payload: req}) 
+	err := targetMessageStream.Send(&pb.MessageStreamPayload{Target: req.ChatRequest.Target, Payload: req})
 	if err != nil {
 		fmt.Printf("Failed to send message on %s's stream: %v\n", req.ChatRequest.Target, err)
 		return nil, err
 	}
 
-  return &pb.ServerResponse{Success: true, Message: "BeginChat OK"}, nil
+	return &pb.ServerResponse{Success: true, Message: "BeginChat OK"}, nil
 }
 
 func (s *StrikeServer) ConfirmChat(ctx context.Context, req *pb.ConfirmChatRequest) (*pb.ServerResponse, error) {
 
-	fmt.Printf("Confirming Chat: %s\n", req.ChatId)
+	fmt.Printf("Confirming Chat: %s\n", req.ChatName)
 
 	//TODO: Pass initiator keys, then db query for target keys here
 
@@ -323,7 +322,7 @@ func (s *StrikeServer) MessageStream(username *pb.Username, stream pb.Strike_Mes
 				fmt.Printf("Failed to send message to %s: %v\n", username.Username, err)
 				return
 			}
-		} 
+		}
 	}()
 
 	for {
@@ -350,4 +349,3 @@ func (s *StrikeServer) MessageStream(username *pb.Username, stream pb.Strike_Mes
 		}
 	}
 }
-

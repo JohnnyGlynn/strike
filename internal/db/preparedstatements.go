@@ -15,6 +15,10 @@ type PreparedStatements struct {
 	GetUserId        string
 	CreatePublicKeys string
 	SaltMine         string
+	CreateChat       string
+	SaveMessage      string
+	GetChat          string
+	GetMessages      string
 }
 
 func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*PreparedStatements, error) {
@@ -34,6 +38,10 @@ func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*PreparedStat
 		GetUserId:        "getUserId",
 		CreatePublicKeys: "createPublicKeys",
 		SaltMine:         "saltMine",
+		CreateChat:       "createChat",
+		SaveMessage:      "saveMessage",
+		GetChat:          "getChat",
+		GetMessages:      "getMessages",
 	}
 
 	//LoginUser
@@ -63,6 +71,26 @@ func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*PreparedStat
 
 	//Insert Users with password
 	if _, err := poolConnection.Conn().Prepare(ctx, statements.CreateUser, "INSERT INTO users (id, username, password_hash, salt) VALUES ($1, $2, $3, $4)"); err != nil {
+		return nil, err
+	}
+
+	//Insert Chat
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.CreateChat, "INSERT INTO chats (chat_id, chat_name, initiator, recipient, state) VALUES ($1, $2, $3, $4, $5)"); err != nil {
+		return nil, err
+	}
+
+	//Insert Message
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.SaveMessage, "INSERT INTO messages (id, chat_id, sender, content) VALUES ($1, $2, $3, $4)"); err != nil {
+		return nil, err
+	}
+
+	//get chat - TODO: Mechanism for caching these required?
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetChat, "SELECT * FROM chats WHERE chat_id = $1"); err != nil {
+		return nil, err
+	}
+
+	//get all messages
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetMessages, "SELECT * FROM messages WHERE chat_id = $1"); err != nil {
 		return nil, err
 	}
 
