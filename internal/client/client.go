@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/JohnnyGlynn/strike/internal/auth"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
@@ -18,7 +19,7 @@ import (
 )
 
 // TODO: Take this out to the main client function and we can have an easier time manipulating.
-func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username string) error {
+func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username string, inputLock *sync.Mutex) error {
 
 	//Pass your own username to register your stream
 	stream, err := c.MessageStream(ctx, &pb.Username{Username: username})
@@ -52,6 +53,8 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 			case *pb.MessageStreamPayload_Envelope:
 				fmt.Printf("[%s] [%s] [From:%s] : %s\n", payload.Envelope.SentAt.AsTime(), payload.Envelope.Chat.Name, payload.Envelope.FromUser, payload.Envelope.Chat.Message)
 			case *pb.MessageStreamPayload_ChatRequest:
+
+				inputLock.Lock()
 				//TODO: Handle some sort of blocking here to enforce a response
 				chatRequest := payload.ChatRequest
 				fmt.Printf("Chat request from: %v\n y[accept] or n[decline]?\n", chatRequest.Initiator)
@@ -72,8 +75,8 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 					fmt.Printf("Chat Invite %v accpetd: %s with %s", chatRequest.InviteId, chatRequest.ChatName, chatRequest.Initiator)
 					response := &pb.MessageStreamPayload_ChatConfirm{
 						ChatConfirm: &pb.ConfirmChatRequest{
-              InviteId: chatRequest.InviteId,
-							ChatName:    chatRequest.ChatName,
+							InviteId:  chatRequest.InviteId,
+							ChatName:  chatRequest.ChatName,
 							Confirmer: chatRequest.Target,
 						},
 					}
@@ -84,6 +87,8 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 				} else {
 					fmt.Println("Chat Invite Declined")
 				}
+
+				inputLock.Unlock()
 			case *pb.MessageStreamPayload_ChatConfirm:
 				chatConfirm := payload.ChatConfirm
 
@@ -136,25 +141,22 @@ func SendMessage(c pb.StrikeClient, username string, publicKey []byte, target st
 
 func ConfirmChat(ctx context.Context, c pb.StrikeClient, chatRequest *pb.BeginChatRequest, inviteState bool) error {
 
-  ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	confirmation := pb.ConfirmChatRequest{
+		InviteId:  chatRequest.InviteId,
+		ChatName:  chatRequest.ChatName,
+		Confirmer: chatRequest.Target,
+		State:     inviteState,
+	}
 
-  confirmation := pb.ConfirmChatRequest{
-    InviteId: chatRequest.InviteId,
-    ChatName: chatRequest.ChatName,
-    Confirmer: chatRequest.Target,
-    State: inviteState, 
-  }
-  
-  payload := pb.MessageStreamPayload{
-    Target: chatRequest.Initiator,
-    Payload: &pb.MessageStreamPayload_ChatConfirm{ChatConfirm: &confirmation},
-  }
+	payload := pb.MessageStreamPayload{
+		Target:  chatRequest.Initiator,
+		Payload: &pb.MessageStreamPayload_ChatConfirm{ChatConfirm: &confirmation},
+	}
 
-  resp, err := c.SendMessages(ctx, &payload)
-  if err != nil {
-    fmt.Errorf("failed to confirm chat: %v", err)
-  }
+	resp, err := c.SendMessages(ctx, &payload)
+	if err != nil {
+		return fmt.Errorf("failed to confirm chat: %v", err)
+	}
 
 	fmt.Printf("Chat Confirmed: %+v", resp)
 
@@ -257,7 +259,7 @@ func BeginChat(c pb.StrikeClient, username string, chatTarget string) error {
 	defer cancel()
 
 	beginChat := pb.BeginChatRequest{
-    InviteId: uuid.New().String(),
+		InviteId:  uuid.New().String(),
 		Initiator: username,
 		Target:    chatTarget,
 		ChatName:  "General",
@@ -284,9 +286,11 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	var inputLock sync.Mutex
+
 	//Get messages
 	go func() {
-		err := ConnectMessageStream(ctx, c, username)
+		err := ConnectMessageStream(ctx, c, username, &inputLock)
 		if err != nil {
 			log.Fatalf("failed to connect message stream: %v\n", err)
 		}
@@ -296,6 +300,7 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 	fmt.Printf("Enter chatTarget:message to send a message (e.g., '%v:HelloWorld')\n", username)
 
 	for {
+		inputLock.Lock()
 		// Prompt for input
 		fmt.Print("msgshell> ")
 		input, err := inputReader.ReadString('\n')
@@ -303,6 +308,7 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 			log.Printf("Error reading input: %v\n", err)
 			continue
 		}
+		inputLock.Unlock()
 
 		input = strings.TrimSpace(input)
 		if input == "/exit" {
