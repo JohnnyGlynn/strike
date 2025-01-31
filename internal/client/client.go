@@ -311,24 +311,47 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 		inputLock.Unlock()
 
 		input = strings.TrimSpace(input)
-		if input == "/exit" {
-			//TODO: Handle a cancel serverside
-			cancel()
-			fmt.Println("Exiting msgshell...")
-			return
+
+		isCommand := strings.HasPrefix(input, "/")
+
+		if isCommand {
+			switch input {
+			case "/beginchat":
+				fmt.Print("Invite User> ")
+				inviteUser, err := inputReader.ReadString('\n')
+				if err != nil {
+					log.Printf("Error reading invite input: %v\n", err)
+					continue
+				}
+				inviteUser = strings.TrimSpace(inviteUser)
+
+				err = BeginChat(c, username, inviteUser)
+				//TODO: Not fatal?
+				if err != nil {
+					log.Fatalf("error beginning chat: %v", err)
+				}
+
+			case "/exit":
+				//TODO: Handle a cancel serverside
+				cancel()
+				fmt.Println("Exiting msgshell...")
+				return
+			default:
+				fmt.Printf("Unknown command: %s\n", input)
+			}
+		} else {
+			userAndMessage := strings.SplitN(input, ":", 2) //Check for : then splint into target and message
+			if len(userAndMessage) != 2 {
+				fmt.Println("Invalid format. Use recipient:message")
+				continue
+			}
+
+			target, message := userAndMessage[0], userAndMessage[1]
+
+			//Print what was sent to the shell for full chat history
+			fmt.Printf("[YOU]: %s\n", message)
+			SendMessage(c, username, publicKey, target, message, "The Foreign Policy of the Bulgarian Police Force")
 		}
-
-		userAndMessage := strings.SplitN(input, ":", 2) //Check for : then splint into target and message
-		if len(userAndMessage) != 2 {
-			fmt.Println("Invalid format. Use recipient:message")
-			continue
-		}
-
-		target, message := userAndMessage[0], userAndMessage[1]
-
-		//Print what was sent to the shell for full chat history
-		fmt.Printf("[YOU]: %s\n", message)
-		SendMessage(c, username, publicKey, target, message, "The Foreign Policy of the Bulgarian Police Force")
 	}
 }
 

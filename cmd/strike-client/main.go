@@ -230,24 +230,14 @@ func main() {
 				continue
 			}
 
-			commandAndArgs := strings.SplitN(input, " ", 2) //Check for space then splint into command and argument
-			command := commandAndArgs[0]
-			var arg string //Make it exist
-			if len(commandAndArgs) > 1 {
-				arg = commandAndArgs[1]
-			}
+			// commandAndArgs := strings.SplitN(input, " ", 2) //Check for space then splint into command and argument
+			// command := commandAndArgs[0]
+			// var arg string //Make it exist
+			// if len(commandAndArgs) > 1 {
+			// 	arg = commandAndArgs[1]
+			// }
 
-			switch command {
-			case "/beginchat":
-				if arg == "" {
-					fmt.Println("Usage: /beginchat <username you want to chat with>")
-					continue
-				}
-				err = client.BeginChat(newClient, username, arg)
-				//TODO: Not fatal?
-				if err != nil {
-					log.Fatalf("error beginning chat: %v", err)
-				}
+			switch input {
 			case "/msgshell":
 				client.MessagingShell(newClient, username, loadedKeys["SigningPublicKey"])
 			case "/exit":
