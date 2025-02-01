@@ -18,23 +18,40 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+type ClientCache struct {
+	Invites map[string]string
+	Chats   map[string]pb.Chat
+}
+
+// Client Reciever
+var newCache ClientCache
+
+func init() {
+	if newCache.Invites == nil {
+		newCache.Invites = make(map[string]string)
+	}
+
+	if newCache.Chats == nil {
+		newCache.Chats = make(map[string]pb.Chat)
+	}
+}
+
 // TODO: Take this out to the main client function and we can have an easier time manipulating.
 func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username string, inputLock *sync.Mutex) error {
-
-	//Pass your own username to register your stream
+	// Pass your own username to register your stream
 	stream, err := c.MessageStream(ctx, &pb.Username{Username: username})
 	if err != nil {
 		log.Fatalf("MessageStream Failed: %v", err)
 		return err
 	}
 
-	//Interfering with output/input in shell
+	// Interfering with output/input in shell
 	// fmt.Println("Message Stream Connected: Listening...")
 
 	for {
 		select {
 		case <-ctx.Done():
-			//Graceful exit
+			// Graceful exit
 			log.Println("Message stream context canceled. Exiting...")
 			return nil
 		default:
@@ -48,14 +65,14 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 				return err
 			}
 
-			//Dont think we actually need the type yet
+			// Dont think we actually need the type yet
 			switch payload := msg.Payload.(type) {
 			case *pb.MessageStreamPayload_Envelope:
 				fmt.Printf("[%s] [%s] [From:%s] : %s\n", payload.Envelope.SentAt.AsTime(), payload.Envelope.Chat.Name, payload.Envelope.FromUser, payload.Envelope.Chat.Message)
 			case *pb.MessageStreamPayload_ChatRequest:
 
 				inputLock.Lock()
-				//TODO: Handle some sort of blocking here to enforce a response
+				// TODO: Handle some sort of blocking here to enforce a response
 				chatRequest := payload.ChatRequest
 				fmt.Printf("Chat request from: %v\n y[accept] or n[decline]?\n", chatRequest.Initiator)
 
@@ -73,19 +90,29 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 
 				if accpeted {
 					fmt.Printf("Chat Invite %v accpetd: %s with %s", chatRequest.InviteId, chatRequest.ChatName, chatRequest.Initiator)
-					response := &pb.MessageStreamPayload_ChatConfirm{
-						ChatConfirm: &pb.ConfirmChatRequest{
-							InviteId:  chatRequest.InviteId,
-							ChatName:  chatRequest.ChatName,
-							Confirmer: chatRequest.Target,
-						},
-					}
+					// response := &pb.MessageStreamPayload_ChatConfirm{
+					// 	ChatConfirm: &pb.ConfirmChatRequest{
+					// 		InviteId:  chatRequest.InviteId,
+					// 		ChatName:  chatRequest.ChatName,
+					// 		Confirmer: chatRequest.Target,
+					// 	},
+					// }
 
-					if err := stream.SendMsg(response); err != nil {
-						log.Fatalf("error sending ChatConfirm: %v", err)
+					// TODO: Context handling
+					err = ConfirmChat(ctx, c, chatRequest, true)
+					if err != nil {
+						return fmt.Errorf("Failed to decline invite")
 					}
+					// if err := stream.SendMsg(response); err != nil {
+					// 	log.Fatalf("error sending ChatConfirm: %v", err)
+					// }
+
 				} else {
 					fmt.Println("Chat Invite Declined")
+					err = ConfirmChat(ctx, c, chatRequest, false)
+					if err != nil {
+						return fmt.Errorf("Failed to decline invite")
+					}
 				}
 
 				inputLock.Unlock()
@@ -101,11 +128,9 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 
 		}
 	}
-
 }
 
 func SendMessage(c pb.StrikeClient, username string, publicKey []byte, target string, message string, chatName string) {
-
 	envelope := pb.Envelope{
 		SenderPublicKey: publicKey,
 		SentAt:          timestamppb.Now(),
@@ -130,17 +155,15 @@ func SendMessage(c pb.StrikeClient, username string, publicKey []byte, target st
 
 	// fmt.Printf("Stamp: %v", resp.KeyUsed)
 
-	//Implement Send status into SendMessages
+	// Implement Send status into SendMessages
 	// if success{
 	// 	fmt.Println("Message sent successfully.")
 	// } else {
 	// 	fmt.Printf("Failed to send message: %s\n", error)
 	// }
-
 }
 
 func ConfirmChat(ctx context.Context, c pb.StrikeClient, chatRequest *pb.BeginChatRequest, inviteState bool) error {
-
 	confirmation := pb.ConfirmChatRequest{
 		InviteId:  chatRequest.InviteId,
 		ChatName:  chatRequest.ChatName,
@@ -158,7 +181,8 @@ func ConfirmChat(ctx context.Context, c pb.StrikeClient, chatRequest *pb.BeginCh
 		return fmt.Errorf("failed to confirm chat: %v", err)
 	}
 
-	fmt.Printf("Chat Confirmed: %+v", resp)
+	delete(newCache.Invites, chatRequest.InviteId)
+	fmt.Printf("Chat invite acknowledged: %+v", resp)
 
 	return nil
 }
@@ -168,7 +192,7 @@ func ClientSignup(c pb.StrikeClient, username string, password string, curve2551
 	defer cancel()
 
 	salt := make([]byte, 16)
-	//add salt
+	// add salt
 	_, err := rand.Read(salt)
 	if err != nil {
 		return fmt.Errorf("failed to generate salt: %w", err)
@@ -198,7 +222,6 @@ func ClientSignup(c pb.StrikeClient, username string, password string, curve2551
 }
 
 func Login(c pb.StrikeClient, username string, password string) error {
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -234,7 +257,7 @@ func Login(c pb.StrikeClient, username string, password string) error {
 
 	fmt.Printf("%v:%s\n", loginReq.Success, loginReq.Message)
 
-	//TODO: handle this elsewhere?
+	// TODO: handle this elsewhere?
 	stream, err := c.UserStatus(ctx, &userStatus)
 	if err != nil {
 		log.Fatalf("status failure: %v", err)
@@ -250,45 +273,47 @@ func Login(c pb.StrikeClient, username string, password string) error {
 
 		fmt.Printf("%s Status: %s\n", username, connectionStream.Message)
 	}
-
 }
 
 func BeginChat(c pb.StrikeClient, username string, chatTarget string) error {
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	beginChat := pb.BeginChatRequest{
-		InviteId:  uuid.New().String(),
+	newInvite := uuid.New().String()
+
+	beginChat := &pb.BeginChatRequest{
+		InviteId:  newInvite,
 		Initiator: username,
 		Target:    chatTarget,
 		ChatName:  "General",
 	}
 
+	// Stopgap
+	newCache.Invites[newInvite] = beginChat.ChatName
+
 	payloadChatRequest := pb.MessageStreamPayload{
 		Target:  chatTarget,
-		Payload: &pb.MessageStreamPayload_ChatRequest{ChatRequest: &beginChat},
+		Payload: &pb.MessageStreamPayload_ChatRequest{ChatRequest: beginChat},
 	}
 
 	beginChatResponse, err := c.SendMessages(ctx, &payloadChatRequest)
 	if err != nil {
-		log.Fatalf("Begin Chat failed Failed: %v", err)
+		log.Fatalf("Begin Chat failed: %v", err)
 		return err
 	}
 
-	fmt.Printf("Chat Created: %+v", beginChatResponse)
+	fmt.Printf("Chat Request sent: %+v", beginChatResponse)
 
 	return nil
 }
 
 func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	var inputLock sync.Mutex
 
-	//Get messages
+	// Get messages
 	go func() {
 		err := ConnectMessageStream(ctx, c, username, &inputLock)
 		if err != nil {
@@ -326,13 +351,17 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 				inviteUser = strings.TrimSpace(inviteUser)
 
 				err = BeginChat(c, username, inviteUser)
-				//TODO: Not fatal?
+				// TODO: Not fatal?
 				if err != nil {
 					log.Fatalf("error beginning chat: %v", err)
 				}
 
+			case "/invites":
+				if len(newCache.Invites) == 0 {
+					fmt.Println("No pending invites :^[")
+				}
 			case "/exit":
-				//TODO: Handle a cancel serverside
+				// TODO: Handle a cancel serverside
 				cancel()
 				fmt.Println("Exiting msgshell...")
 				return
@@ -340,7 +369,7 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 				fmt.Printf("Unknown command: %s\n", input)
 			}
 		} else {
-			userAndMessage := strings.SplitN(input, ":", 2) //Check for : then splint into target and message
+			userAndMessage := strings.SplitN(input, ":", 2) // Check for : then splint into target and message
 			if len(userAndMessage) != 2 {
 				fmt.Println("Invalid format. Use recipient:message")
 				continue
@@ -348,7 +377,7 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 
 			target, message := userAndMessage[0], userAndMessage[1]
 
-			//Print what was sent to the shell for full chat history
+			// Print what was sent to the shell for full chat history
 			fmt.Printf("[YOU]: %s\n", message)
 			SendMessage(c, username, publicKey, target, message, "The Foreign Policy of the Bulgarian Police Force")
 		}

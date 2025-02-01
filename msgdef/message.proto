@@ -64,8 +64,8 @@ message LoginRequest {
 }
 
 message Chat {
-  string name = 1;
-  string message = 2;
+  string id = 1;
+  string name = 2;
 }
 
 message ChatStreamRequest {
