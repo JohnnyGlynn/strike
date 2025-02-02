@@ -20,7 +20,7 @@ import (
 
 type ClientCache struct {
 	Invites map[string]string
-	Chats   map[string]pb.Chat
+	Chats   map[string]*pb.Chat
 }
 
 // Client Reciever
@@ -32,7 +32,7 @@ func init() {
 	}
 
 	if newCache.Chats == nil {
-		newCache.Chats = make(map[string]pb.Chat)
+		newCache.Chats = make(map[string]*pb.Chat)
 	}
 }
 
@@ -121,6 +121,11 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 
 				if chatConfirm.State {
 					fmt.Printf("Invitation %v for:%s, With: %s, Status: Accepted\n", chatConfirm.InviteId, chatConfirm.ChatName, chatConfirm.Confirmer)
+          chat := pb.Chat{
+            Name: chatConfirm.ChatName,
+          }
+          chatId := uuid.New().String()
+          newCache.Chats[chatId] = &chat
 				} else {
 					fmt.Printf("Invitation %v for:%s, With: %s, Status: Declined\n", chatConfirm.InviteId, chatConfirm.ChatName, chatConfirm.Confirmer)
 				}
