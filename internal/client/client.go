@@ -19,7 +19,7 @@ import (
 )
 
 type ClientCache struct {
-	Invites map[string]string
+	Invites map[string]*pb.BeginChatRequest
 	Chats   map[string]*pb.Chat
 }
 
@@ -28,7 +28,7 @@ var newCache ClientCache
 
 func init() {
 	if newCache.Invites == nil {
-		newCache.Invites = make(map[string]string)
+		newCache.Invites = make(map[string]*pb.BeginChatRequest)
 	}
 
 	if newCache.Chats == nil {
@@ -68,64 +68,59 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 			// Dont think we actually need the type yet
 			switch payload := msg.Payload.(type) {
 			case *pb.MessageStreamPayload_Envelope:
-				fmt.Printf("[%s] [%s] [From:%s] : %s\n", payload.Envelope.SentAt.AsTime(), payload.Envelope.Chat.Name, payload.Envelope.FromUser, payload.Envelope.Chat.Message)
+				fmt.Printf("[%s] [%s] [From:%s] : %s\n", payload.Envelope.SentAt.AsTime(), payload.Envelope.Chat.Name, payload.Envelope.FromUser, payload.Envelope.Message)
 			case *pb.MessageStreamPayload_ChatRequest:
-
-				inputLock.Lock()
-				// TODO: Handle some sort of blocking here to enforce a response
 				chatRequest := payload.ChatRequest
-				fmt.Printf("Chat request from: %v\n y[accept] or n[decline]?\n", chatRequest.Initiator)
 
-				fmt.Print("> ")
-				inputReader := bufio.NewReader(os.Stdin)
+				fmt.Printf("Chat Invite recieved from:%v Chat Name: %v\n", chatRequest.Initiator, chatRequest.ChatName)
 
-				input, err := inputReader.ReadString('\n')
-				if err != nil {
-					log.Printf("Error reading input: %v\n", err)
-					continue
-				}
+				// Recieve an invite, cache it
+				newCache.Invites[chatRequest.InviteId] = chatRequest
 
-				input = strings.TrimSpace(input)
-				accpeted := strings.ToLower(input) == "y"
+				// inputLock.Lock()
+				// // TODO: Handle some sort of blocking here to enforce a response
+				// chatRequest := payload.ChatRequest
+				// fmt.Printf("Chat request from: %v\n y[accept] or n[decline]?\n", chatRequest.Initiator)
 
-				if accpeted {
-					fmt.Printf("Chat Invite %v accpetd: %s with %s", chatRequest.InviteId, chatRequest.ChatName, chatRequest.Initiator)
-					// response := &pb.MessageStreamPayload_ChatConfirm{
-					// 	ChatConfirm: &pb.ConfirmChatRequest{
-					// 		InviteId:  chatRequest.InviteId,
-					// 		ChatName:  chatRequest.ChatName,
-					// 		Confirmer: chatRequest.Target,
-					// 	},
-					// }
+				// if accpeted {
+				// 	fmt.Printf("Chat Invite %v accpetd: %s with %s", chatRequest.InviteId, chatRequest.ChatName, chatRequest.Initiator)
+				// 	// response := &pb.MessageStreamPayload_ChatConfirm{
+				// 	// 	ChatConfirm: &pb.ConfirmChatRequest{
+				// 	// 		InviteId:  chatRequest.InviteId,
+				// 	// 		ChatName:  chatRequest.ChatName,
+				// 	// 		Confirmer: chatRequest.Target,
+				// 	// 	},
+				// 	// }
 
-					// TODO: Context handling
-					err = ConfirmChat(ctx, c, chatRequest, true)
-					if err != nil {
-						return fmt.Errorf("Failed to decline invite")
-					}
-					// if err := stream.SendMsg(response); err != nil {
-					// 	log.Fatalf("error sending ChatConfirm: %v", err)
-					// }
+				// 	// TODO: Context handling
+				// 	err = ConfirmChat(ctx, c, chatRequest, true)
+				// 	if err != nil {
+				// 		return fmt.Errorf("Failed to decline invite")
+				// 	}
+				// 	// if err := stream.SendMsg(response); err != nil {
+				// 	// 	log.Fatalf("error sending ChatConfirm: %v", err)
+				// 	// }
 
-				} else {
-					fmt.Println("Chat Invite Declined")
-					err = ConfirmChat(ctx, c, chatRequest, false)
-					if err != nil {
-						return fmt.Errorf("Failed to decline invite")
-					}
-				}
+				// } else {
+				// 	fmt.Println("Chat Invite Declined")
+				// 	err = ConfirmChat(ctx, c, chatRequest, false)
+				// 	if err != nil {
+				// 		return fmt.Errorf("Failed to decline invite")
+				// 	}
+				// }
 
-				inputLock.Unlock()
+				// inputLock.Unlock()
 			case *pb.MessageStreamPayload_ChatConfirm:
 				chatConfirm := payload.ChatConfirm
 
 				if chatConfirm.State {
 					fmt.Printf("Invitation %v for:%s, With: %s, Status: Accepted\n", chatConfirm.InviteId, chatConfirm.ChatName, chatConfirm.Confirmer)
+					chatId := uuid.New().String()
           chat := pb.Chat{
-            Name: chatConfirm.ChatName,
-          }
-          chatId := uuid.New().String()
-          newCache.Chats[chatId] = &chat
+            Id: chatId,
+						Name: chatConfirm.ChatName,
+					}
+					newCache.Chats[chatId] = &chat
 				} else {
 					fmt.Printf("Invitation %v for:%s, With: %s, Status: Declined\n", chatConfirm.InviteId, chatConfirm.ChatName, chatConfirm.Confirmer)
 				}
@@ -142,9 +137,10 @@ func SendMessage(c pb.StrikeClient, username string, publicKey []byte, target st
 		FromUser:        username,
 		ToUser:          target,
 		Chat: &pb.Chat{
-			Name:    chatName,
-			Message: message,
+			Id:   uuid.New().String(), // TODO: Hook in actual chats here
+			Name: chatName,
 		},
+		Message: message,
 	}
 
 	payloadEnvelope := pb.MessageStreamPayload{
@@ -157,15 +153,6 @@ func SendMessage(c pb.StrikeClient, username string, publicKey []byte, target st
 	if err != nil {
 		log.Fatalf("Error sending message: %v", err)
 	}
-
-	// fmt.Printf("Stamp: %v", resp.KeyUsed)
-
-	// Implement Send status into SendMessages
-	// if success{
-	// 	fmt.Println("Message sent successfully.")
-	// } else {
-	// 	fmt.Printf("Failed to send message: %s\n", error)
-	// }
 }
 
 func ConfirmChat(ctx context.Context, c pb.StrikeClient, chatRequest *pb.BeginChatRequest, inviteState bool) error {
@@ -294,7 +281,7 @@ func BeginChat(c pb.StrikeClient, username string, chatTarget string) error {
 	}
 
 	// Stopgap
-	newCache.Invites[newInvite] = beginChat.ChatName
+	// newCache.Invites[newInvite] = beginChat.ChatName
 
 	payloadChatRequest := pb.MessageStreamPayload{
 		Target:  chatTarget,
@@ -360,10 +347,55 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 				if err != nil {
 					log.Fatalf("error beginning chat: %v", err)
 				}
+      case "/chats":
+        if len(newCache.Chats) == 0{
+          fmt.Println("You haven't joined any Chats")
+        } else {
+          for chatId, chat := range newCache.Chats {
+            fmt.Println("Available Chats")
+            fmt.Printf("%v: %s", chatId, chat.Name)
+          }
+        }
 
 			case "/invites":
 				if len(newCache.Invites) == 0 {
 					fmt.Println("No pending invites :^[")
+				} else {
+					fmt.Println("Pending Invites")
+					for inviteID, chatRequest := range newCache.Invites {
+						fmt.Printf("%v: %s [FROM: %s]\n", inviteID, chatRequest.ChatName, chatRequest.Initiator)
+						fmt.Printf("y[Accept]/n[Decline]")
+
+						fmt.Print("> ")
+						inputReader := bufio.NewReader(os.Stdin)
+
+						input, err := inputReader.ReadString('\n')
+						if err != nil {
+							log.Printf("Error reading input: %v\n", err)
+							continue
+						}
+
+						input = strings.TrimSpace(input)
+						accpeted := strings.ToLower(input) == "y"
+
+						if accpeted {
+							err = ConfirmChat(ctx, c, chatRequest, true)
+							if err != nil {
+								log.Fatalf("Failed to decline invite: %v", err)
+							}
+							newChatID := uuid.New().String()
+							acceptedChat := pb.Chat{
+								Id:   newChatID,
+								Name: chatRequest.ChatName,
+							}
+							newCache.Chats[newChatID] = &acceptedChat
+						} else {
+							err = ConfirmChat(ctx, c, chatRequest, false)
+							if err != nil {
+								log.Fatalf("Failed to decline invite: %v", err)
+							}
+						}
+					}
 				}
 			case "/exit":
 				// TODO: Handle a cancel serverside

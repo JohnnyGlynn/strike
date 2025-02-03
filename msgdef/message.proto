@@ -108,6 +108,7 @@ message Envelope {
   string to_user = 3;
   string from_user = 4;
   Chat chat = 5;
+  string message = 6;
 
 }
 
