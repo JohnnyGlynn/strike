@@ -49,6 +49,7 @@ message BeginChatRequest {
   string initiator = 2; // client beginning chat username
   string target = 3;    // target client username
   string chat_name = 4;    // target client username
+  Chat chat = 5;
 }
 
 message ConfirmChatRequest {
@@ -56,6 +57,7 @@ message ConfirmChatRequest {
   string chat_name = 2; // chat name
   string confirmer = 3; // target user accepting chat
   bool state = 4; // yes/no
+  Chat chat = 5;
 }
 
 message LoginRequest {

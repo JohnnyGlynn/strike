@@ -113,14 +113,10 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 			case *pb.MessageStreamPayload_ChatConfirm:
 				chatConfirm := payload.ChatConfirm
 
+				// Cache a chat when your invitation is accepted
 				if chatConfirm.State {
 					fmt.Printf("Invitation %v for:%s, With: %s, Status: Accepted\n", chatConfirm.InviteId, chatConfirm.ChatName, chatConfirm.Confirmer)
-					chatId := uuid.New().String()
-          chat := pb.Chat{
-            Id: chatId,
-						Name: chatConfirm.ChatName,
-					}
-					newCache.Chats[chatId] = &chat
+					newCache.Chats[chatConfirm.Chat.Id] = chatConfirm.Chat
 				} else {
 					fmt.Printf("Invitation %v for:%s, With: %s, Status: Declined\n", chatConfirm.InviteId, chatConfirm.ChatName, chatConfirm.Confirmer)
 				}
@@ -161,6 +157,7 @@ func ConfirmChat(ctx context.Context, c pb.StrikeClient, chatRequest *pb.BeginCh
 		ChatName:  chatRequest.ChatName,
 		Confirmer: chatRequest.Target,
 		State:     inviteState,
+		Chat:      chatRequest.Chat,
 	}
 
 	payload := pb.MessageStreamPayload{
@@ -174,6 +171,10 @@ func ConfirmChat(ctx context.Context, c pb.StrikeClient, chatRequest *pb.BeginCh
 	}
 
 	delete(newCache.Invites, chatRequest.InviteId)
+	// Cache a chat when you acceot an invite
+	if inviteState {
+		newCache.Chats[chatRequest.Chat.Id] = chatRequest.Chat
+	}
 	fmt.Printf("Chat invite acknowledged: %+v", resp)
 
 	return nil
@@ -278,6 +279,10 @@ func BeginChat(c pb.StrikeClient, username string, chatTarget string) error {
 		Initiator: username,
 		Target:    chatTarget,
 		ChatName:  "General",
+		Chat: &pb.Chat{
+			Id:   uuid.New().String(),
+			Name: "General",
+		},
 	}
 
 	// Stopgap
@@ -347,15 +352,15 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 				if err != nil {
 					log.Fatalf("error beginning chat: %v", err)
 				}
-      case "/chats":
-        if len(newCache.Chats) == 0{
-          fmt.Println("You haven't joined any Chats")
-        } else {
-          for chatId, chat := range newCache.Chats {
-            fmt.Println("Available Chats")
-            fmt.Printf("%v: %s", chatId, chat.Name)
-          }
-        }
+			case "/chats":
+				if len(newCache.Chats) == 0 {
+					fmt.Println("You haven't joined any Chats")
+				} else {
+					fmt.Println("Available Chats")
+					for chatId, chat := range newCache.Chats {
+						fmt.Printf("%v: %s\n", chatId, chat.Name)
+					}
+				}
 
 			case "/invites":
 				if len(newCache.Invites) == 0 {
@@ -383,12 +388,6 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 							if err != nil {
 								log.Fatalf("Failed to decline invite: %v", err)
 							}
-							newChatID := uuid.New().String()
-							acceptedChat := pb.Chat{
-								Id:   newChatID,
-								Name: chatRequest.ChatName,
-							}
-							newCache.Chats[newChatID] = &acceptedChat
 						} else {
 							err = ConfirmChat(ctx, c, chatRequest, false)
 							if err != nil {
