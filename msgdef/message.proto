@@ -9,8 +9,6 @@ option go_package="./message";
 service Strike {
   rpc Signup(InitUser) returns (ServerResponse) {}
 
-  // rpc BeginChat(BeginChatRequest) returns (ServerResponse) {}
-
   rpc ConfirmChat(ConfirmChatRequest) returns (ServerResponse) {}
 
   rpc Login(LoginRequest) returns (ServerResponse) {}
@@ -20,8 +18,6 @@ service Strike {
   rpc SendMessages(MessageStreamPayload) returns (ServerResponse) {}
 
   rpc UserStatus(StatusRequest) returns (stream StatusUpdate) {}
-
-  rpc GetMessages(Username) returns (stream Envelope) {}
 
   rpc MessageStream(Username) returns (stream MessageStreamPayload) {}
 }
@@ -68,6 +64,14 @@ message LoginRequest {
 message Chat {
   string id = 1;
   string name = 2;
+  
+  enum State {
+    DEFAULT = 0;
+    INIT = 1;
+    ACTIVE = 2;
+  }
+
+  State state = 3;
 }
 
 message ChatStreamRequest {

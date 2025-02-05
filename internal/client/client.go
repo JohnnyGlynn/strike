@@ -45,9 +45,6 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 		return err
 	}
 
-	// Interfering with output/input in shell
-	// fmt.Println("Message Stream Connected: Listening...")
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -59,13 +56,11 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 			if err == io.EOF {
 				log.Println("Stream closed by server.")
 				return nil
-			}
-			if err != nil {
+			} else if err != nil {
 				log.Printf("Error receiving message: %v", err)
 				return err
 			}
 
-			// Dont think we actually need the type yet
 			switch payload := msg.Payload.(type) {
 			case *pb.MessageStreamPayload_Envelope:
 				fmt.Printf("[%s] [%s] [From:%s] : %s\n", payload.Envelope.SentAt.AsTime(), payload.Envelope.Chat.Name, payload.Envelope.FromUser, payload.Envelope.Message)
@@ -77,39 +72,6 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 				// Recieve an invite, cache it
 				newCache.Invites[chatRequest.InviteId] = chatRequest
 
-				// inputLock.Lock()
-				// // TODO: Handle some sort of blocking here to enforce a response
-				// chatRequest := payload.ChatRequest
-				// fmt.Printf("Chat request from: %v\n y[accept] or n[decline]?\n", chatRequest.Initiator)
-
-				// if accpeted {
-				// 	fmt.Printf("Chat Invite %v accpetd: %s with %s", chatRequest.InviteId, chatRequest.ChatName, chatRequest.Initiator)
-				// 	// response := &pb.MessageStreamPayload_ChatConfirm{
-				// 	// 	ChatConfirm: &pb.ConfirmChatRequest{
-				// 	// 		InviteId:  chatRequest.InviteId,
-				// 	// 		ChatName:  chatRequest.ChatName,
-				// 	// 		Confirmer: chatRequest.Target,
-				// 	// 	},
-				// 	// }
-
-				// 	// TODO: Context handling
-				// 	err = ConfirmChat(ctx, c, chatRequest, true)
-				// 	if err != nil {
-				// 		return fmt.Errorf("Failed to decline invite")
-				// 	}
-				// 	// if err := stream.SendMsg(response); err != nil {
-				// 	// 	log.Fatalf("error sending ChatConfirm: %v", err)
-				// 	// }
-
-				// } else {
-				// 	fmt.Println("Chat Invite Declined")
-				// 	err = ConfirmChat(ctx, c, chatRequest, false)
-				// 	if err != nil {
-				// 		return fmt.Errorf("Failed to decline invite")
-				// 	}
-				// }
-
-				// inputLock.Unlock()
 			case *pb.MessageStreamPayload_ChatConfirm:
 				chatConfirm := payload.ChatConfirm
 
@@ -121,7 +83,6 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 					fmt.Printf("Invitation %v for:%s, With: %s, Status: Declined\n", chatConfirm.InviteId, chatConfirm.ChatName, chatConfirm.Confirmer)
 				}
 			}
-
 		}
 	}
 }
@@ -268,7 +229,7 @@ func Login(c pb.StrikeClient, username string, password string) error {
 	}
 }
 
-func BeginChat(c pb.StrikeClient, username string, chatTarget string) error {
+func BeginChat(c pb.StrikeClient, username string, chatTarget string, chatName string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -280,13 +241,11 @@ func BeginChat(c pb.StrikeClient, username string, chatTarget string) error {
 		Target:    chatTarget,
 		ChatName:  "General",
 		Chat: &pb.Chat{
-			Id:   uuid.New().String(),
-			Name: "General",
+			Id:    uuid.New().String(),
+			Name:  chatName,
+			State: pb.Chat_INIT,
 		},
 	}
-
-	// Stopgap
-	// newCache.Invites[newInvite] = beginChat.ChatName
 
 	payloadChatRequest := pb.MessageStreamPayload{
 		Target:  chatTarget,
@@ -342,12 +301,20 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 				fmt.Print("Invite User> ")
 				inviteUser, err := inputReader.ReadString('\n')
 				if err != nil {
-					log.Printf("Error reading invite input: %v\n", err)
+					log.Printf("Error reading invite input user: %v\n", err)
 					continue
 				}
 				inviteUser = strings.TrimSpace(inviteUser)
 
-				err = BeginChat(c, username, inviteUser)
+				fmt.Print("Chat Name> ")
+				chatName, err := inputReader.ReadString('\n')
+				if err != nil {
+					log.Printf("Error reading invite input chat name: %v\n", err)
+					continue
+				}
+				chatName = strings.TrimSpace(chatName)
+
+				err = BeginChat(c, username, inviteUser, chatName)
 				// TODO: Not fatal?
 				if err != nil {
 					log.Fatalf("error beginning chat: %v", err)
