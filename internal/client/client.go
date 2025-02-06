@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -19,8 +20,9 @@ import (
 )
 
 type ClientCache struct {
-	Invites map[string]*pb.BeginChatRequest
-	Chats   map[string]*pb.Chat
+	Invites    map[string]*pb.BeginChatRequest
+	Chats      map[string]*pb.Chat
+	ActiveChat string
 }
 
 // Client Reciever
@@ -67,7 +69,7 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 			case *pb.MessageStreamPayload_ChatRequest:
 				chatRequest := payload.ChatRequest
 
-				fmt.Printf("Chat Invite recieved from:%v Chat Name: %v\n", chatRequest.Initiator, chatRequest.ChatName)
+				fmt.Printf("Chat Invite recieved from:%v Chat Name: %v\n", chatRequest.Initiator, chatRequest.Chat.Name)
 
 				// Recieve an invite, cache it
 				newCache.Invites[chatRequest.InviteId] = chatRequest
@@ -77,10 +79,10 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 
 				// Cache a chat when your invitation is accepted
 				if chatConfirm.State {
-					fmt.Printf("Invitation %v for:%s, With: %s, Status: Accepted\n", chatConfirm.InviteId, chatConfirm.ChatName, chatConfirm.Confirmer)
+					fmt.Printf("Invitation %v for:%s, With: %s, Status: Accepted\n", chatConfirm.InviteId, chatConfirm.Chat.Name, chatConfirm.Confirmer)
 					newCache.Chats[chatConfirm.Chat.Id] = chatConfirm.Chat
 				} else {
-					fmt.Printf("Invitation %v for:%s, With: %s, Status: Declined\n", chatConfirm.InviteId, chatConfirm.ChatName, chatConfirm.Confirmer)
+					fmt.Printf("Invitation %v for:%s, With: %s, Status: Declined\n", chatConfirm.InviteId, chatConfirm.Chat.Name, chatConfirm.Confirmer)
 				}
 			}
 		}
@@ -115,7 +117,7 @@ func SendMessage(c pb.StrikeClient, username string, publicKey []byte, target st
 func ConfirmChat(ctx context.Context, c pb.StrikeClient, chatRequest *pb.BeginChatRequest, inviteState bool) error {
 	confirmation := pb.ConfirmChatRequest{
 		InviteId:  chatRequest.InviteId,
-		ChatName:  chatRequest.ChatName,
+		ChatName:  chatRequest.Chat.Name,
 		Confirmer: chatRequest.Target,
 		State:     inviteState,
 		Chat:      chatRequest.Chat,
@@ -239,7 +241,7 @@ func BeginChat(c pb.StrikeClient, username string, chatTarget string, chatName s
 		InviteId:  newInvite,
 		Initiator: username,
 		Target:    chatTarget,
-		ChatName:  "General",
+		ChatName:  chatName,
 		Chat: &pb.Chat{
 			Id:    uuid.New().String(),
 			Name:  chatName,
@@ -323,10 +325,39 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 				if len(newCache.Chats) == 0 {
 					fmt.Println("You haven't joined any Chats")
 				} else {
-					fmt.Println("Available Chats")
-					for chatId, chat := range newCache.Chats {
-						fmt.Printf("%v: %s\n", chatId, chat.Name)
+					fmt.Println("Available Chats:")
+
+					chatList := make([]string, 0, len(newCache.Chats))
+					index := 1
+
+					for chatID, chat := range newCache.Chats {
+						fmt.Printf("%d: %s [STATE: %v]\n", index, chat.Name, chat.State.String())
+						chatList = append(chatList, chatID)
+						index++
 					}
+
+					fmt.Print("Enter the chat number to set active (Enter to cancel): ")
+					selectedIndexString, err := inputReader.ReadString('\n')
+					if err != nil {
+						log.Printf("Error reading input: %v\n", err)
+						break
+					}
+
+					selectedIndexString = strings.TrimSpace(selectedIndexString)
+					if selectedIndexString == "" {
+						fmt.Println("No chat selected.")
+						break
+					}
+
+					selectedIndex, err := strconv.Atoi(selectedIndexString)
+					if err != nil || selectedIndex < 1 || selectedIndex > len(chatList) {
+						fmt.Println("Invalid selection. Please enter a valid chat number.")
+						break
+					}
+
+					selectedChatID := chatList[selectedIndex-1]
+					newCache.ActiveChat = selectedChatID
+					fmt.Printf("Active chat: %s\n", newCache.Chats[selectedChatID].Name)
 				}
 
 			case "/invites":
@@ -334,8 +365,9 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 					fmt.Println("No pending invites :^[")
 				} else {
 					fmt.Println("Pending Invites")
+
 					for inviteID, chatRequest := range newCache.Invites {
-						fmt.Printf("%v: %s [FROM: %s]\n", inviteID, chatRequest.ChatName, chatRequest.Initiator)
+						fmt.Printf("%v: %s [FROM: %s]\n", inviteID, chatRequest.Chat.Name, chatRequest.Initiator)
 						fmt.Printf("y[Accept]/n[Decline]")
 
 						fmt.Print("> ")
