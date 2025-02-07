@@ -89,17 +89,14 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 	}
 }
 
-func SendMessage(c pb.StrikeClient, username string, publicKey []byte, target string, message string, chatName string) {
+func SendMessage(c pb.StrikeClient, username string, publicKey []byte, target string, message string) {
 	envelope := pb.Envelope{
 		SenderPublicKey: publicKey,
 		SentAt:          timestamppb.Now(),
 		FromUser:        username,
 		ToUser:          target,
-		Chat: &pb.Chat{
-			Id:   uuid.New().String(), // TODO: Hook in actual chats here
-			Name: chatName,
-		},
-		Message: message,
+		Chat:            newCache.Chats[newCache.ActiveChat], // TODO: Ensure nothing can be set if ActiveChat == ""
+		Message:         message,
 	}
 
 	payloadEnvelope := pb.MessageStreamPayload{
@@ -265,6 +262,7 @@ func BeginChat(c pb.StrikeClient, username string, chatTarget string, chatName s
 	return nil
 }
 
+// TODO: No longer fit for purpose - Terminal UI library time
 func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -395,6 +393,9 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 						}
 					}
 				}
+			case "/help":
+        //TODO: Line to long
+				fmt.Printf("---Available Commands---\n/beginchat: Invite a User to a Chat\n/chats: List joined chats and set one to active\n/invites: See and respond to Chat Invites\n/exit: ...\n")
 			case "/exit":
 				// TODO: Handle a cancel serverside
 				cancel()
@@ -404,17 +405,27 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 				fmt.Printf("Unknown command: %s\n", input)
 			}
 		} else {
+			if input == "" {
+				continue
+			}
+
 			userAndMessage := strings.SplitN(input, ":", 2) // Check for : then splint into target and message
-			if len(userAndMessage) != 2 {
+			if len(userAndMessage) != 2 && input != "" {
 				fmt.Println("Invalid format. Use recipient:message")
 				continue
 			}
 
 			target, message := userAndMessage[0], userAndMessage[1]
 
+			// TODO: Stopgap handle this elsewhere
+			if newCache.ActiveChat == "" {
+				fmt.Println("No chat has been selected. Use /chats to enable a chat first")
+				continue
+			}
+
+			SendMessage(c, username, publicKey, target, message)
 			// Print what was sent to the shell for full chat history
 			fmt.Printf("[YOU]: %s\n", message)
-			SendMessage(c, username, publicKey, target, message, "The Foreign Policy of the Bulgarian Police Force")
 		}
 	}
 }
