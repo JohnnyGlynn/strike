@@ -21,7 +21,7 @@ import (
 func main() {
 	fmt.Println("Strike client")
 
-	//Avoid shadowing
+	// Avoid shadowing
 	var clientCfg config.ClientConfig
 	var err error
 
@@ -38,7 +38,7 @@ func main() {
 		-keygen: Generate user keys
 	*/
 
-	//If user wants to create keys to use with strike - no existing PKI
+	// If user wants to create keys to use with strike - no existing PKI
 	if *keygen {
 		err := keys.SigningKeygen()
 		if err != nil {
@@ -117,13 +117,12 @@ func main() {
 
 	var username string
 
+	fmt.Println("Type /login to log into the Strike Messaging service")
+	fmt.Println("Type /signup to signup to the Strike Messaging service")
+	fmt.Println("Type /exit to quit.")
+
 	for {
-
 		if !isLoggedIn {
-			fmt.Println("Type /login to log into the Strike Messaging service")
-			fmt.Println("Type /signup to signup to the Strike Messaging service")
-			fmt.Println("Type /exit to quit.")
-
 			// Prompt for input
 			fmt.Print("> ")
 			input, err := inputReader.ReadString('\n')
@@ -158,10 +157,10 @@ func main() {
 					continue
 				}
 
-				//Spawn a goroutine so we can have the login function maintain userstatus stream aka Online
-				//TODO: Clean this up, Login isnt really correct now, RegisterStatus?
+				// Spawn a goroutine so we can have the login function maintain userstatus stream aka Online
+				// TODO: Clean this up, Login isnt really correct now, RegisterStatus?
 				go func() {
-					//Login now connects to UserStatus stream to show wheter user is online
+					// Login now connects to UserStatus stream to show wheter user is online
 					err = client.Login(newClient, username, password)
 					if err != nil {
 						log.Fatalf("error connecting: %v", err)
@@ -169,11 +168,9 @@ func main() {
 				}()
 				isLoggedIn = true
 				fmt.Println("Logged In!")
-				//Logged in
+				// Logged in
 				fmt.Printf("Welcome back %s!\n", username)
 			case "/signup":
-				//TODO: Username and Password, handle keygen here?
-
 				inputReader.Reset(os.Stdin)
 
 				username, err = client.LoginInput("Username > ", inputReader)
@@ -199,7 +196,7 @@ func main() {
 				}
 
 				go func() {
-					//Login now connects to UserStatus stream to show wheter user is online
+					// Login now connects to UserStatus stream to show wheter user is online
 					err = client.Login(newClient, username, password)
 					if err != nil {
 						log.Fatalf("error connecting: %v", err)
@@ -207,7 +204,7 @@ func main() {
 				}()
 				isLoggedIn = true
 				fmt.Println("Logged In!")
-				//Logged in
+				// Logged in
 				fmt.Printf("Welcome back %s!\n", username)
 			case "/exit":
 				fmt.Println("Strike Client shutting down")
@@ -230,13 +227,6 @@ func main() {
 				continue
 			}
 
-			// commandAndArgs := strings.SplitN(input, " ", 2) //Check for space then splint into command and argument
-			// command := commandAndArgs[0]
-			// var arg string //Make it exist
-			// if len(commandAndArgs) > 1 {
-			// 	arg = commandAndArgs[1]
-			// }
-
 			switch input {
 			case "/msgshell":
 				client.MessagingShell(newClient, username, loadedKeys["SigningPublicKey"])
@@ -248,6 +238,5 @@ func main() {
 			}
 
 		}
-
 	}
 }

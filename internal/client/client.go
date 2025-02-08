@@ -38,7 +38,6 @@ func init() {
 	}
 }
 
-// TODO: Take this out to the main client function and we can have an easier time manipulating.
 func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username string, inputLock *sync.Mutex) error {
 	// Pass your own username to register your stream
 	stream, err := c.MessageStream(ctx, &pb.Username{Username: username})
@@ -104,7 +103,6 @@ func SendMessage(c pb.StrikeClient, username string, publicKey []byte, target st
 		Payload: &pb.MessageStreamPayload_Envelope{Envelope: &envelope},
 	}
 
-	// resp, err := c.SendMessages(context.Background(), envelope)
 	_, err := c.SendMessages(context.Background(), &payloadEnvelope)
 	if err != nil {
 		log.Fatalf("Error sending message: %v", err)
@@ -135,7 +133,7 @@ func ConfirmChat(ctx context.Context, c pb.StrikeClient, chatRequest *pb.BeginCh
 	if inviteState {
 		newCache.Chats[chatRequest.Chat.Id] = chatRequest.Chat
 	}
-	fmt.Printf("Chat invite acknowledged: %+v", resp)
+	fmt.Printf("Chat invite acknowledged: %+v\n", resp)
 
 	return nil
 }
@@ -394,7 +392,7 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 					}
 				}
 			case "/help":
-        //TODO: Line to long
+				// TODO: Line to long
 				fmt.Printf("---Available Commands---\n/beginchat: Invite a User to a Chat\n/chats: List joined chats and set one to active\n/invites: See and respond to Chat Invites\n/exit: ...\n")
 			case "/exit":
 				// TODO: Handle a cancel serverside

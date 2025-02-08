@@ -30,18 +30,17 @@ type StrikeServer struct {
 }
 
 func (s *StrikeServer) SendMessages(ctx context.Context, payload *pb.MessageStreamPayload) (*pb.ServerResponse, error) {
-	//TODO: Work out the most effecient Syncing for mutexs, this is a lot of locking and unlocking
+	// TODO: Work out the most effecient Syncing for mutexs, this is a lot of locking and unlocking
 	s.mu.Lock()
 	channel, ok := s.MessageChannels[payload.Target]
 	s.mu.Unlock()
 
 	if !ok {
 		fmt.Printf("%s is not able to recieve messages.\n", payload.Target)
-		//TODO: time to get rid of stamps
 		return &pb.ServerResponse{Success: false}, fmt.Errorf("no message channel available for: %s", payload.Target)
 	}
 
-	//Push Message into Channel TODO: handle full channel case
+	// Push Message into Channel TODO: handle full channel case
 	select {
 	case channel <- payload:
 		log.Printf("Payload Sent to: %s\n", payload.Target)
@@ -52,7 +51,6 @@ func (s *StrikeServer) SendMessages(ctx context.Context, payload *pb.MessageStre
 }
 
 func (s *StrikeServer) SaltMine(ctx context.Context, user *pb.Username) (*pb.Salt, error) {
-
 	var salt []byte
 
 	err := s.DBpool.QueryRow(ctx, s.PStatements.SaltMine, user.Username).Scan(&salt)
@@ -66,7 +64,6 @@ func (s *StrikeServer) SaltMine(ctx context.Context, user *pb.Username) (*pb.Sal
 	}
 
 	return &pb.Salt{Salt: salt}, nil
-
 }
 
 func (s *StrikeServer) Login(ctx context.Context, clientLogin *pb.LoginRequest) (*pb.ServerResponse, error) {
@@ -84,8 +81,8 @@ func (s *StrikeServer) Login(ctx context.Context, clientLogin *pb.LoginRequest) 
 		return nil, nil
 	}
 
-	//verify our password is right
-	//TODO: Check efficiency here, i.e. argon2 using 128mb ram
+	// verify our password is right
+	// TODO: Check efficiency here, i.e. argon2 using 128mb ram
 	passMatch, err := auth.VerifyPassword(clientLogin.PasswordHash, storedHash)
 	if err != nil {
 		return &pb.ServerResponse{Success: false, Message: "an error occured"}, err
@@ -99,7 +96,7 @@ func (s *StrikeServer) Login(ctx context.Context, clientLogin *pb.LoginRequest) 
 		return &pb.ServerResponse{Success: passMatch, Message: "login unsuccessful"}, nil
 	}
 
-	//TODO: Make this unreachable?
+	// TODO: Make this unreachable?
 	return &pb.ServerResponse{Success: false, Message: "How is this not unreachable???"}, nil
 }
 
@@ -108,13 +105,13 @@ func (s *StrikeServer) Signup(ctx context.Context, userInit *pb.InitUser) (*pb.S
 
 	newId := uuid.New()
 
-	//user: uuid, username, password_hash, salt
+	// user: uuid, username, password_hash, salt
 	_, err := s.DBpool.Exec(ctx, s.PStatements.CreateUser, newId, userInit.Username, userInit.PasswordHash, userInit.Salt)
 	if err != nil {
 		return &pb.ServerResponse{Success: false, Message: "failed to register user"}, err
 	}
 
-	//keys: uuid, encryption, signing
+	// keys: uuid, encryption, signing
 	_, err = s.DBpool.Exec(ctx, s.PStatements.CreatePublicKeys, newId, userInit.EncryptionPublicKey, userInit.SigningPublicKey)
 	if err != nil {
 		return &pb.ServerResponse{Success: false, Message: "failed to register user keys"}, err
@@ -127,7 +124,6 @@ func (s *StrikeServer) Signup(ctx context.Context, userInit *pb.InitUser) (*pb.S
 }
 
 func (s *StrikeServer) UserStatus(req *pb.StatusRequest, stream pb.Strike_UserStatusServer) error {
-
 	username := req.Username
 
 	// TODO: cleaner map initilization
@@ -156,7 +152,7 @@ func (s *StrikeServer) UserStatus(req *pb.StatusRequest, stream pb.Strike_UserSt
 			// TODO: Add cleanup post client disconnect?
 			return nil
 		case <-time.After(2 * time.Minute):
-			//TODO: Countdown until disconnect
+			// TODO: Countdown until disconnect
 			err := stream.Send(&pb.StatusUpdate{
 				Message:   "Still alive",
 				UpdatedAt: timestamppb.Now(),
@@ -170,7 +166,6 @@ func (s *StrikeServer) UserStatus(req *pb.StatusRequest, stream pb.Strike_UserSt
 }
 
 func (s *StrikeServer) BeginChat(ctx context.Context, req *pb.MessageStreamPayload_ChatRequest) (*pb.ServerResponse, error) {
-
 	fmt.Printf("Begining Chat: %s\n", req.ChatRequest.Target)
 	_, exists := s.MessageStreams[req.ChatRequest.Target]
 	if !exists {
@@ -192,10 +187,7 @@ func (s *StrikeServer) BeginChat(ctx context.Context, req *pb.MessageStreamPaylo
 }
 
 func (s *StrikeServer) ConfirmChat(ctx context.Context, req *pb.ConfirmChatRequest) (*pb.ServerResponse, error) {
-
 	fmt.Printf("Confirming Chat: %s\n", req.ChatName)
-
-	//TODO: Pass initiator keys, then db query for target keys here
 
 	Confirmed := fmt.Sprintf("%v has accepted chat request, entering Chat", req.Confirmer)
 
@@ -203,7 +195,6 @@ func (s *StrikeServer) ConfirmChat(ctx context.Context, req *pb.ConfirmChatReque
 		Success: true,
 		Message: Confirmed,
 	}, nil
-
 }
 
 func (s *StrikeServer) MessageStream(username *pb.Username, stream pb.Strike_MessageStreamServer) error {
@@ -223,7 +214,7 @@ func (s *StrikeServer) MessageStream(username *pb.Username, stream pb.Strike_Mes
 		s.MessageChannels = make(map[string]chan *pb.MessageStreamPayload)
 	}
 
-	//create a channel for each connected client
+	// create a channel for each connected client
 	messageChannel := make(chan *pb.MessageStreamPayload, 100)
 
 	// Register the users message channel
@@ -231,10 +222,9 @@ func (s *StrikeServer) MessageStream(username *pb.Username, stream pb.Strike_Mes
 	s.MessageChannels[username.Username] = messageChannel
 	s.mu.Unlock()
 
-	//Defer our cleanup of stream map and message channel
+	// Defer our cleanup of stream map and message channel
 	defer func() {
 		s.mu.Lock()
-		//TODO: removed streams and just use channels
 		delete(s.MessageStreams, username.Username)
 		delete(s.MessageChannels, username.Username)
 		close(messageChannel) // Safely close the channel
@@ -242,8 +232,8 @@ func (s *StrikeServer) MessageStream(username *pb.Username, stream pb.Strike_Mes
 		fmt.Printf("Client %s disconnected.\n", username.Username)
 	}()
 
-	//Goroutine to send messages from channel
-	//Only exits when the channel is closed thanks to the for/range
+	// Goroutine to send messages from channel
+	// Only exits when the channel is closed thanks to the for/range
 	go func() {
 		for msg := range messageChannel {
 			if err := stream.Send(msg); err != nil {
@@ -260,20 +250,7 @@ func (s *StrikeServer) MessageStream(username *pb.Username, stream pb.Strike_Mes
 			fmt.Println("Client disconnected.")
 			return nil
 		case <-time.After(1 * time.Minute):
-			// //TODO: Check if active otherwise close connection
-			// keepAlive := pb.Envelope{
-			// 	SenderPublicKey: []byte{}, //Send server key
-			// 	FromUser:        "SERVER",
-			// 	ToUser:          username.Username,
-			// 	SentAt:          timestamppb.Now(),
-			// 	Chat: &pb.Chat{
-			// 		Name:    "SERVER INFO",
-			// 		Message: "Ping: Keep alive",
-			// 	}}
-			// if err := stream.Send(&keepAlive); err != nil {
-			// 	fmt.Printf("Failed to Keep Alive: %v\n", err)
-			// 	return err
-			// }
+			// TODO: Heart Beat
 		}
 	}
 }
