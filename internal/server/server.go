@@ -53,6 +53,7 @@ func (s *StrikeServer) SendMessages(ctx context.Context, payload *pb.MessageStre
 func (s *StrikeServer) SaltMine(ctx context.Context, user *pb.Username) (*pb.Salt, error) {
 	var salt []byte
 
+  //TODO: ERROR this fails after server has been running long
 	err := s.DBpool.QueryRow(ctx, s.PStatements.SaltMine, user.Username).Scan(&salt)
 	if err != nil {
 		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {

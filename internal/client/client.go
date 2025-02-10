@@ -46,6 +46,13 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 		return err
 	}
 
+	demux := NewDemultiplexer()
+
+	// Run demultiplexer channel processors
+	go ProcessEnvelopes(demux.envelopeChannel)
+	go ProcessChatRequests(demux.chatRequestChannel, newCache.Invites)
+	go ProcessConfirmChatRequests(demux.chatConfirmChannel, newCache.Chats)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -62,28 +69,7 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 				return err
 			}
 
-			switch payload := msg.Payload.(type) {
-			case *pb.MessageStreamPayload_Envelope:
-				fmt.Printf("[%s] [%s] [From:%s] : %s\n", payload.Envelope.SentAt.AsTime(), payload.Envelope.Chat.Name, payload.Envelope.FromUser, payload.Envelope.Message)
-			case *pb.MessageStreamPayload_ChatRequest:
-				chatRequest := payload.ChatRequest
-
-				fmt.Printf("Chat Invite recieved from:%v Chat Name: %v\n", chatRequest.Initiator, chatRequest.Chat.Name)
-
-				// Recieve an invite, cache it
-				newCache.Invites[chatRequest.InviteId] = chatRequest
-
-			case *pb.MessageStreamPayload_ChatConfirm:
-				chatConfirm := payload.ChatConfirm
-
-				// Cache a chat when your invitation is accepted
-				if chatConfirm.State {
-					fmt.Printf("Invitation %v for:%s, With: %s, Status: Accepted\n", chatConfirm.InviteId, chatConfirm.Chat.Name, chatConfirm.Confirmer)
-					newCache.Chats[chatConfirm.Chat.Id] = chatConfirm.Chat
-				} else {
-					fmt.Printf("Invitation %v for:%s, With: %s, Status: Declined\n", chatConfirm.InviteId, chatConfirm.Chat.Name, chatConfirm.Confirmer)
-				}
-			}
+			demux.Dispatcher(msg)
 		}
 	}
 }
