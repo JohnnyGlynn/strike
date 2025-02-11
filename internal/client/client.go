@@ -46,12 +46,11 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 		return err
 	}
 
-	demux := NewDemultiplexer()
+	// Start our demultiplexer and baseline processor functions
+	demux := NewDemultiplexer(newCache.Chats, newCache.Invites)
 
-	// Run demultiplexer channel processors
-	go ProcessEnvelopes(demux.envelopeChannel)
-	go ProcessChatRequests(demux.chatRequestChannel, newCache.Invites)
-	go ProcessConfirmChatRequests(demux.chatConfirmChannel, newCache.Chats)
+	// Start Monitoring
+	demux.StartMonitoring(newCache.Chats, newCache.Invites)
 
 	for {
 		select {
