@@ -90,6 +90,11 @@ Run client container
 make client-container-run
 ```
 
+Run another client container (Testing purposes)
+```bash
+make another-client-container-run
+```
+
 Build client binary
 ```bash
 make client-binary-build
@@ -116,19 +121,29 @@ You can run several clients if you wish, but it is important to change the conta
 
 Run Strike Clients: `make client-container-build` followed by `make client-container-run`
 
-Now that you are running the client you will be presented a shell and have access the following commands:
+Note: `make another-client-container-run` will create a second client container with the same set of keys, but a new container name, `strike_client1`, this will be useful to test functions between 2 clients (Chat creation, messaging, etc.)
+
+Now that you are running the client/clients you will be presented a shell and have access the following commands:
 
 `/signup` will enable the client to register a user with the server, followed by logging that User in.
 
 `/login` will enable an existing user access to the strike server, this will then register a status stream on the server, and you should see that your username has logged in. The user status stream will be used to enable Online/Offline status at a later date.
 
-Once the user is logged in, you will be presented with another set of commands:
-
-<!-- Key Exchange here? -->
-WIP: `/beginchat` will allow for a client to reach out to another client, prompting them to join a chat session.
+Once the user is logged in:
 
 `/msgshell` will enable an interactive messaging shell, from here you will be able to send messages to yourself or other clients message streams.
+
+This however, requires an active Chat.
+
+`/beginchat` will allow you to send a chat invite to another user, you will be prompted for a username, and if they are online an invite will be sent.
+
+`/invites` will list any pending invites that you have recieved and not responded to. `y` will accept an invite, `n` will decline.
+
+`/chats` will list chats that you have joined via Invite, and will allow you to set one as active. This active chat will allow you to send messages.
+
 Inputting `<target username>:<message>` will deliver a message to the targetted user (i.e. `client0:Hello World!`)
+
+As of now invites and chats are not persisted.
 
 As this project is in a working state, changes will be incremental, eventually we would like to intergrate a terminal library for a nicer shell experience.
 
