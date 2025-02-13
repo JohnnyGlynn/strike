@@ -342,40 +342,7 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 				}
 
 			case "/invites":
-				if len(newCache.Invites) == 0 {
-					fmt.Println("No pending invites :^[")
-				} else {
-					fmt.Println("Pending Invites")
-
-					for inviteID, chatRequest := range newCache.Invites {
-						fmt.Printf("%v: %s [FROM: %s]\n", inviteID, chatRequest.Chat.Name, chatRequest.Initiator)
-						fmt.Printf("y[Accept]/n[Decline]")
-
-						fmt.Print("> ")
-						inputReader := bufio.NewReader(os.Stdin)
-
-						input, err := inputReader.ReadString('\n')
-						if err != nil {
-							log.Printf("Error reading input: %v\n", err)
-							continue
-						}
-
-						input = strings.TrimSpace(input)
-						accpeted := strings.ToLower(input) == "y"
-
-						if accpeted {
-							err = ConfirmChat(ctx, c, chatRequest, true)
-							if err != nil {
-								log.Fatalf("Failed to decline invite: %v", err)
-							}
-						} else {
-							err = ConfirmChat(ctx, c, chatRequest, false)
-							if err != nil {
-								log.Fatalf("Failed to decline invite: %v", err)
-							}
-						}
-					}
-				}
+				shellInvites(ctx, c)
 			case "/help":
 				// TODO: Line to long
 				fmt.Printf("---Available Commands---\n/beginchat: Invite a User to a Chat\n/chats: List joined chats and set one to active\n/invites: See and respond to Chat Invites\n/exit: ...\n")
@@ -421,4 +388,41 @@ func LoginInput(prompt string, reader *bufio.Reader) (string, error) {
 		return "", fmt.Errorf("error reading input: %w", err)
 	}
 	return strings.TrimSpace(input), nil
+}
+
+func shellInvites(ctx context.Context, c pb.StrikeClient) {
+	if len(newCache.Invites) == 0 {
+		fmt.Println("No pending invites :^[")
+	} else {
+		fmt.Println("Pending Invites")
+
+		for inviteID, chatRequest := range newCache.Invites {
+			fmt.Printf("%v: %s [FROM: %s]\n", inviteID, chatRequest.Chat.Name, chatRequest.Initiator)
+			fmt.Printf("y[Accept]/n[Decline]")
+
+			fmt.Print("> ")
+			inputReader := bufio.NewReader(os.Stdin)
+
+			input, err := inputReader.ReadString('\n')
+			if err != nil {
+				log.Printf("Error reading input: %v\n", err)
+				continue
+			}
+
+			input = strings.TrimSpace(input)
+			accpeted := strings.ToLower(input) == "y"
+
+			if accpeted {
+				err = ConfirmChat(ctx, c, chatRequest, true)
+				if err != nil {
+					log.Fatalf("Failed to decline invite: %v", err)
+				}
+			} else {
+				err = ConfirmChat(ctx, c, chatRequest, false)
+				if err != nil {
+					log.Fatalf("Failed to decline invite: %v", err)
+				}
+			}
+		}
+	}
 }
