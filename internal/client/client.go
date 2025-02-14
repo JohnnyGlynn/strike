@@ -281,71 +281,19 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 		if isCommand {
 			switch input {
 			case "/beginchat":
-				fmt.Print("Invite User> ")
-				inviteUser, err := inputReader.ReadString('\n')
-				if err != nil {
-					log.Printf("Error reading invite input user: %v\n", err)
-					continue
-				}
-				inviteUser = strings.TrimSpace(inviteUser)
-
-				fmt.Print("Chat Name> ")
-				chatName, err := inputReader.ReadString('\n')
-				if err != nil {
-					log.Printf("Error reading invite input chat name: %v\n", err)
-					continue
-				}
-				chatName = strings.TrimSpace(chatName)
-
-				err = BeginChat(c, username, inviteUser, chatName)
-				// TODO: Not fatal?
-				if err != nil {
-					log.Fatalf("error beginning chat: %v", err)
-				}
+				shellBeginChat(c, username, inputReader)
 			case "/chats":
-				if len(newCache.Chats) == 0 {
-					fmt.Println("You haven't joined any Chats")
-				} else {
-					fmt.Println("Available Chats:")
-
-					chatList := make([]string, 0, len(newCache.Chats))
-					index := 1
-
-					for chatID, chat := range newCache.Chats {
-						fmt.Printf("%d: %s [STATE: %v]\n", index, chat.Name, chat.State.String())
-						chatList = append(chatList, chatID)
-						index++
-					}
-
-					fmt.Print("Enter the chat number to set active (Enter to cancel): ")
-					selectedIndexString, err := inputReader.ReadString('\n')
-					if err != nil {
-						log.Printf("Error reading input: %v\n", err)
-						break
-					}
-
-					selectedIndexString = strings.TrimSpace(selectedIndexString)
-					if selectedIndexString == "" {
-						fmt.Println("No chat selected.")
-						break
-					}
-
-					selectedIndex, err := strconv.Atoi(selectedIndexString)
-					if err != nil || selectedIndex < 1 || selectedIndex > len(chatList) {
-						fmt.Println("Invalid selection. Please enter a valid chat number.")
-						break
-					}
-
-					selectedChatID := chatList[selectedIndex-1]
-					newCache.ActiveChat = selectedChatID
-					fmt.Printf("Active chat: %s\n", newCache.Chats[selectedChatID].Name)
-				}
-
+				shellChat(inputReader)
 			case "/invites":
 				shellInvites(ctx, c)
 			case "/help":
 				// TODO: Line to long
-				fmt.Printf("---Available Commands---\n/beginchat: Invite a User to a Chat\n/chats: List joined chats and set one to active\n/invites: See and respond to Chat Invites\n/exit: ...\n")
+				fmt.Print("---Available Commands---\n,",
+					"/beginchat: Invite a User to a Chat\n",
+					"/chats: List joined chats and set one to active\n",
+					"/invites: See and respond to Chat Invites\n",
+					"/exit: ...\n",
+				)
 			case "/exit":
 				// TODO: Handle a cancel serverside
 				cancel()
@@ -424,5 +372,69 @@ func shellInvites(ctx context.Context, c pb.StrikeClient) {
 				}
 			}
 		}
+	}
+}
+
+func shellChat(inputReader *bufio.Reader) {
+	if len(newCache.Chats) == 0 {
+		fmt.Println("You haven't joined any Chats")
+	} else {
+		fmt.Println("Available Chats:")
+
+		chatList := make([]string, 0, len(newCache.Chats))
+		index := 1
+
+		for chatID, chat := range newCache.Chats {
+			fmt.Printf("%d: %s [STATE: %v]\n", index, chat.Name, chat.State.String())
+			chatList = append(chatList, chatID)
+			index++
+		}
+
+		fmt.Print("Enter the chat number to set active (Enter to cancel): ")
+		selectedIndexString, err := inputReader.ReadString('\n')
+		if err != nil {
+			log.Printf("Error reading input: %v\n", err)
+			return
+		}
+
+		selectedIndexString = strings.TrimSpace(selectedIndexString)
+		if selectedIndexString == "" {
+			fmt.Println("No chat selected.")
+			return
+		}
+
+		selectedIndex, err := strconv.Atoi(selectedIndexString)
+		if err != nil || selectedIndex < 1 || selectedIndex > len(chatList) {
+			fmt.Println("Invalid selection. Please enter a valid chat number.")
+			return
+		}
+
+		selectedChatID := chatList[selectedIndex-1]
+		newCache.ActiveChat = selectedChatID
+		fmt.Printf("Active chat: %s\n", newCache.Chats[selectedChatID].Name)
+	}
+}
+
+func shellBeginChat(c pb.StrikeClient, username string, inputReader *bufio.Reader) {
+	fmt.Print("Invite User> ")
+	inviteUser, err := inputReader.ReadString('\n')
+	if err != nil {
+		log.Printf("Error reading invite input user: %v\n", err)
+		return
+	}
+	inviteUser = strings.TrimSpace(inviteUser)
+
+	fmt.Print("Chat Name> ")
+	chatName, err := inputReader.ReadString('\n')
+	if err != nil {
+		log.Printf("Error reading invite input chat name: %v\n", err)
+		return
+	}
+	chatName = strings.TrimSpace(chatName)
+
+	err = BeginChat(c, username, inviteUser, chatName)
+	// TODO: Not fatal?
+	if err != nil {
+		log.Fatalf("error beginning chat: %v", err)
 	}
 }
