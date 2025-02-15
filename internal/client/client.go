@@ -261,12 +261,19 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 	}()
 
 	inputReader := bufio.NewReader(os.Stdin)
-	fmt.Printf("Enter chatTarget:message to send a message (e.g., '%v:HelloWorld')\n", username)
+	fmt.Println("---MsgShell---")
+	fmt.Println("/help for available commands")
+	fmt.Printf("Enter chatTarget:message to send a message (e.g., '%v:HelloWorld') - Chat selection required\n", username)
 
 	for {
 		inputLock.Lock()
 		// Prompt for input
-		fmt.Print("msgshell> ")
+
+		if newCache.ActiveChat == "" {
+			fmt.Print("[NO-CHAT]msgshell> ")
+		} else {
+			fmt.Printf("[CHAT:%s]> ", newCache.ActiveChat)
+		}
 		input, err := inputReader.ReadString('\n')
 		if err != nil {
 			log.Printf("Error reading input: %v\n", err)
