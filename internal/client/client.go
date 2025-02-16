@@ -10,7 +10,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/JohnnyGlynn/strike/internal/auth"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
@@ -38,7 +37,7 @@ func init() {
 	}
 }
 
-func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username string, inputLock *sync.Mutex) error {
+func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username string) error {
 	// Pass your own username to register your stream
 	stream, err := c.MessageStream(ctx, &pb.Username{Username: username})
 	if err != nil {
@@ -250,11 +249,9 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var inputLock sync.Mutex
-
 	// Get messages
 	go func() {
-		err := ConnectMessageStream(ctx, c, username, &inputLock)
+		err := ConnectMessageStream(ctx, c, username)
 		if err != nil {
 			log.Fatalf("failed to connect message stream: %v\n", err)
 		}
@@ -265,72 +262,45 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 	fmt.Println("/help for available commands")
 	fmt.Printf("Enter chatTarget:message to send a message (e.g., '%v:HelloWorld') - Chat selection required\n", username)
 
-	for {
-		inputLock.Lock()
-		// Prompt for input
+	commands := map[string]func(){
+		"/beginchat": func() { shellBeginChat(c, username, inputReader) },
+		"/chats":     func() { shellChat(inputReader) },
+		"/invites":   func() { shellInvites(ctx, c) },
+		"/help":      printHelp,
+		"/exit": func() {
+			cancel()
+			fmt.Println("Exiting msgshell...")
+			os.Exit(0) // Ensures we exit cleanly
+		},
+	}
 
+	for {
+		// Prompt for input
 		if newCache.ActiveChat == "" {
 			fmt.Print("[NO-CHAT]msgshell> ")
 		} else {
 			fmt.Printf("[CHAT:%s]> ", newCache.ActiveChat)
 		}
+
 		input, err := inputReader.ReadString('\n')
 		if err != nil {
 			log.Printf("Error reading input: %v\n", err)
 			continue
 		}
-		inputLock.Unlock()
 
 		input = strings.TrimSpace(input)
 
-		isCommand := strings.HasPrefix(input, "/")
-
-		if isCommand {
-			switch input {
-			case "/beginchat":
-				shellBeginChat(c, username, inputReader)
-			case "/chats":
-				shellChat(inputReader)
-			case "/invites":
-				shellInvites(ctx, c)
-			case "/help":
-				// TODO: Line to long
-				fmt.Print("---Available Commands---\n,",
-					"/beginchat: Invite a User to a Chat\n",
-					"/chats: List joined chats and set one to active\n",
-					"/invites: See and respond to Chat Invites\n",
-					"/exit: ...\n",
-				)
-			case "/exit":
-				// TODO: Handle a cancel serverside
-				cancel()
-				fmt.Println("Exiting msgshell...")
-				return
-			default:
+		if strings.HasPrefix(input, "/") {
+			if cmd, ok := commands[input]; ok {
+				cmd()
+			} else {
 				fmt.Printf("Unknown command: %s\n", input)
 			}
-		} else {
-			if input == "" {
-				continue
-			}
+			continue
+		}
 
-			userAndMessage := strings.SplitN(input, ":", 2) // Check for : then splint into target and message
-			if len(userAndMessage) != 2 && input != "" {
-				fmt.Println("Invalid format. Use recipient:message")
-				continue
-			}
-
-			target, message := userAndMessage[0], userAndMessage[1]
-
-			// TODO: Stopgap handle this elsewhere
-			if newCache.ActiveChat == "" {
-				fmt.Println("No chat has been selected. Use /chats to enable a chat first")
-				continue
-			}
-
-			SendMessage(c, username, publicKey, target, message)
-			// Print what was sent to the shell for full chat history
-			fmt.Printf("[YOU]: %s\n", message)
+		if err := shellSendMessage(input, c, username, publicKey); err != nil {
+			fmt.Println(err)
 		}
 	}
 }
@@ -348,36 +318,27 @@ func LoginInput(prompt string, reader *bufio.Reader) (string, error) {
 func shellInvites(ctx context.Context, c pb.StrikeClient) {
 	if len(newCache.Invites) == 0 {
 		fmt.Println("No pending invites :^[")
-	} else {
-		fmt.Println("Pending Invites")
+		return
+	}
 
-		for inviteID, chatRequest := range newCache.Invites {
-			fmt.Printf("%v: %s [FROM: %s]\n", inviteID, chatRequest.Chat.Name, chatRequest.Initiator)
-			fmt.Printf("y[Accept]/n[Decline]")
+	fmt.Println("Pending Invites")
+	inputReader := bufio.NewReader(os.Stdin)
 
-			fmt.Print("> ")
-			inputReader := bufio.NewReader(os.Stdin)
+	for inviteID, chatRequest := range newCache.Invites {
+		fmt.Printf("%v: %s [FROM: %s]\n", inviteID, chatRequest.Chat.Name, chatRequest.Initiator)
+		fmt.Printf("y[Accept]/n[Decline]")
 
-			input, err := inputReader.ReadString('\n')
-			if err != nil {
-				log.Printf("Error reading input: %v\n", err)
-				continue
-			}
+		input, err := inputReader.ReadString('\n')
+		if err != nil {
+			log.Printf("Error reading input: %v\n", err)
+			continue
+		}
 
-			input = strings.TrimSpace(input)
-			accpeted := strings.ToLower(input) == "y"
+		input = strings.TrimSpace(strings.ToLower(input))
+		accepted := input == "y"
 
-			if accpeted {
-				err = ConfirmChat(ctx, c, chatRequest, true)
-				if err != nil {
-					log.Fatalf("Failed to decline invite: %v", err)
-				}
-			} else {
-				err = ConfirmChat(ctx, c, chatRequest, false)
-				if err != nil {
-					log.Fatalf("Failed to decline invite: %v", err)
-				}
-			}
+		if err := ConfirmChat(ctx, c, chatRequest, accepted); err != nil {
+			log.Printf("Failed to decline invite: %v", err)
 		}
 	}
 }
@@ -385,41 +346,48 @@ func shellInvites(ctx context.Context, c pb.StrikeClient) {
 func shellChat(inputReader *bufio.Reader) {
 	if len(newCache.Chats) == 0 {
 		fmt.Println("You haven't joined any Chats")
-	} else {
-		fmt.Println("Available Chats:")
-
-		chatList := make([]string, 0, len(newCache.Chats))
-		index := 1
-
-		for chatID, chat := range newCache.Chats {
-			fmt.Printf("%d: %s [STATE: %v]\n", index, chat.Name, chat.State.String())
-			chatList = append(chatList, chatID)
-			index++
-		}
-
-		fmt.Print("Enter the chat number to set active (Enter to cancel): ")
-		selectedIndexString, err := inputReader.ReadString('\n')
-		if err != nil {
-			log.Printf("Error reading input: %v\n", err)
-			return
-		}
-
-		selectedIndexString = strings.TrimSpace(selectedIndexString)
-		if selectedIndexString == "" {
-			fmt.Println("No chat selected.")
-			return
-		}
-
-		selectedIndex, err := strconv.Atoi(selectedIndexString)
-		if err != nil || selectedIndex < 1 || selectedIndex > len(chatList) {
-			fmt.Println("Invalid selection. Please enter a valid chat number.")
-			return
-		}
-
-		selectedChatID := chatList[selectedIndex-1]
-		newCache.ActiveChat = selectedChatID
-		fmt.Printf("Active chat: %s\n", newCache.Chats[selectedChatID].Name)
+		return
 	}
+
+	fmt.Println("Available Chats:")
+
+	chatList := make([]string, 0, len(newCache.Chats))
+	index := 1
+
+	for chatID, chat := range newCache.Chats {
+		fmt.Printf("%d: %s [STATE: %v]\n", index, chat.Name, chat.State.String())
+		chatList = append(chatList, chatID)
+		index++
+	}
+
+	fmt.Print("Enter the chat number to set active (Enter to cancel): ")
+	selectedIndexString, err := inputReader.ReadString('\n')
+	if err != nil {
+		log.Printf("Error reading input: %v\n", err)
+		return
+	}
+
+	selectedIndexString = strings.TrimSpace(selectedIndexString)
+	if selectedIndexString == "" {
+		fmt.Println("No chat selected.")
+		return
+	}
+
+	selectedIndex, err := strconv.Atoi(selectedIndexString)
+	if err != nil || selectedIndex < 1 || selectedIndex > len(chatList) {
+		fmt.Println("Invalid selection. Please enter a valid chat number.")
+		return
+	}
+
+	selectedChatID := chatList[selectedIndex-1]
+
+	if newCache.ActiveChat == selectedChatID {
+		fmt.Printf("%s already active", selectedChatID)
+		return
+	}
+
+	newCache.ActiveChat = selectedChatID
+	fmt.Printf("Active chat: %s\n", newCache.Chats[selectedChatID].Name)
 }
 
 func shellBeginChat(c pb.StrikeClient, username string, inputReader *bufio.Reader) {
@@ -440,8 +408,40 @@ func shellBeginChat(c pb.StrikeClient, username string, inputReader *bufio.Reade
 	chatName = strings.TrimSpace(chatName)
 
 	err = BeginChat(c, username, inviteUser, chatName)
-	// TODO: Not fatal?
 	if err != nil {
-		log.Fatalf("error beginning chat: %v", err)
+		log.Printf("error beginning chat: %v", err)
 	}
+}
+
+func shellSendMessage(input string, c pb.StrikeClient, username string, publicKey []byte) error {
+	if input == "" {
+		return nil
+	}
+
+	userAndMessage := strings.SplitN(input, ":", 2) // Check for : then splint into target and message
+	if len(userAndMessage) != 2 {
+		return fmt.Errorf("Invalid format. Use recipient:message")
+	}
+
+	// TODO: Stopgap handle this elsewhere
+	if newCache.ActiveChat == "" {
+		return fmt.Errorf("No chat has been selected. Use /chats to enable a chat first")
+	}
+
+	target, message := userAndMessage[0], userAndMessage[1]
+
+	SendMessage(c, username, publicKey, target, message)
+	fmt.Printf("[YOU]: %s\n", message)
+
+	return nil
+}
+
+func printHelp() {
+	// Is multiple println better?
+	fmt.Print("---Available Commands---\n,",
+		"/beginchat: Invite a User to a Chat\n",
+		"/chats: List joined chats and set one to active\n",
+		"/invites: See and respond to Chat Invites\n",
+		"/exit: ...\n",
+	)
 }
