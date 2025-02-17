@@ -20,6 +20,10 @@ service Strike {
   rpc UserStatus(StatusRequest) returns (stream StatusUpdate) {}
 
   rpc MessageStream(Username) returns (stream MessageStreamPayload) {}
+
+  // Key Exchange
+  rpc InitiateKeyExchange(KeyExchangeRequest) returns (KeyExchangeResponse);
+  rpc ConfirmKeyExchange(KeyExchangeConfirmation) returns (KeyExchangeConfirmation);
 }
 
 //TODO: Lots of cleaning
@@ -72,6 +76,9 @@ message Chat {
   }
 
   State state = 3;
+  repeated string participants = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
 }
 
 message ChatStreamRequest {
@@ -125,5 +132,28 @@ message EncryptedEnvelope {
   bytes nonce = 4; // number once - encryption
   bytes encrypted_payload = 5; // encrypted message content
   google.protobuf.Timestamp sent_at = 6; // timestamp
+}
+
+
+// -----------------------------------Key Exchange---------------------------------------------
+message KeyExchangeRequest {
+  string chat_id = 1;
+  string sender_user_id = 2;
+  bytes curve_public_key = 3;
+  bytes nonce = 4;
+  bytes ed25519_signature = 5;
+}
+
+message KeyExchangeResponse {
+  string chat_id = 1;
+  string responder_user_id = 2;
+  bytes curve_public_key = 3;
+  bytes nonce = 4;
+  bytes ed25519_signature = 5;
+}
+
+message KeyExchangeConfirmation {
+  string chat_id = 1;
+  bool status = 2;
 }
 
