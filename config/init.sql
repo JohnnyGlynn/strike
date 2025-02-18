@@ -15,13 +15,17 @@ CREATE TABLE user_keys (
     PRIMARY KEY (user_id)
 );
 
+
+-- CLIENT SPECIFIC TABLES
 CREATE TABLE chats (
     chat_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     chat_name VARCHAR(255) NOT NULL,
     initiator UUID NOT NULL REFERENCES users(id),
-    recipient UUID NOT NULL REFERENCES users(id),
-    state VARCHAR(20) NOT NULL CHECK (state IN ('Pending', 'Active')), --Needed for chat creation?
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    participants UUID[] NOT NULL,
+    state VARCHAR(20) NOT NULL CHECK (state IN ('INIT', 'KEY_EXCHANGE_PENDING', 'ENCRYPTED')),
+    shared_secret BYTEA,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE messages (
@@ -29,6 +33,20 @@ CREATE TABLE messages (
     chat_id UUID NOT NULL REFERENCES chats(chat_id),
     sender UUID NOT NULL REFERENCES users(id),
     content TEXT NOT NULL, -- TODO: Encrypted Content? Extra fields to support encryption?
-    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    sent_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+
+-- Auto-update updated_at
+CREATE OR REPLACE FUNCTION auto_update_timestamp_column()
+RETURNS TRIGGER AS $auto_update$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$auto_update$ LANGUAGE plpgsql;
+
+CREATE TRIGGER chats_update_timestamp
+BEFORE UPDATE ON chats
+FOR EACH ROW
+EXECUTE FUNCTION auto_update_timestamp_column();

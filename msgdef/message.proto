@@ -72,7 +72,8 @@ message Chat {
   enum State {
     DEFAULT = 0;
     INIT = 1;
-    ACTIVE = 2;
+    KEY_EXCHANGE_PENDING = 2;
+    ENCRYPTED = 3;
   }
 
   State state = 3;

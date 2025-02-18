@@ -75,7 +75,7 @@ func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*PreparedStat
 	}
 
 	//Insert Chat
-	if _, err := poolConnection.Conn().Prepare(ctx, statements.CreateChat, "INSERT INTO chats (chat_id, chat_name, initiator, recipient, state) VALUES ($1, $2, $3, $4, $5)"); err != nil {
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.CreateChat, "INSERT INTO chats (chat_id, chat_name, initiator, participants, state, shared_secret) VALUES ($1, $2, $3, $4, $5, $6)"); err != nil {
 		return nil, err
 	}
 
