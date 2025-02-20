@@ -142,7 +142,7 @@ message KeyExchangeRequest {
   string sender_user_id = 2;
   bytes curve_public_key = 3;
   bytes nonce = 4;
-  bytes ed25519_signature = 5;
+  repeated bytes signatures = 5;
 }
 
 message KeyExchangeResponse {
@@ -150,7 +150,7 @@ message KeyExchangeResponse {
   string responder_user_id = 2;
   bytes curve_public_key = 3;
   bytes nonce = 4;
-  bytes ed25519_signature = 5;
+  repeated bytes signatures = 5;
 }
 
 message KeyExchangeConfirmation {
