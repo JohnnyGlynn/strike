@@ -22,8 +22,9 @@ service Strike {
   rpc MessageStream(Username) returns (stream MessageStreamPayload) {}
 
   // Key Exchange
-  rpc InitiateKeyExchange(KeyExchangeRequest) returns (KeyExchangeResponse);
-  rpc ConfirmKeyExchange(KeyExchangeConfirmation) returns (KeyExchangeConfirmation);
+  rpc InitiateKeyExchange(KeyExchangeRequest) returns (ServerResponse);
+  rpc ReciprocateKeyExchange(KeyExchangeResponse) returns (ServerResponse);
+  rpc ConfirmKeyExchange(KeyExchangeConfirmation) returns (ServerResponse);
 }
 
 //TODO: Lots of cleaning
