@@ -107,12 +107,16 @@ message StatusUpdate {
     google.protobuf.Timestamp updated_at = 2;
 }
 
+// TODO: this is getting messy
 message MessageStreamPayload {
   string target = 1;
   oneof payload {
     BeginChatRequest chat_request = 2;
     ConfirmChatRequest chat_confirm = 3;
     Envelope envelope = 4;
+    KeyExchangeRequest key_exch_request = 5;
+    KeyExchangeResponse key_exch_response = 6;
+    KeyExchangeConfirmation key_exch_confirm = 7;
   }
 }
 

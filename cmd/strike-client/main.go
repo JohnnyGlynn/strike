@@ -229,7 +229,7 @@ func main() {
 
 			switch input {
 			case "/msgshell":
-				client.MessagingShell(newClient, username, loadedKeys["SigningPublicKey"])
+				client.MessagingShell(newClient, username, loadedKeys)
 			case "/exit":
 				fmt.Println("Strike Client shutting down")
 				return

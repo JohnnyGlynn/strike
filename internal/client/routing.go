@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"sync"
@@ -13,34 +14,39 @@ type Demultiplexer struct {
 	chatRequestChannel chan *pb.BeginChatRequest
 	chatConfirmChannel chan *pb.ConfirmChatRequest
 	envelopeChannel    chan *pb.Envelope
+	keyExchangeChannel chan *pb.KeyExchangeRequest
 
 	// Workers
-	envelopeWorkerCount    int
-	chatRequestWorkerCount int
-	chatConfirmWorkerCount int
+	envelopeWorkerCount           int
+	chatRequestWorkerCount        int
+	chatConfirmWorkerCount        int
+	keyExchangeRequestWorkerCount int
 
 	// mutex for workers
 	mu sync.Mutex
 }
 
-func NewDemultiplexer(chatCache map[string]*pb.Chat, inviteCache map[string]*pb.BeginChatRequest) *Demultiplexer {
+func NewDemultiplexer(c pb.StrikeClient, chatCache map[string]*pb.Chat, inviteCache map[string]*pb.BeginChatRequest, keys map[string][]byte, username string) *Demultiplexer {
 	d := &Demultiplexer{
 		chatRequestChannel: make(chan *pb.BeginChatRequest, 20),
 		chatConfirmChannel: make(chan *pb.ConfirmChatRequest, 20),
 		envelopeChannel:    make(chan *pb.Envelope, 200),
+		keyExchangeChannel: make(chan *pb.KeyExchangeRequest, 20),
 	}
 
-  //Baseline workers
+	// Baseline workers
 	d.mu.Lock()
 	d.envelopeWorkerCount = 1
 	d.chatRequestWorkerCount = 1
 	d.chatConfirmWorkerCount = 1
+	d.keyExchangeRequestWorkerCount = 1
 	d.mu.Unlock()
 
 	// Run demultiplexer channel processors - Permanent processors
 	go ProcessEnvelopes(d.envelopeChannel, 0, &d.envelopeWorkerCount, &d.mu)
 	go ProcessChatRequests(d.chatRequestChannel, inviteCache, 0, &d.chatRequestWorkerCount, &d.mu)
 	go ProcessConfirmChatRequests(d.chatConfirmChannel, chatCache, 0, &d.chatConfirmWorkerCount, &d.mu)
+	go ProcessKeyExchangeRequests(c, d.keyExchangeChannel, chatCache, 0, &d.keyExchangeRequestWorkerCount, &d.mu, keys, username)
 
 	return d
 }
@@ -66,12 +72,18 @@ func (d *Demultiplexer) Dispatcher(msg *pb.MessageStreamPayload) {
 			log.Printf("WARNING: Channel full - Chat Confirm dropped - Sender: %v\n", payload.ChatConfirm.Confirmer)
 			// TODO: Retry to create chats if this fails
 		}
+	case *pb.MessageStreamPayload_KeyExchRequest:
+		select {
+		case d.keyExchangeChannel <- payload.KeyExchRequest:
+		default:
+			log.Printf("WARNING: Channel full - Key exchange request dropped - Sender: %v\n", payload.KeyExchRequest)
+		}
 	default:
 		log.Println("Unknown payload type")
 	}
 }
 
-func (d *Demultiplexer) StartMonitoring(chatCache map[string]*pb.Chat, inviteCache map[string]*pb.BeginChatRequest) {
+func (d *Demultiplexer) StartMonitoring(c pb.StrikeClient, chatCache map[string]*pb.Chat, inviteCache map[string]*pb.BeginChatRequest, keys map[string][]byte, username string) {
 	const ephemeralTimeout = 5 * time.Second
 
 	// Monitor our channels - spawn workers if needed - more for messages obviously
@@ -90,6 +102,12 @@ func (d *Demultiplexer) StartMonitoring(chatCache map[string]*pb.Chat, inviteCac
 	go monitorChannel(d.chatConfirmChannel, 10, 3, &d.chatConfirmWorkerCount, ephemeralTimeout, &d.mu,
 		func() {
 			ProcessConfirmChatRequests(d.chatConfirmChannel, chatCache, ephemeralTimeout, &d.chatConfirmWorkerCount, &d.mu)
+		},
+	)
+
+	go monitorChannel(d.keyExchangeChannel, 10, 3, &d.keyExchangeRequestWorkerCount, ephemeralTimeout, &d.mu,
+		func() {
+			ProcessKeyExchangeRequests(c, d.keyExchangeChannel, chatCache, ephemeralTimeout, &d.keyExchangeRequestWorkerCount, &d.mu, keys, username) // TODO: This is a mes
 		},
 	)
 }
@@ -160,6 +178,41 @@ func ProcessConfirmChatRequests(ch <-chan *pb.ConfirmChatRequest, cache map[stri
 			}
 		case <-timeoutCh:
 			fmt.Printf("ConfirmChatRequest worker idle for %v, exiting.\n", idleTimeout) // shutdown ephemeral workers
+			mu.Lock()
+			*workerCount--
+			mu.Unlock()
+			return
+		}
+	}
+}
+
+func ProcessKeyExchangeRequests(c pb.StrikeClient, ch <-chan *pb.KeyExchangeRequest, cache map[string]*pb.Chat, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex, keys map[string][]byte, username string) {
+	for {
+		var timeoutCh <-chan time.Time // channel for timer
+		if idleTimeout > 0 {
+			timeoutCh = time.After(idleTimeout) // if timeout non-0 create timout channel
+		}
+		select {
+		case keyExReq, ok := <-ch:
+			if !ok {
+				return
+			}
+			fmt.Printf("Key exchange initiated for: %v\n", keyExReq.ChatId)
+			chat := cache[keyExReq.ChatId]
+
+			sharedSecret, err := ComputeSharedSecret(keys["EncryptionPrivateKey"], keyExReq.CurvePublicKey)
+			if err != nil {
+				// TODO: Error return
+				log.Print("failed to compute shared secret")
+			}
+
+			// DB OPERATIONS HERE
+			fmt.Printf("INSERT INTO DB DONT PRINT THIS: %v", sharedSecret)
+
+			ReciprocateKeyExchange(context.TODO(), c, username, keys["SigningPrivateKey"], keys["EncryptionPublicKey"], chat)
+
+		case <-timeoutCh:
+			fmt.Printf("KeyExchangeRequest worker idle for %v, exiting.\n", idleTimeout) // shutdown ephemeral workers
 			mu.Lock()
 			*workerCount--
 			mu.Unlock()

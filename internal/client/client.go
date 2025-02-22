@@ -37,7 +37,7 @@ func init() {
 	}
 }
 
-func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username string) error {
+func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username string, keys map[string][]byte) error {
 	// Pass your own username to register your stream
 	stream, err := c.MessageStream(ctx, &pb.Username{Username: username})
 	if err != nil {
@@ -46,10 +46,11 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 	}
 
 	// Start our demultiplexer and baseline processor functions
-	demux := NewDemultiplexer(newCache.Chats, newCache.Invites)
+  //TODO: Pass more in less
+	demux := NewDemultiplexer(c, newCache.Chats, newCache.Invites, keys, username)
 
 	// Start Monitoring
-	demux.StartMonitoring(newCache.Chats, newCache.Invites)
+	demux.StartMonitoring(c, newCache.Chats, newCache.Invites, keys, username)
 
 	for {
 		select {
@@ -245,13 +246,14 @@ func BeginChat(c pb.StrikeClient, username string, chatTarget string, chatName s
 }
 
 // TODO: No longer fit for purpose - Terminal UI library time
-func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
+func MessagingShell(c pb.StrikeClient, username string, keys map[string][]byte) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// Get messages
+	// TODO: Pass a single client with everything we need
 	go func() {
-		err := ConnectMessageStream(ctx, c, username)
+		err := ConnectMessageStream(ctx, c, username, keys)
 		if err != nil {
 			log.Fatalf("failed to connect message stream: %v\n", err)
 		}
@@ -299,7 +301,7 @@ func MessagingShell(c pb.StrikeClient, username string, publicKey []byte) {
 			continue
 		}
 
-		if err := shellSendMessage(input, c, username, publicKey); err != nil {
+		if err := shellSendMessage(input, c, username, keys["SigningPublicKey"]); err != nil {
 			fmt.Println(err)
 		}
 	}

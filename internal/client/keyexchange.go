@@ -85,14 +85,14 @@ func ConfirmKeyExchange(ctx context.Context, c pb.StrikeClient, status bool, cha
 	fmt.Printf("Key exchange confirmed: %v", resp.Success)
 }
 
-func ComputeSharedSecret(privateCurveKey []byte, inboundKeyExchange *pb.KeyExchangeResponse) ([]byte, error) {
+func ComputeSharedSecret(privateCurveKey []byte, inboundKey []byte) ([]byte, error) {
 	// Validate our keys from []byte``
 	private, err := ecdh.X25519().NewPrivateKey(privateCurveKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate key: %v", err)
 	}
 
-	public, err := ecdh.X25519().NewPublicKey(inboundKeyExchange.CurvePublicKey)
+	public, err := ecdh.X25519().NewPublicKey(inboundKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate key: %v", err)
 	}
