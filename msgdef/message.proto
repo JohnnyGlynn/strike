@@ -15,16 +15,11 @@ service Strike {
 
   rpc SaltMine(Username) returns (Salt) {}
 
-  rpc SendMessages(MessageStreamPayload) returns (ServerResponse) {}
+  rpc SendPayload(MessageStreamPayload) returns (ServerResponse) {}
 
   rpc UserStatus(StatusRequest) returns (stream StatusUpdate) {}
 
   rpc MessageStream(Username) returns (stream MessageStreamPayload) {}
-
-  // Key Exchange
-  rpc InitiateKeyExchange(KeyExchangeRequest) returns (ServerResponse);
-  rpc ReciprocateKeyExchange(KeyExchangeResponse) returns (ServerResponse);
-  rpc ConfirmKeyExchange(KeyExchangeConfirmation) returns (ServerResponse);
 }
 
 //TODO: Lots of cleaning
@@ -56,9 +51,10 @@ message BeginChatRequest {
 message ConfirmChatRequest {
   string invite_id = 1; //UUID of invite
   string chat_name = 2; // chat name
-  string confirmer = 3; // target user accepting chat
-  bool state = 4; // yes/no
-  Chat chat = 5;
+  string initiator = 3;
+  string confirmer = 4; // target user accepting chat
+  bool state = 5; // yes/no
+  Chat chat = 6;
 }
 
 message LoginRequest {
@@ -144,10 +140,11 @@ message EncryptedEnvelope {
 // -----------------------------------Key Exchange---------------------------------------------
 message KeyExchangeRequest {
   string chat_id = 1;
-  string sender_user_id = 2;
-  bytes curve_public_key = 3;
-  bytes nonce = 4;
-  repeated bytes signatures = 5;
+  string target = 2;
+  string sender_user_id = 3;
+  bytes curve_public_key = 4;
+  bytes nonce = 5;
+  repeated bytes signatures = 6;
 }
 
 message KeyExchangeResponse {

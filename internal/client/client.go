@@ -46,7 +46,7 @@ func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username strin
 	}
 
 	// Start our demultiplexer and baseline processor functions
-  //TODO: Pass more in less
+	// TODO: Pass more in less
 	demux := NewDemultiplexer(c, newCache.Chats, newCache.Invites, keys, username)
 
 	// Start Monitoring
@@ -88,7 +88,7 @@ func SendMessage(c pb.StrikeClient, username string, publicKey []byte, target st
 		Payload: &pb.MessageStreamPayload_Envelope{Envelope: &envelope},
 	}
 
-	_, err := c.SendMessages(context.Background(), &payloadEnvelope)
+	_, err := c.SendPayload(context.Background(), &payloadEnvelope)
 	if err != nil {
 		log.Fatalf("Error sending message: %v", err)
 	}
@@ -98,6 +98,7 @@ func ConfirmChat(ctx context.Context, c pb.StrikeClient, chatRequest *pb.BeginCh
 	confirmation := pb.ConfirmChatRequest{
 		InviteId:  chatRequest.InviteId,
 		ChatName:  chatRequest.Chat.Name,
+		Initiator: chatRequest.Initiator,
 		Confirmer: chatRequest.Target,
 		State:     inviteState,
 		Chat:      chatRequest.Chat,
@@ -108,7 +109,7 @@ func ConfirmChat(ctx context.Context, c pb.StrikeClient, chatRequest *pb.BeginCh
 		Payload: &pb.MessageStreamPayload_ChatConfirm{ChatConfirm: &confirmation},
 	}
 
-	resp, err := c.SendMessages(ctx, &payload)
+	resp, err := c.SendPayload(ctx, &payload)
 	if err != nil {
 		return fmt.Errorf("failed to confirm chat: %v", err)
 	}
@@ -234,7 +235,7 @@ func BeginChat(c pb.StrikeClient, username string, chatTarget string, chatName s
 		Payload: &pb.MessageStreamPayload_ChatRequest{ChatRequest: beginChat},
 	}
 
-	beginChatResponse, err := c.SendMessages(ctx, &payloadChatRequest)
+	beginChatResponse, err := c.SendPayload(ctx, &payloadChatRequest)
 	if err != nil {
 		log.Fatalf("Begin Chat failed: %v", err)
 		return err

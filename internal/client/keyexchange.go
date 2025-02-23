@@ -11,7 +11,7 @@ import (
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 )
 
-func InitiateKeyExchange(ctx context.Context, c pb.StrikeClient, username string, privateEDKey []byte, publicCurveKey []byte, chat *pb.Chat) {
+func InitiateKeyExchange(ctx context.Context, c pb.StrikeClient, target string, username string, privateEDKey []byte, publicCurveKey []byte, chat *pb.Chat) {
 	// make nonce
 	nonce := make([]byte, 32)
 	_, err := rand.Read(nonce)
@@ -33,7 +33,13 @@ func InitiateKeyExchange(ctx context.Context, c pb.StrikeClient, username string
 		Signatures:     sigs,
 	}
 
-	resp, err := c.InitiateKeyExchange(ctx, &exchangeInfo)
+  payload := pb.MessageStreamPayload{
+		Target:  target,
+		Payload: &pb.MessageStreamPayload_KeyExchRequest{KeyExchRequest: &exchangeInfo},
+	}
+
+
+	resp, err := c.SendPayload(ctx, &payload)
 	if err != nil {
 		log.Fatalf("Error initiating key exchange: %v", err)
 	}
@@ -41,7 +47,7 @@ func InitiateKeyExchange(ctx context.Context, c pb.StrikeClient, username string
 	fmt.Printf("Key Exchange initiated: %v", resp.Success)
 }
 
-func ReciprocateKeyExchange(ctx context.Context, c pb.StrikeClient, username string, privateEDKey []byte, publicCurveKey []byte, chat *pb.Chat) {
+func ReciprocateKeyExchange(ctx context.Context, c pb.StrikeClient, target string, username string, privateEDKey []byte, publicCurveKey []byte, chat *pb.Chat) {
 	// make nonce
 	nonce := make([]byte, 32)
 	_, err := rand.Read(nonce)
@@ -63,7 +69,12 @@ func ReciprocateKeyExchange(ctx context.Context, c pb.StrikeClient, username str
 		Signatures:      sigs,
 	}
 
-	resp, err := c.ReciprocateKeyExchange(ctx, &exchangeInfo)
+  payload := pb.MessageStreamPayload{
+		Target:  target,
+		Payload: &pb.MessageStreamPayload_KeyExchResponse{KeyExchResponse: &exchangeInfo},
+	}
+
+	resp, err := c.SendPayload(ctx, &payload)
 	if err != nil {
 		log.Fatalf("Error reciprocating key exchange: %v", err)
 	}
@@ -71,13 +82,18 @@ func ReciprocateKeyExchange(ctx context.Context, c pb.StrikeClient, username str
 	fmt.Printf("Key Exchange reciprocated: %v", resp.Success)
 }
 
-func ConfirmKeyExchange(ctx context.Context, c pb.StrikeClient, status bool, chat *pb.Chat) {
+func ConfirmKeyExchange(ctx context.Context, c pb.StrikeClient, target string, status bool, chat *pb.Chat) {
 	confirmation := pb.KeyExchangeConfirmation{
 		ChatId: chat.Id,
 		Status: status,
 	}
 
-	resp, err := c.ConfirmKeyExchange(ctx, &confirmation)
+  payload := pb.MessageStreamPayload{
+		Target:  target,
+		Payload: &pb.MessageStreamPayload_KeyExchConfirm{KeyExchConfirm: &confirmation},
+	}
+
+	resp, err := c.SendPayload(ctx, &payload)
 	if err != nil {
 		log.Fatalf("Error confirming key exchange: %v", err)
 	}

@@ -209,7 +209,8 @@ func ProcessKeyExchangeRequests(c pb.StrikeClient, ch <-chan *pb.KeyExchangeRequ
 			// DB OPERATIONS HERE
 			fmt.Printf("INSERT INTO DB DONT PRINT THIS: %v", sharedSecret)
 
-			ReciprocateKeyExchange(context.TODO(), c, username, keys["SigningPrivateKey"], keys["EncryptionPublicKey"], chat)
+			// TODO: Signature is gross
+			ReciprocateKeyExchange(context.TODO(), c, keyExReq.Target, username, keys["SigningPrivateKey"], keys["EncryptionPublicKey"], chat)
 
 		case <-timeoutCh:
 			fmt.Printf("KeyExchangeRequest worker idle for %v, exiting.\n", idleTimeout) // shutdown ephemeral workers

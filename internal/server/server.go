@@ -29,7 +29,7 @@ type StrikeServer struct {
 	mu              sync.Mutex
 }
 
-func (s *StrikeServer) SendMessages(ctx context.Context, payload *pb.MessageStreamPayload) (*pb.ServerResponse, error) {
+func (s *StrikeServer) SendPayload(ctx context.Context, payload *pb.MessageStreamPayload) (*pb.ServerResponse, error) {
 	// TODO: Work out the most effecient Syncing for mutexs, this is a lot of locking and unlocking
 	s.mu.Lock()
 	channel, ok := s.MessageChannels[payload.Target]
@@ -53,7 +53,7 @@ func (s *StrikeServer) SendMessages(ctx context.Context, payload *pb.MessageStre
 func (s *StrikeServer) SaltMine(ctx context.Context, user *pb.Username) (*pb.Salt, error) {
 	var salt []byte
 
-  //TODO: ERROR this fails after server has been running long
+	// TODO: ERROR this fails after server has been running long
 	err := s.DBpool.QueryRow(ctx, s.PStatements.SaltMine, user.Username).Scan(&salt)
 	if err != nil {
 		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
@@ -164,38 +164,6 @@ func (s *StrikeServer) UserStatus(req *pb.StatusRequest, stream pb.Strike_UserSt
 			}
 		}
 	}
-}
-
-func (s *StrikeServer) BeginChat(ctx context.Context, req *pb.MessageStreamPayload_ChatRequest) (*pb.ServerResponse, error) {
-	fmt.Printf("Begining Chat: %s\n", req.ChatRequest.Target)
-	_, exists := s.MessageStreams[req.ChatRequest.Target]
-	if !exists {
-		return nil, fmt.Errorf("%v not found", req.ChatRequest.Target)
-	}
-
-	// ReadWrite mutex
-	s.mu.Lock()
-	targetMessageStream := s.MessageStreams[req.ChatRequest.Target]
-	s.mu.Unlock()
-
-	err := targetMessageStream.Send(&pb.MessageStreamPayload{Target: req.ChatRequest.Target, Payload: req})
-	if err != nil {
-		fmt.Printf("Failed to send message on %s's stream: %v\n", req.ChatRequest.Target, err)
-		return nil, err
-	}
-
-	return &pb.ServerResponse{Success: true, Message: "BeginChat OK"}, nil
-}
-
-func (s *StrikeServer) ConfirmChat(ctx context.Context, req *pb.ConfirmChatRequest) (*pb.ServerResponse, error) {
-	fmt.Printf("Confirming Chat: %s\n", req.ChatName)
-
-	Confirmed := fmt.Sprintf("%v has accepted chat request, entering Chat", req.Confirmer)
-
-	return &pb.ServerResponse{
-		Success: true,
-		Message: Confirmed,
-	}, nil
 }
 
 func (s *StrikeServer) MessageStream(username *pb.Username, stream pb.Strike_MessageStreamServer) error {

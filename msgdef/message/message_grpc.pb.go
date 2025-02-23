@@ -19,16 +19,13 @@ import (
 const _ = grpc.SupportPackageIsVersion8
 
 const (
-	Strike_Signup_FullMethodName                 = "/message.Strike/Signup"
-	Strike_ConfirmChat_FullMethodName            = "/message.Strike/ConfirmChat"
-	Strike_Login_FullMethodName                  = "/message.Strike/Login"
-	Strike_SaltMine_FullMethodName               = "/message.Strike/SaltMine"
-	Strike_SendMessages_FullMethodName           = "/message.Strike/SendMessages"
-	Strike_UserStatus_FullMethodName             = "/message.Strike/UserStatus"
-	Strike_MessageStream_FullMethodName          = "/message.Strike/MessageStream"
-	Strike_InitiateKeyExchange_FullMethodName    = "/message.Strike/InitiateKeyExchange"
-	Strike_ReciprocateKeyExchange_FullMethodName = "/message.Strike/ReciprocateKeyExchange"
-	Strike_ConfirmKeyExchange_FullMethodName     = "/message.Strike/ConfirmKeyExchange"
+	Strike_Signup_FullMethodName        = "/message.Strike/Signup"
+	Strike_ConfirmChat_FullMethodName   = "/message.Strike/ConfirmChat"
+	Strike_Login_FullMethodName         = "/message.Strike/Login"
+	Strike_SaltMine_FullMethodName      = "/message.Strike/SaltMine"
+	Strike_SendPayload_FullMethodName   = "/message.Strike/SendPayload"
+	Strike_UserStatus_FullMethodName    = "/message.Strike/UserStatus"
+	Strike_MessageStream_FullMethodName = "/message.Strike/MessageStream"
 )
 
 // StrikeClient is the client API for Strike service.
@@ -39,13 +36,9 @@ type StrikeClient interface {
 	ConfirmChat(ctx context.Context, in *ConfirmChatRequest, opts ...grpc.CallOption) (*ServerResponse, error)
 	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*ServerResponse, error)
 	SaltMine(ctx context.Context, in *Username, opts ...grpc.CallOption) (*Salt, error)
-	SendMessages(ctx context.Context, in *MessageStreamPayload, opts ...grpc.CallOption) (*ServerResponse, error)
+	SendPayload(ctx context.Context, in *MessageStreamPayload, opts ...grpc.CallOption) (*ServerResponse, error)
 	UserStatus(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (Strike_UserStatusClient, error)
 	MessageStream(ctx context.Context, in *Username, opts ...grpc.CallOption) (Strike_MessageStreamClient, error)
-	// Key Exchange
-	InitiateKeyExchange(ctx context.Context, in *KeyExchangeRequest, opts ...grpc.CallOption) (*ServerResponse, error)
-	ReciprocateKeyExchange(ctx context.Context, in *KeyExchangeResponse, opts ...grpc.CallOption) (*ServerResponse, error)
-	ConfirmKeyExchange(ctx context.Context, in *KeyExchangeConfirmation, opts ...grpc.CallOption) (*ServerResponse, error)
 }
 
 type strikeClient struct {
@@ -96,10 +89,10 @@ func (c *strikeClient) SaltMine(ctx context.Context, in *Username, opts ...grpc.
 	return out, nil
 }
 
-func (c *strikeClient) SendMessages(ctx context.Context, in *MessageStreamPayload, opts ...grpc.CallOption) (*ServerResponse, error) {
+func (c *strikeClient) SendPayload(ctx context.Context, in *MessageStreamPayload, opts ...grpc.CallOption) (*ServerResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ServerResponse)
-	err := c.cc.Invoke(ctx, Strike_SendMessages_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Strike_SendPayload_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -172,36 +165,6 @@ func (x *strikeMessageStreamClient) Recv() (*MessageStreamPayload, error) {
 	return m, nil
 }
 
-func (c *strikeClient) InitiateKeyExchange(ctx context.Context, in *KeyExchangeRequest, opts ...grpc.CallOption) (*ServerResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ServerResponse)
-	err := c.cc.Invoke(ctx, Strike_InitiateKeyExchange_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *strikeClient) ReciprocateKeyExchange(ctx context.Context, in *KeyExchangeResponse, opts ...grpc.CallOption) (*ServerResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ServerResponse)
-	err := c.cc.Invoke(ctx, Strike_ReciprocateKeyExchange_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *strikeClient) ConfirmKeyExchange(ctx context.Context, in *KeyExchangeConfirmation, opts ...grpc.CallOption) (*ServerResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ServerResponse)
-	err := c.cc.Invoke(ctx, Strike_ConfirmKeyExchange_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // StrikeServer is the server API for Strike service.
 // All implementations must embed UnimplementedStrikeServer
 // for forward compatibility
@@ -210,13 +173,9 @@ type StrikeServer interface {
 	ConfirmChat(context.Context, *ConfirmChatRequest) (*ServerResponse, error)
 	Login(context.Context, *LoginRequest) (*ServerResponse, error)
 	SaltMine(context.Context, *Username) (*Salt, error)
-	SendMessages(context.Context, *MessageStreamPayload) (*ServerResponse, error)
+	SendPayload(context.Context, *MessageStreamPayload) (*ServerResponse, error)
 	UserStatus(*StatusRequest, Strike_UserStatusServer) error
 	MessageStream(*Username, Strike_MessageStreamServer) error
-	// Key Exchange
-	InitiateKeyExchange(context.Context, *KeyExchangeRequest) (*ServerResponse, error)
-	ReciprocateKeyExchange(context.Context, *KeyExchangeResponse) (*ServerResponse, error)
-	ConfirmKeyExchange(context.Context, *KeyExchangeConfirmation) (*ServerResponse, error)
 	mustEmbedUnimplementedStrikeServer()
 }
 
@@ -236,23 +195,14 @@ func (UnimplementedStrikeServer) Login(context.Context, *LoginRequest) (*ServerR
 func (UnimplementedStrikeServer) SaltMine(context.Context, *Username) (*Salt, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SaltMine not implemented")
 }
-func (UnimplementedStrikeServer) SendMessages(context.Context, *MessageStreamPayload) (*ServerResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SendMessages not implemented")
+func (UnimplementedStrikeServer) SendPayload(context.Context, *MessageStreamPayload) (*ServerResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SendPayload not implemented")
 }
 func (UnimplementedStrikeServer) UserStatus(*StatusRequest, Strike_UserStatusServer) error {
 	return status.Errorf(codes.Unimplemented, "method UserStatus not implemented")
 }
 func (UnimplementedStrikeServer) MessageStream(*Username, Strike_MessageStreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method MessageStream not implemented")
-}
-func (UnimplementedStrikeServer) InitiateKeyExchange(context.Context, *KeyExchangeRequest) (*ServerResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method InitiateKeyExchange not implemented")
-}
-func (UnimplementedStrikeServer) ReciprocateKeyExchange(context.Context, *KeyExchangeResponse) (*ServerResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ReciprocateKeyExchange not implemented")
-}
-func (UnimplementedStrikeServer) ConfirmKeyExchange(context.Context, *KeyExchangeConfirmation) (*ServerResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ConfirmKeyExchange not implemented")
 }
 func (UnimplementedStrikeServer) mustEmbedUnimplementedStrikeServer() {}
 
@@ -339,20 +289,20 @@ func _Strike_SaltMine_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Strike_SendMessages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Strike_SendPayload_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MessageStreamPayload)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(StrikeServer).SendMessages(ctx, in)
+		return srv.(StrikeServer).SendPayload(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Strike_SendMessages_FullMethodName,
+		FullMethod: Strike_SendPayload_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StrikeServer).SendMessages(ctx, req.(*MessageStreamPayload))
+		return srv.(StrikeServer).SendPayload(ctx, req.(*MessageStreamPayload))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -399,60 +349,6 @@ func (x *strikeMessageStreamServer) Send(m *MessageStreamPayload) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _Strike_InitiateKeyExchange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(KeyExchangeRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(StrikeServer).InitiateKeyExchange(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Strike_InitiateKeyExchange_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StrikeServer).InitiateKeyExchange(ctx, req.(*KeyExchangeRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Strike_ReciprocateKeyExchange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(KeyExchangeResponse)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(StrikeServer).ReciprocateKeyExchange(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Strike_ReciprocateKeyExchange_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StrikeServer).ReciprocateKeyExchange(ctx, req.(*KeyExchangeResponse))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Strike_ConfirmKeyExchange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(KeyExchangeConfirmation)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(StrikeServer).ConfirmKeyExchange(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Strike_ConfirmKeyExchange_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StrikeServer).ConfirmKeyExchange(ctx, req.(*KeyExchangeConfirmation))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // Strike_ServiceDesc is the grpc.ServiceDesc for Strike service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -477,20 +373,8 @@ var Strike_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Strike_SaltMine_Handler,
 		},
 		{
-			MethodName: "SendMessages",
-			Handler:    _Strike_SendMessages_Handler,
-		},
-		{
-			MethodName: "InitiateKeyExchange",
-			Handler:    _Strike_InitiateKeyExchange_Handler,
-		},
-		{
-			MethodName: "ReciprocateKeyExchange",
-			Handler:    _Strike_ReciprocateKeyExchange_Handler,
-		},
-		{
-			MethodName: "ConfirmKeyExchange",
-			Handler:    _Strike_ConfirmKeyExchange_Handler,
+			MethodName: "SendPayload",
+			Handler:    _Strike_SendPayload_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
