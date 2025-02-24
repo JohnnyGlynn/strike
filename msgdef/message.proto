@@ -158,5 +158,6 @@ message KeyExchangeResponse {
 message KeyExchangeConfirmation {
   string chat_id = 1;
   bool status = 2;
+  string confirmer_user_id = 3;
 }
 
