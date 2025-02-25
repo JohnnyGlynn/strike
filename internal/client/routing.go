@@ -11,10 +11,12 @@ import (
 )
 
 type Demultiplexer struct {
-	chatRequestChannel chan *pb.BeginChatRequest
-	chatConfirmChannel chan *pb.ConfirmChatRequest
-	envelopeChannel    chan *pb.Envelope
-	keyExchangeChannel chan *pb.KeyExchangeRequest
+	chatRequestChannel             chan *pb.BeginChatRequest
+	chatConfirmChannel             chan *pb.ConfirmChatRequest
+	envelopeChannel                chan *pb.Envelope
+	keyExchangeChannel             chan *pb.KeyExchangeRequest
+	keyExchangeResponseChannel     chan *pb.KeyExchangeResponse
+	keyExchangeConfirmationChannel chan *pb.KeyExchangeConfirmation
 
 	// Workers
 	envelopeWorkerCount           int
@@ -31,7 +33,10 @@ func NewDemultiplexer(c pb.StrikeClient, chatCache map[string]*pb.Chat, inviteCa
 		chatRequestChannel: make(chan *pb.BeginChatRequest, 20),
 		chatConfirmChannel: make(chan *pb.ConfirmChatRequest, 20),
 		envelopeChannel:    make(chan *pb.Envelope, 200),
-		keyExchangeChannel: make(chan *pb.KeyExchangeRequest, 20),
+		// TODO: There has to be a better way
+		keyExchangeChannel:             make(chan *pb.KeyExchangeRequest, 20),
+		keyExchangeResponseChannel:     make(chan *pb.KeyExchangeResponse, 20),
+		keyExchangeConfirmationChannel: make(chan *pb.KeyExchangeConfirmation, 20),
 	}
 
 	// Baseline workers
@@ -47,6 +52,8 @@ func NewDemultiplexer(c pb.StrikeClient, chatCache map[string]*pb.Chat, inviteCa
 	go ProcessChatRequests(d.chatRequestChannel, inviteCache, 0, &d.chatRequestWorkerCount, &d.mu)
 	go ProcessConfirmChatRequests(c, d.chatConfirmChannel, chatCache, 0, &d.chatConfirmWorkerCount, &d.mu, keys)
 	go ProcessKeyExchangeRequests(c, d.keyExchangeChannel, chatCache, 0, &d.keyExchangeRequestWorkerCount, &d.mu, keys, username)
+	go ProcessKeyExchangeResponses(c, d.keyExchangeResponseChannel, chatCache, 0, &d.keyExchangeRequestWorkerCount, &d.mu, keys, username)
+	go ProcessKeyExchangeConfirmations(c, d.keyExchangeConfirmationChannel, chatCache, 0, &d.keyExchangeRequestWorkerCount, &d.mu, keys, username)
 
 	return d
 }
@@ -72,12 +79,26 @@ func (d *Demultiplexer) Dispatcher(msg *pb.MessageStreamPayload) {
 			log.Printf("WARNING: Channel full - Chat Confirm dropped - Sender: %v\n", payload.ChatConfirm.Confirmer)
 			// TODO: Retry to create chats if this fails
 		}
+		// TODO: Do better than X was dropped
 	case *pb.MessageStreamPayload_KeyExchRequest:
 		select {
 		case d.keyExchangeChannel <- payload.KeyExchRequest:
 		default:
 			log.Printf("WARNING: Channel full - Key exchange request dropped - Sender: %v\n", payload.KeyExchRequest)
 		}
+	case *pb.MessageStreamPayload_KeyExchResponse:
+		select {
+		case d.keyExchangeResponseChannel <- payload.KeyExchResponse:
+		default:
+			log.Printf("WARNING: Channel full - Key exchange response dropped - Sender: %v\n", payload.KeyExchResponse)
+		}
+	case *pb.MessageStreamPayload_KeyExchConfirm:
+		select {
+		case d.keyExchangeConfirmationChannel <- payload.KeyExchConfirm:
+		default:
+			log.Printf("WARNING: Channel full - Key exchange confirmation dropped - Sender: %v\n", payload.KeyExchConfirm)
+		}
+
 	default:
 		log.Println("Unknown payload type")
 	}
