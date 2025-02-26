@@ -297,10 +297,10 @@ func ProcessKeyExchangeConfirmations(c pb.StrikeClient, ch <-chan *pb.KeyExchang
 			if !ok {
 				return
 			}
-			fmt.Printf("Key exchange confirmation for: %v\n", keyExCon.ChatId)
 			chat := cache[keyExCon.ChatId]
-
 			if chat.State == pb.Chat_KEY_EXCHANGE_PENDING {
+				fmt.Printf("Key exchange confirmation for: %v\n", keyExCon.ChatId)
+
 				// TODO: More robust cache rather than maps (Redis?)
 				chat.State = pb.Chat_ENCRYPTED
 

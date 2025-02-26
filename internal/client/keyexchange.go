@@ -33,11 +33,10 @@ func InitiateKeyExchange(ctx context.Context, c pb.StrikeClient, target string, 
 		Signatures:     sigs,
 	}
 
-  payload := pb.MessageStreamPayload{
+	payload := pb.MessageStreamPayload{
 		Target:  target,
 		Payload: &pb.MessageStreamPayload_KeyExchRequest{KeyExchRequest: &exchangeInfo},
 	}
-
 
 	resp, err := c.SendPayload(ctx, &payload)
 	if err != nil {
@@ -69,7 +68,7 @@ func ReciprocateKeyExchange(ctx context.Context, c pb.StrikeClient, target strin
 		Signatures:      sigs,
 	}
 
-  payload := pb.MessageStreamPayload{
+	payload := pb.MessageStreamPayload{
 		Target:  target,
 		Payload: &pb.MessageStreamPayload_KeyExchResponse{KeyExchResponse: &exchangeInfo},
 	}
@@ -88,7 +87,7 @@ func ConfirmKeyExchange(ctx context.Context, c pb.StrikeClient, target string, s
 		Status: status,
 	}
 
-  payload := pb.MessageStreamPayload{
+	payload := pb.MessageStreamPayload{
 		Target:  target,
 		Payload: &pb.MessageStreamPayload_KeyExchConfirm{KeyExchConfirm: &confirmation},
 	}
@@ -119,4 +118,16 @@ func ComputeSharedSecret(privateCurveKey []byte, inboundKey []byte) ([]byte, err
 	}
 
 	return sharedSecret, nil
+}
+
+func VerifyEdSignatures(pubKey ed25519.PublicKey, nonce, CurvePublicKey []byte, sigs [][]byte) bool {
+	if len(sigs) < 2 {
+		return false
+	}
+
+	if !ed25519.Verify(pubKey, nonce, sigs[0]) {
+		return false
+	}
+
+	return ed25519.Verify(pubKey, CurvePublicKey, sigs[1])
 }
