@@ -33,9 +33,9 @@ func InitiateKeyExchange(ctx context.Context, c pb.StrikeClient, target string, 
 		Signatures:     sigs,
 	}
 
-	payload := pb.MessageStreamPayload{
+	payload := pb.StreamPayload{
 		Target:  target,
-		Payload: &pb.MessageStreamPayload_KeyExchRequest{KeyExchRequest: &exchangeInfo},
+		Payload: &pb.StreamPayload_KeyExchRequest{KeyExchRequest: &exchangeInfo},
 	}
 
 	resp, err := c.SendPayload(ctx, &payload)
@@ -68,9 +68,9 @@ func ReciprocateKeyExchange(ctx context.Context, c pb.StrikeClient, target strin
 		Signatures:      sigs,
 	}
 
-	payload := pb.MessageStreamPayload{
+	payload := pb.StreamPayload{
 		Target:  target,
-		Payload: &pb.MessageStreamPayload_KeyExchResponse{KeyExchResponse: &exchangeInfo},
+		Payload: &pb.StreamPayload_KeyExchResponse{KeyExchResponse: &exchangeInfo},
 	}
 
 	resp, err := c.SendPayload(ctx, &payload)
@@ -87,9 +87,9 @@ func ConfirmKeyExchange(ctx context.Context, c pb.StrikeClient, target string, s
 		Status: status,
 	}
 
-	payload := pb.MessageStreamPayload{
+	payload := pb.StreamPayload{
 		Target:  target,
-		Payload: &pb.MessageStreamPayload_KeyExchConfirm{KeyExchConfirm: &confirmation},
+		Payload: &pb.StreamPayload_KeyExchConfirm{KeyExchConfirm: &confirmation},
 	}
 
 	resp, err := c.SendPayload(ctx, &payload)

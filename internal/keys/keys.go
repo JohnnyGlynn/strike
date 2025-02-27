@@ -41,8 +41,7 @@ func init() {
 }
 
 func SigningKeygen() error {
-
-	//TODO: There is definetly a better way to do this
+	// TODO: There is definetly a better way to do this
 	fmt.Println("WARNING: You (the user) are responsible for the safety of these key files. You will not be able to recover these files if they are lost")
 
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
@@ -74,7 +73,6 @@ func SigningKeygen() error {
 
 	fmt.Println("Strike Signing Keys generated and saved to ~/.strike-keys")
 	return nil
-
 }
 
 func ValidateSigningKeys(keyBytes []byte) error {
@@ -88,12 +86,12 @@ func ValidateSigningKeys(keyBytes []byte) error {
 	switch block.Type {
 
 	case "PRIVATE KEY":
-		//Check key type
+		// Check key type
 		key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 		if err != nil {
 			return fmt.Errorf("failed to parse private key: %w", err)
 		}
-		//ok if ed25519
+		// ok if ed25519
 		_, ok := key.(ed25519.PrivateKey)
 		if !ok {
 			return fmt.Errorf("invalid ED25519 private key")
@@ -141,7 +139,6 @@ func EncryptionKeygen() error {
 
 	fmt.Println("Strike Encryption Keys generated and saved to ~/.strike-keys")
 	return nil
-
 }
 
 func ValidateEncryptionKeys(keyBytes []byte) error {
@@ -185,7 +182,6 @@ func ValidateEncryptionKeys(keyBytes []byte) error {
 }
 
 func LoadAndValidateKeys(keyMap map[string]KeyDefinition) (map[string][]byte, error) {
-
 	loadedKeys := make(map[string][]byte)
 
 	for name, def := range keyMap {
@@ -216,7 +212,6 @@ func LoadAndValidateKeys(keyMap map[string]KeyDefinition) (map[string][]byte, er
 }
 
 func GetKeyFromPath(path string) ([]byte, error) {
-
 	keyFile, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("error opening key file: %v", err)
@@ -232,7 +227,6 @@ func GetKeyFromPath(path string) ([]byte, error) {
 }
 
 func writeToPem(keyBytes []byte, keyType string, keyNameDotPem string) error {
-
 	strikeKeyDir := filepath.Join(homeDir, "/.strike-keys/")
 	fullPath := filepath.Join(strikeKeyDir, keyNameDotPem)
 
@@ -240,7 +234,7 @@ func writeToPem(keyBytes []byte, keyType string, keyNameDotPem string) error {
 	if _, err := os.Stat(strikeKeyDir); os.IsNotExist(err) {
 		// Directory doesn't exist
 		fmt.Println("~/.strike_keys not found. Creating ~/.strike_keys")
-		//TODO:Hidden Home for now, handle storing this in Library/Application Support : Cross Platform
+		// TODO:Hidden Home for now, handle storing this in Library/Application Support : Cross Platform
 		err = os.Mkdir(strikeKeyDir, 0755)
 		if err != nil {
 			return fmt.Errorf("error creating key directory: %v", err)
@@ -265,7 +259,6 @@ func writeToPem(keyBytes []byte, keyType string, keyNameDotPem string) error {
 
 // TODO: REFACTOR above functions to be more generic and robust, for now this will be fine
 func GenerateServerKeysAndCert() error {
-
 	fmt.Println("Server Keys and Cert Generator")
 
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
@@ -286,7 +279,7 @@ func GenerateServerKeysAndCert() error {
 	}
 
 	strikeKeyDir := filepath.Join(homeDir, "/.strike-server/")
-	//TODO: Not great
+	// TODO: Not great
 	pubFullPath := filepath.Join(strikeKeyDir, "strike_server_public.pem")
 	privFullPath := filepath.Join(strikeKeyDir, "strike_server.pem")
 	certFullPath := filepath.Join(strikeKeyDir, "strike_server.crt")
@@ -336,7 +329,7 @@ func GenerateServerKeysAndCert() error {
 
 	// first4 := publicKey[:4]
 
-	//Server template - TODO: Make the CommonName/DNSNames configurable during keygen, Maybe include First 4?
+	// Server template - TODO: Make the CommonName/DNSNames configurable during keygen, Maybe include First 4?
 	strikeCert := x509.Certificate{
 		SerialNumber: serialNumber,
 		Subject:      pkix.Name{CommonName: "strike_server"},
@@ -369,5 +362,4 @@ func GenerateServerKeysAndCert() error {
 
 	fmt.Println("Strike Server Signing Keys and Certificate generated and saved to ~/.strike-server")
 	return nil
-
 }

@@ -37,9 +37,9 @@ func init() {
 	}
 }
 
-func ConnectMessageStream(ctx context.Context, c pb.StrikeClient, username string, keys map[string][]byte) error {
+func ConnectPayloadStream(ctx context.Context, c pb.StrikeClient, username string, keys map[string][]byte) error {
 	// Pass your own username to register your stream
-	stream, err := c.MessageStream(ctx, &pb.Username{Username: username})
+	stream, err := c.PayloadStream(ctx, &pb.Username{Username: username})
 	if err != nil {
 		log.Fatalf("MessageStream Failed: %v", err)
 		return err
@@ -83,9 +83,9 @@ func SendMessage(c pb.StrikeClient, username string, publicKey []byte, target st
 		Message:         message,
 	}
 
-	payloadEnvelope := pb.MessageStreamPayload{
+	payloadEnvelope := pb.StreamPayload{
 		Target:  target,
-		Payload: &pb.MessageStreamPayload_Envelope{Envelope: &envelope},
+		Payload: &pb.StreamPayload_Envelope{Envelope: &envelope},
 	}
 
 	_, err := c.SendPayload(context.Background(), &payloadEnvelope)
@@ -104,9 +104,9 @@ func ConfirmChat(ctx context.Context, c pb.StrikeClient, chatRequest *pb.BeginCh
 		Chat:      chatRequest.Chat,
 	}
 
-	payload := pb.MessageStreamPayload{
+	payload := pb.StreamPayload{
 		Target:  chatRequest.Initiator,
-		Payload: &pb.MessageStreamPayload_ChatConfirm{ChatConfirm: &confirmation},
+		Payload: &pb.StreamPayload_ChatConfirm{ChatConfirm: &confirmation},
 	}
 
 	resp, err := c.SendPayload(ctx, &payload)
@@ -230,9 +230,9 @@ func BeginChat(c pb.StrikeClient, username string, chatTarget string, chatName s
 		},
 	}
 
-	payloadChatRequest := pb.MessageStreamPayload{
+	payloadChatRequest := pb.StreamPayload{
 		Target:  chatTarget,
-		Payload: &pb.MessageStreamPayload_ChatRequest{ChatRequest: beginChat},
+		Payload: &pb.StreamPayload_ChatRequest{ChatRequest: beginChat},
 	}
 
 	beginChatResponse, err := c.SendPayload(ctx, &payloadChatRequest)
@@ -254,7 +254,7 @@ func MessagingShell(c pb.StrikeClient, username string, keys map[string][]byte) 
 	// Get messages
 	// TODO: Pass a single client with everything we need
 	go func() {
-		err := ConnectMessageStream(ctx, c, username, keys)
+		err := ConnectPayloadStream(ctx, c, username, keys)
 		if err != nil {
 			log.Fatalf("failed to connect message stream: %v\n", err)
 		}

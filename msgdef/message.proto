@@ -15,11 +15,11 @@ service Strike {
 
   rpc SaltMine(Username) returns (Salt) {}
 
-  rpc SendPayload(MessageStreamPayload) returns (ServerResponse) {}
+  rpc SendPayload(StreamPayload) returns (ServerResponse) {}
 
   rpc UserStatus(StatusRequest) returns (stream StatusUpdate) {}
 
-  rpc MessageStream(Username) returns (stream MessageStreamPayload) {}
+  rpc PayloadStream(Username) returns (stream StreamPayload) {}
 }
 
 //TODO: Lots of cleaning
@@ -104,7 +104,7 @@ message StatusUpdate {
 }
 
 // TODO: this is getting messy
-message MessageStreamPayload {
+message StreamPayload {
   string target = 1;
   oneof payload {
     BeginChatRequest chat_request = 2;

@@ -58,21 +58,21 @@ func NewDemultiplexer(c pb.StrikeClient, chatCache map[string]*pb.Chat, inviteCa
 	return d
 }
 
-func (d *Demultiplexer) Dispatcher(msg *pb.MessageStreamPayload) {
+func (d *Demultiplexer) Dispatcher(msg *pb.StreamPayload) {
 	switch payload := msg.Payload.(type) {
-	case *pb.MessageStreamPayload_Envelope:
+	case *pb.StreamPayload_Envelope:
 		select {
 		case d.envelopeChannel <- payload.Envelope:
 		default:
 			log.Printf("WARNING: Channel full - Envelope dropped - Sender: %v\n", payload.Envelope.FromUser)
 		}
-	case *pb.MessageStreamPayload_ChatRequest:
+	case *pb.StreamPayload_ChatRequest:
 		select {
 		case d.chatRequestChannel <- payload.ChatRequest:
 		default:
 			log.Printf("WARNING: Channel full - Chat Request dropped - Sender: %v\n", payload.ChatRequest.Initiator)
 		}
-	case *pb.MessageStreamPayload_ChatConfirm:
+	case *pb.StreamPayload_ChatConfirm:
 		select {
 		case d.chatConfirmChannel <- payload.ChatConfirm:
 		default:
@@ -80,19 +80,19 @@ func (d *Demultiplexer) Dispatcher(msg *pb.MessageStreamPayload) {
 			// TODO: Retry to create chats if this fails
 		}
 		// TODO: Do better than X was dropped
-	case *pb.MessageStreamPayload_KeyExchRequest:
+	case *pb.StreamPayload_KeyExchRequest:
 		select {
 		case d.keyExchangeChannel <- payload.KeyExchRequest:
 		default:
 			log.Printf("WARNING: Channel full - Key exchange request dropped - Sender: %v\n", payload.KeyExchRequest)
 		}
-	case *pb.MessageStreamPayload_KeyExchResponse:
+	case *pb.StreamPayload_KeyExchResponse:
 		select {
 		case d.keyExchangeResponseChannel <- payload.KeyExchResponse:
 		default:
 			log.Printf("WARNING: Channel full - Key exchange response dropped - Sender: %v\n", payload.KeyExchResponse)
 		}
-	case *pb.MessageStreamPayload_KeyExchConfirm:
+	case *pb.StreamPayload_KeyExchConfirm:
 		select {
 		case d.keyExchangeConfirmationChannel <- payload.KeyExchConfirm:
 		default:

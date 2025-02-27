@@ -23,11 +23,11 @@ func main() {
 	fmt.Println("Strike Server")
 	ctx := context.Background()
 
-	//Avoid shadowing
+	// Avoid shadowing
 	var serverCfg config.ServerConfig
 	var err error
 
-	//TODO: Refactor, replicated from client
+	// TODO: Refactor, replicated from client
 	configFilePath := flag.String("config", "", "Path to configuration JSON file")
 	keygen := flag.Bool("keygen", false, "Launch Strike Server Key generation, creating keypair and certificate")
 	flag.Parse()
@@ -66,7 +66,7 @@ func main() {
 	// +v to print struct fields too
 	log.Printf("Loaded Server Config: %+v", serverCfg)
 
-	//PostgreSQL setup
+	// PostgreSQL setup
 	pgConfig, err := pgxpool.ParseConfig("postgres://strikeadmin:plaintextisbad@strike_db:5432/strike")
 	if err != nil {
 		log.Fatalf("Config parsing failed: %v", err)
@@ -95,7 +95,7 @@ func main() {
 		PStatements: statements,
 	}
 
-	//GRPC server prep
+	// GRPC server prep
 	lis, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
@@ -112,5 +112,4 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error listening: %v\n", err)
 	}
-
 }

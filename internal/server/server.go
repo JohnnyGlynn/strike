@@ -24,15 +24,15 @@ type StrikeServer struct {
 	PStatements *db.PreparedStatements
 
 	OnlineUsers     map[string]pb.Strike_UserStatusServer
-	MessageStreams  map[string]pb.Strike_MessageStreamServer
-	MessageChannels map[string]chan *pb.MessageStreamPayload
+	PayloadStreams  map[string]pb.Strike_PayloadStreamServer
+	PayloadChannels map[string]chan *pb.StreamPayload
 	mu              sync.Mutex
 }
 
-func (s *StrikeServer) SendPayload(ctx context.Context, payload *pb.MessageStreamPayload) (*pb.ServerResponse, error) {
+func (s *StrikeServer) SendPayload(ctx context.Context, payload *pb.StreamPayload) (*pb.ServerResponse, error) {
 	// TODO: Work out the most effecient Syncing for mutexs, this is a lot of locking and unlocking
 	s.mu.Lock()
-	channel, ok := s.MessageChannels[payload.Target]
+	channel, ok := s.PayloadChannels[payload.Target]
 	s.mu.Unlock()
 
 	if !ok {
@@ -166,37 +166,37 @@ func (s *StrikeServer) UserStatus(req *pb.StatusRequest, stream pb.Strike_UserSt
 	}
 }
 
-func (s *StrikeServer) MessageStream(username *pb.Username, stream pb.Strike_MessageStreamServer) error {
+func (s *StrikeServer) MessageStream(username *pb.Username, stream pb.Strike_PayloadStreamServer) error {
 	log.Printf("Stream Established: %v online \n", username.Username)
 
 	// TODO: cleaner map initilization
-	if s.MessageStreams == nil {
-		s.MessageStreams = make(map[string]pb.Strike_MessageStreamServer)
+	if s.PayloadStreams == nil {
+		s.PayloadStreams = make(map[string]pb.Strike_PayloadStreamServer)
 	}
 
 	// Register the users message steam
 	s.mu.Lock()
-	s.MessageStreams[username.Username] = stream
+	s.PayloadStreams[username.Username] = stream
 	s.mu.Unlock()
 
-	if s.MessageChannels == nil {
-		s.MessageChannels = make(map[string]chan *pb.MessageStreamPayload)
+	if s.PayloadChannels == nil {
+		s.PayloadChannels = make(map[string]chan *pb.StreamPayload)
 	}
 
 	// create a channel for each connected client
-	messageChannel := make(chan *pb.MessageStreamPayload, 100)
+	payloadChannel := make(chan *pb.StreamPayload, 100)
 
 	// Register the users message channel
 	s.mu.Lock()
-	s.MessageChannels[username.Username] = messageChannel
+	s.PayloadChannels[username.Username] = payloadChannel
 	s.mu.Unlock()
 
 	// Defer our cleanup of stream map and message channel
 	defer func() {
 		s.mu.Lock()
-		delete(s.MessageStreams, username.Username)
-		delete(s.MessageChannels, username.Username)
-		close(messageChannel) // Safely close the channel
+		delete(s.PayloadStreams, username.Username)
+		delete(s.PayloadChannels, username.Username)
+		close(payloadChannel) // Safely close the channel
 		s.mu.Unlock()
 		fmt.Printf("Client %s disconnected.\n", username.Username)
 	}()
@@ -204,7 +204,7 @@ func (s *StrikeServer) MessageStream(username *pb.Username, stream pb.Strike_Mes
 	// Goroutine to send messages from channel
 	// Only exits when the channel is closed thanks to the for/range
 	go func() {
-		for msg := range messageChannel {
+		for msg := range payloadChannel {
 			if err := stream.Send(msg); err != nil {
 				fmt.Printf("Failed to send message to %s: %v\n", username.Username, err)
 				return
