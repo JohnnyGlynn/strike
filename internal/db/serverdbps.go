@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type PreparedStatements struct {
+type ServerDB struct {
 	CreateUser       string
 	LoginUser        string
 	GetUserKeys      string
@@ -21,7 +21,7 @@ type PreparedStatements struct {
 	GetMessages      string
 }
 
-func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*PreparedStatements, error) {
+func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*ServerDB, error) {
 	poolConnection, err := dbpool.Acquire(ctx)
 	if err != nil {
 		log.Fatalf("failed to acquire connection from pool: %v", err)
@@ -29,7 +29,7 @@ func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*PreparedStat
 	}
 	defer poolConnection.Release()
 
-	statements := &PreparedStatements{
+	statements := &ServerDB{
 		CreateUser:       "createUser",
 		LoginUser:        "loginUser",
 		GetUserKeys:      "getUserKeys",
@@ -38,9 +38,6 @@ func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*PreparedStat
 		CreatePublicKeys: "createPublicKeys",
 		SaltMine:         "saltMine",
 		CreateChat:       "createChat",
-		SaveMessage:      "saveMessage",
-		GetChat:          "getChat",
-		GetMessages:      "getMessages",
 	}
 
 	// LoginUser

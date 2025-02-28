@@ -12,11 +12,17 @@ import (
 	"strings"
 
 	"github.com/JohnnyGlynn/strike/internal/auth"
+	"github.com/JohnnyGlynn/strike/internal/db"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 	"github.com/google/uuid"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+type StrikeClient struct {
+	cache       ClientCache
+	PStatements *db.ClientDB
+}
 
 type ClientCache struct {
 	Invites    map[string]*pb.BeginChatRequest
@@ -25,15 +31,15 @@ type ClientCache struct {
 }
 
 // Client Reciever
-var newCache ClientCache
+var client StrikeClient
 
 func init() {
-	if newCache.Invites == nil {
-		newCache.Invites = make(map[string]*pb.BeginChatRequest)
+	if client.cache.Invites == nil {
+		client.cache.Invites = make(map[string]*pb.BeginChatRequest)
 	}
 
-	if newCache.Chats == nil {
-		newCache.Chats = make(map[string]*pb.Chat)
+	if client.cache.Chats == nil {
+		client.cache.Chats = make(map[string]*pb.Chat)
 	}
 }
 
@@ -47,10 +53,10 @@ func ConnectPayloadStream(ctx context.Context, c pb.StrikeClient, username strin
 
 	// Start our demultiplexer and baseline processor functions
 	// TODO: Pass more in less
-	demux := NewDemultiplexer(c, newCache.Chats, newCache.Invites, keys, username)
+	demux := NewDemultiplexer(c, client.cache.Chats, client.cache.Invites, keys, username)
 
 	// Start Monitoring
-	demux.StartMonitoring(c, newCache.Chats, newCache.Invites, keys, username)
+	demux.StartMonitoring(c, client.cache.Chats, client.cache.Invites, keys, username)
 
 	for {
 		select {
@@ -79,7 +85,7 @@ func SendMessage(c pb.StrikeClient, username string, publicKey []byte, target st
 		SentAt:          timestamppb.Now(),
 		FromUser:        username,
 		ToUser:          target,
-		Chat:            newCache.Chats[newCache.ActiveChat], // TODO: Ensure nothing can be set if ActiveChat == ""
+		Chat:            client.cache.Chats[client.cache.ActiveChat], // TODO: Ensure nothing can be set if ActiveChat == ""
 		Message:         message,
 	}
 
@@ -114,10 +120,10 @@ func ConfirmChat(ctx context.Context, c pb.StrikeClient, chatRequest *pb.BeginCh
 		return fmt.Errorf("failed to confirm chat: %v", err)
 	}
 
-	delete(newCache.Invites, chatRequest.InviteId)
+	delete(client.cache.Invites, chatRequest.InviteId)
 	// Cache a chat when you acceot an invite
 	if inviteState {
-		newCache.Chats[chatRequest.Chat.Id] = chatRequest.Chat
+		client.cache.Chats[chatRequest.Chat.Id] = chatRequest.Chat
 	}
 	fmt.Printf("Chat invite acknowledged: %+v\n", resp)
 
@@ -279,10 +285,10 @@ func MessagingShell(c pb.StrikeClient, username string, keys map[string][]byte) 
 
 	for {
 		// Prompt for input
-		if newCache.ActiveChat == "" {
+		if client.cache.ActiveChat == "" {
 			fmt.Print("[NO-CHAT]msgshell> ")
 		} else {
-			fmt.Printf("[CHAT:%s]> ", newCache.ActiveChat)
+			fmt.Printf("[CHAT:%s]> ", client.cache.ActiveChat)
 		}
 
 		input, err := inputReader.ReadString('\n')
@@ -319,7 +325,7 @@ func LoginInput(prompt string, reader *bufio.Reader) (string, error) {
 }
 
 func shellInvites(ctx context.Context, c pb.StrikeClient) {
-	if len(newCache.Invites) == 0 {
+	if len(client.cache.Invites) == 0 {
 		fmt.Println("No pending invites :^[")
 		return
 	}
@@ -327,7 +333,7 @@ func shellInvites(ctx context.Context, c pb.StrikeClient) {
 	fmt.Println("Pending Invites")
 	inputReader := bufio.NewReader(os.Stdin)
 
-	for inviteID, chatRequest := range newCache.Invites {
+	for inviteID, chatRequest := range client.cache.Invites {
 		fmt.Printf("%v: %s [FROM: %s]\n", inviteID, chatRequest.Chat.Name, chatRequest.Initiator)
 		fmt.Printf("y[Accept]/n[Decline]")
 
@@ -347,17 +353,17 @@ func shellInvites(ctx context.Context, c pb.StrikeClient) {
 }
 
 func shellChat(inputReader *bufio.Reader) {
-	if len(newCache.Chats) == 0 {
+	if len(client.cache.ActiveChat) == 0 {
 		fmt.Println("You haven't joined any Chats")
 		return
 	}
 
 	fmt.Println("Available Chats:")
 
-	chatList := make([]string, 0, len(newCache.Chats))
+	chatList := make([]string, 0, len(client.cache.Chats))
 	index := 1
 
-	for chatID, chat := range newCache.Chats {
+	for chatID, chat := range client.cache.Chats {
 		fmt.Printf("%d: %s [STATE: %v]\n", index, chat.Name, chat.State.String())
 		chatList = append(chatList, chatID)
 		index++
@@ -384,13 +390,13 @@ func shellChat(inputReader *bufio.Reader) {
 
 	selectedChatID := chatList[selectedIndex-1]
 
-	if newCache.ActiveChat == selectedChatID {
+	if client.cache.ActiveChat == selectedChatID {
 		fmt.Printf("%s already active", selectedChatID)
 		return
 	}
 
-	newCache.ActiveChat = selectedChatID
-	fmt.Printf("Active chat: %s\n", newCache.Chats[selectedChatID].Name)
+	client.cache.ActiveChat = selectedChatID
+	fmt.Printf("Active chat: %s\n", client.cache.Chats[selectedChatID].Name)
 }
 
 func shellBeginChat(c pb.StrikeClient, username string, inputReader *bufio.Reader) {
@@ -427,7 +433,7 @@ func shellSendMessage(input string, c pb.StrikeClient, username string, publicKe
 	}
 
 	// TODO: Stopgap handle this elsewhere
-	if newCache.ActiveChat == "" {
+	if client.cache.ActiveChat == "" {
 		return fmt.Errorf("No chat has been selected. Use /chats to enable a chat first")
 	}
 

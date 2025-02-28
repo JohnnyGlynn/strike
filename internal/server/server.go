@@ -21,7 +21,7 @@ type StrikeServer struct {
 	pb.UnimplementedStrikeServer
 	Env         []*pb.Envelope
 	DBpool      *pgxpool.Pool
-	PStatements *db.PreparedStatements
+	PStatements *db.ServerDB
 
 	OnlineUsers     map[string]pb.Strike_UserStatusServer
 	PayloadStreams  map[string]pb.Strike_PayloadStreamServer
