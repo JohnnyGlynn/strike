@@ -69,6 +69,7 @@ func main() {
 		if err := clientCfg.ValidateConfig(); err != nil {
 			log.Fatalf("Invalid client config: %v", err)
 		}
+
 	} else if !*keygen {
 		log.Println("Loading Config from Envrionment Variables")
 
@@ -92,6 +93,16 @@ func main() {
 	loadedKeys, err := keys.LoadAndValidateKeys(keysMap)
 	if err != nil {
 		log.Fatalf("error loading and validating keys: %v", err)
+	}
+
+	clientInfo := &client.ClientInfo{
+		Config: &clientCfg,
+		Keys:   loadedKeys,
+		Cache: client.ClientCache{
+			Invites: make(map[string]*pb.BeginChatRequest),
+			Chats:   make(map[string]*pb.Chat),
+		},
+		Username: "",
 	}
 
 	// Begin GRPC setup
@@ -157,6 +168,8 @@ func main() {
 					continue
 				}
 
+				clientInfo.Username = username
+
 				// Spawn a goroutine so we can have the login function maintain userstatus stream aka Online
 				// TODO: Clean this up, Login isnt really correct now, RegisterStatus?
 				go func() {
@@ -195,6 +208,8 @@ func main() {
 					log.Fatalf("error connecting: %v", err)
 				}
 
+				clientInfo.Username = username
+
 				go func() {
 					// Login now connects to UserStatus stream to show wheter user is online
 					err = client.Login(newClient, username, password)
@@ -229,7 +244,7 @@ func main() {
 
 			switch input {
 			case "/msgshell":
-				client.MessagingShell(newClient, username, loadedKeys)
+				client.MessagingShell(*clientInfo)
 			case "/exit":
 				fmt.Println("Strike Client shutting down")
 				return
