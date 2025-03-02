@@ -17,6 +17,7 @@ import (
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 	"github.com/google/uuid"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -26,6 +27,7 @@ type ClientInfo struct {
 	Keys        map[string][]byte
 	Username    string
 	Cache       ClientCache
+	DBpool      *pgxpool.Pool
 	Pstatements *db.ClientDB
 }
 

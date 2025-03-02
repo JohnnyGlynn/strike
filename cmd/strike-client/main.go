@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -10,10 +11,12 @@ import (
 
 	"github.com/JohnnyGlynn/strike/internal/client"
 	"github.com/JohnnyGlynn/strike/internal/config"
+	"github.com/JohnnyGlynn/strike/internal/db"
 	"github.com/JohnnyGlynn/strike/internal/keys"
 
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -95,6 +98,24 @@ func main() {
 		log.Fatalf("error loading and validating keys: %v", err)
 	}
 
+	// TODO: Seperate client db
+	pgConfig, err := pgxpool.ParseConfig("postgres://strikeadmin:plaintextisbad@strike_db:5432/strike")
+	if err != nil {
+		log.Fatalf("Config parsing failed: %v", err)
+	}
+
+	pool, err := pgxpool.NewWithConfig(context.TODO(), pgConfig)
+	if err != nil {
+		log.Fatalf("DB pool connection failed: %v", err)
+	}
+
+	defer pool.Close()
+
+	statements, err := db.PreparedClientStatements(context.TODO(), pool)
+	if err != nil {
+		log.Fatalf("Failed to prepare client statements: %v", err)
+	}
+
 	clientInfo := &client.ClientInfo{
 		Config: &clientCfg,
 		Keys:   loadedKeys,
@@ -102,7 +123,9 @@ func main() {
 			Invites: make(map[string]*pb.BeginChatRequest),
 			Chats:   make(map[string]*pb.Chat),
 		},
-		Username: "",
+		Username:    "",
+		Pstatements: statements,
+		DBpool:      pool,
 	}
 
 	// Begin GRPC setup
