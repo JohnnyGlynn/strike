@@ -17,9 +17,9 @@ RUN go mod download
 COPY ./ ./
 
 # rm -rf rather than implementing multipel .dockerignores
-RUN rm -rf ./internal/db ./internal/server ./deployment ./config ./cmd/strike-server
+RUN rm -rf ./internal/server ./deployment ./config ./cmd/strike-server
 
-RUN CGO_ENABLED=0 go build -o /go/strike-client cmd/strike-client/main.go 
+RUN go build -o /go/strike-client cmd/strike-client/main.go 
 
 # minimal base image
 FROM alpine:latest
