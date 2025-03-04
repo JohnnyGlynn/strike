@@ -166,7 +166,7 @@ func (s *StrikeServer) UserStatus(req *pb.StatusRequest, stream pb.Strike_UserSt
 	}
 }
 
-func (s *StrikeServer) MessageStream(username *pb.Username, stream pb.Strike_PayloadStreamServer) error {
+func (s *StrikeServer) PayloadStream(username *pb.Username, stream pb.Strike_PayloadStreamServer) error {
 	log.Printf("Stream Established: %v online \n", username.Username)
 
 	// TODO: cleaner map initilization

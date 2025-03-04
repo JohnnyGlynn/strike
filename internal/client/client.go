@@ -41,7 +41,7 @@ func ConnectPayloadStream(ctx context.Context, c ClientInfo) error {
 	// Pass your own username to register your stream
 	stream, err := c.Pbclient.PayloadStream(ctx, &pb.Username{Username: c.Username})
 	if err != nil {
-		log.Fatalf("MessageStream Failed: %v", err)
+		log.Printf("MessageStream Failed: %v", err)
 		return err
 	}
 

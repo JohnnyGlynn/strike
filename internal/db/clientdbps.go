@@ -47,27 +47,27 @@ func PreparedClientStatements(ctx context.Context, dbpool *pgxpool.Pool) (*Clien
 		return nil, err
 	}
 
-	// Get User Id
+	// Get User Id 
 	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetUserId, "SELECT id FROM users WHERE username = $1;"); err != nil {
 		return nil, err
 	}
 
-	// Insert Users keys
+	// Insert Users keys - Save external user keys
 	if _, err := poolConnection.Conn().Prepare(ctx, statements.CreatePublicKeys, "INSERT INTO user_keys (user_id, encryption_public_key, signing_public_key) VALUES ($1, $2, $3)"); err != nil {
 		return nil, err
 	}
 
-	// Insert Chat
+	// Insert Chat - Create a chat, containing secret key after successful key exchange.
 	if _, err := poolConnection.Conn().Prepare(ctx, statements.CreateChat, "INSERT INTO chats (chat_id, chat_name, initiator, participants, state, shared_secret) VALUES ($1, $2, $3, $4, $5, $6)"); err != nil {
 		return nil, err
 	}
 
-	// Insert Message
+	// Insert Message - Insert message bound by chat
 	if _, err := poolConnection.Conn().Prepare(ctx, statements.SaveMessage, "INSERT INTO messages (id, chat_id, sender, content) VALUES ($1, $2, $3, $4)"); err != nil {
 		return nil, err
 	}
 
-	// get chat - TODO: Mechanism for caching these required?
+	// get chat
 	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetChat, "SELECT * FROM chats WHERE chat_id = $1"); err != nil {
 		return nil, err
 	}

@@ -116,18 +116,6 @@ func main() {
 		log.Fatalf("Failed to prepare client statements: %v", err)
 	}
 
-	clientInfo := &client.ClientInfo{
-		Config: &clientCfg,
-		Keys:   loadedKeys,
-		Cache: client.ClientCache{
-			Invites: make(map[string]*pb.BeginChatRequest),
-			Chats:   make(map[string]*pb.Chat),
-		},
-		Username:    "",
-		Pstatements: statements,
-		DBpool:      pool,
-	}
-
 	// Begin GRPC setup
 	creds, err := credentials.NewClientTLSFromFile(clientCfg.ServerCertificatePath, "")
 	if err != nil {
@@ -144,6 +132,19 @@ func main() {
 	defer conn.Close()
 
 	newClient := pb.NewStrikeClient(conn)
+
+	clientInfo := client.ClientInfo{
+		Config: &clientCfg,
+		Keys:   loadedKeys,
+		Cache: client.ClientCache{
+			Invites: make(map[string]*pb.BeginChatRequest),
+			Chats:   make(map[string]*pb.Chat),
+		},
+		Username:    "",
+		Pbclient:    newClient,
+		Pstatements: statements,
+		DBpool:      pool,
+	}
 
 	inputReader := bufio.NewReader(os.Stdin)
 
@@ -205,7 +206,7 @@ func main() {
 				isLoggedIn = true
 				fmt.Println("Logged In!")
 				// Logged in
-				fmt.Printf("Welcome back %s!\n", username)
+				fmt.Printf("Welcome back %s!\n", clientInfo.Username)
 			case "/signup":
 				inputReader.Reset(os.Stdin)
 
@@ -267,7 +268,7 @@ func main() {
 
 			switch input {
 			case "/msgshell":
-				client.MessagingShell(*clientInfo)
+				client.MessagingShell(clientInfo)
 			case "/exit":
 				fmt.Println("Strike Client shutting down")
 				return
