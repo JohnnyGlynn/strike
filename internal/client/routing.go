@@ -8,6 +8,7 @@ import (
 	"time"
 
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
+	"github.com/google/uuid"
 )
 
 type Demultiplexer struct {
@@ -48,7 +49,7 @@ func NewDemultiplexer(c ClientInfo) *Demultiplexer {
 	d.mu.Unlock()
 
 	// Run demultiplexer channel processors - Permanent processors
-	go ProcessEnvelopes(d.envelopeChannel, 0, &d.envelopeWorkerCount, &d.mu)
+	go ProcessEnvelopes(d.envelopeChannel, c, 0, &d.envelopeWorkerCount, &d.mu)
 	go ProcessChatRequests(d.chatRequestChannel, c, 0, &d.chatRequestWorkerCount, &d.mu)
 	go ProcessConfirmChatRequests(c, d.chatConfirmChannel, 0, &d.chatConfirmWorkerCount, &d.mu)
 	go ProcessKeyExchangeRequests(c, d.keyExchangeChannel, 0, &d.keyExchangeRequestWorkerCount, &d.mu)
@@ -110,7 +111,7 @@ func (d *Demultiplexer) StartMonitoring(c ClientInfo) {
 	// Monitor our channels - spawn workers if needed - more for messages obviously
 	go monitorChannel(d.envelopeChannel, 20, 5, &d.envelopeWorkerCount, ephemeralTimeout, &d.mu,
 		func() {
-			ProcessEnvelopes(d.envelopeChannel, ephemeralTimeout, &d.envelopeWorkerCount, &d.mu)
+			ProcessEnvelopes(d.envelopeChannel, c, ephemeralTimeout, &d.envelopeWorkerCount, &d.mu)
 		},
 	)
 
@@ -133,7 +134,7 @@ func (d *Demultiplexer) StartMonitoring(c ClientInfo) {
 	)
 }
 
-func ProcessEnvelopes(ch <-chan *pb.Envelope, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
+func ProcessEnvelopes(ch <-chan *pb.Envelope, c ClientInfo, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
 	for {
 		var timeoutCh <-chan time.Time // channel for timer
 		if idleTimeout > 0 {
@@ -145,6 +146,10 @@ func ProcessEnvelopes(ch <-chan *pb.Envelope, idleTimeout time.Duration, workerC
 				return
 			}
 			fmt.Printf("[%s] [%s] [From:%s] : %s\n", envelope.SentAt.AsTime(), envelope.Chat.Name, envelope.FromUser, envelope.Message)
+			_, err := c.DBpool.Exec(context.TODO(), c.Pstatements.SaveMessage, uuid.New(), envelope.Chat.Id, envelope.FromUser, envelope.Message)
+			if err != nil {
+				log.Fatalf("Failed to save message")
+			}
 		case <-timeoutCh:
 			fmt.Printf("Envelope worker idle for %v, exiting.\n", idleTimeout) // shutdown ephemeral workers
 			mu.Lock()
@@ -231,6 +236,10 @@ func ProcessKeyExchangeRequests(c ClientInfo, ch <-chan *pb.KeyExchangeRequest, 
 
 			// DB OPERATIONS HERE
 			fmt.Printf("INSERT INTO DB DONT PRINT THIS: %v", sharedSecret)
+			_, err = c.DBpool.Exec(context.TODO(), c.Pstatements.CreateChat, keyExReq.ChatId, chat.Name, keyExReq.SenderUserId, chat.Participants, pb.Chat_KEY_EXCHANGE_PENDING.String(), sharedSecret)
+			if err != nil {
+				log.Fatal("Failed to save Chat")
+			}
 
 			// TODO: Signature is gross
 			ReciprocateKeyExchange(context.TODO(), c.Pbclient, keyExReq.Target, c.Username, c.Keys["SigningPrivateKey"], c.Keys["EncryptionPublicKey"], chat)
@@ -272,8 +281,12 @@ func ProcessKeyExchangeResponses(c ClientInfo, ch <-chan *pb.KeyExchangeResponse
 			// DB OPERATIONS HERE
 			fmt.Printf("INSERT INTO DB DONT PRINT THIS: %v", sharedSecret)
 
-			// TODO: Something fails so the confirmations can be false???
+			_, err = c.DBpool.Exec(context.TODO(), c.Pstatements.CreateChat, keyExRes.ChatId, chat.Name, keyExRes.ResponderUserId, chat.Participants, chat.State.String(), sharedSecret)
+			if err != nil {
+				log.Fatal("Failed to save Chat")
+			}
 
+			// TODO: Something fails so the confirmations can be false???
 			ConfirmKeyExchange(context.TODO(), c.Pbclient, keyExRes.ResponderUserId, true, chat)
 
 		case <-timeoutCh:
@@ -306,6 +319,11 @@ func ProcessKeyExchangeConfirmations(c ClientInfo, ch <-chan *pb.KeyExchangeConf
 
 				// DB OPERATIONS HERE
 				fmt.Println("DB OPERATIONS FOR A NOW ENCRYPTED CHAT")
+
+				_, err := c.DBpool.Exec(context.TODO(), c.Pstatements.UpdateChatState, pb.Chat_ENCRYPTED.String(), keyExCon.ChatId)
+				if err != nil {
+					log.Fatal("Failed to save Chat")
+				}
 
 				ConfirmKeyExchange(context.TODO(), c.Pbclient, keyExCon.ConfirmerUserId, true, chat)
 			} else {
