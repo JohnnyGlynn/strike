@@ -26,6 +26,7 @@ type Demultiplexer struct {
 	keyExchangeRequestWorkerCount int
 
 	// mutex for workers
+	// TODO: Global locking bad idea?
 	mu sync.Mutex
 }
 
@@ -226,7 +227,11 @@ func ProcessKeyExchangeRequests(c ClientInfo, ch <-chan *pb.KeyExchangeRequest, 
 				return
 			}
 			fmt.Printf("Key exchange initiated for: %v\n", keyExReq.ChatId)
-			chat := c.Cache.Chats[keyExReq.ChatId]
+			chat, exists := c.Cache.Chats[keyExReq.ChatId]
+			if !exists {
+				log.Printf("Failed to find chat: %v", keyExReq.ChatId)
+				return
+			}
 
 			sharedSecret, err := ComputeSharedSecret(c.Keys["EncryptionPrivateKey"], keyExReq.CurvePublicKey)
 			if err != nil {
@@ -234,8 +239,6 @@ func ProcessKeyExchangeRequests(c ClientInfo, ch <-chan *pb.KeyExchangeRequest, 
 				log.Print("failed to compute shared secret")
 			}
 
-			// DB OPERATIONS HERE
-			fmt.Printf("INSERT INTO DB DONT PRINT THIS: %v", sharedSecret)
 			_, err = c.DBpool.Exec(context.TODO(), c.Pstatements.CreateChat, keyExReq.ChatId, chat.Name, keyExReq.SenderUserId, chat.Participants, pb.Chat_KEY_EXCHANGE_PENDING.String(), sharedSecret)
 			if err != nil {
 				log.Fatal("Failed to save Chat")
@@ -266,7 +269,11 @@ func ProcessKeyExchangeResponses(c ClientInfo, ch <-chan *pb.KeyExchangeResponse
 				return
 			}
 			fmt.Printf("Key exchange response for: %v\n", keyExRes.ChatId)
-			chat := c.Cache.Chats[keyExRes.ChatId]
+			chat, exists := c.Cache.Chats[keyExRes.ChatId]
+			if !exists {
+				log.Printf("Failed to find chat: %v", keyExRes.ChatId)
+				return
+			}
 
 			sharedSecret, err := ComputeSharedSecret(c.Keys["EncryptionPrivateKey"], keyExRes.CurvePublicKey)
 			if err != nil {
@@ -277,9 +284,6 @@ func ProcessKeyExchangeResponses(c ClientInfo, ch <-chan *pb.KeyExchangeResponse
 			// As the map is *pb.chat it should update directly.
 			// TODO: More robust cache rather than maps (Redis?)
 			chat.State = pb.Chat_KEY_EXCHANGE_PENDING
-
-			// DB OPERATIONS HERE
-			fmt.Printf("INSERT INTO DB DONT PRINT THIS: %v", sharedSecret)
 
 			_, err = c.DBpool.Exec(context.TODO(), c.Pstatements.CreateChat, keyExRes.ChatId, chat.Name, keyExRes.ResponderUserId, chat.Participants, chat.State.String(), sharedSecret)
 			if err != nil {
@@ -310,15 +314,17 @@ func ProcessKeyExchangeConfirmations(c ClientInfo, ch <-chan *pb.KeyExchangeConf
 			if !ok {
 				return
 			}
-			chat := c.Cache.Chats[keyExCon.ChatId]
+			chat, exists := c.Cache.Chats[keyExCon.ChatId]
+			if !exists {
+				log.Printf("Failed to find chat: %v", keyExCon.ChatId)
+				return
+			}
+
 			if chat.State == pb.Chat_KEY_EXCHANGE_PENDING {
 				fmt.Printf("Key exchange confirmation for: %v\n", keyExCon.ChatId)
 
 				// TODO: More robust cache rather than maps (Redis?)
 				chat.State = pb.Chat_ENCRYPTED
-
-				// DB OPERATIONS HERE
-				fmt.Println("DB OPERATIONS FOR A NOW ENCRYPTED CHAT")
 
 				_, err := c.DBpool.Exec(context.TODO(), c.Pstatements.UpdateChatState, pb.Chat_ENCRYPTED.String(), keyExCon.ChatId)
 				if err != nil {
