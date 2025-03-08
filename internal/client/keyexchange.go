@@ -5,10 +5,13 @@ import (
 	"crypto/ecdh"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"log"
 
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
+	"github.com/google/uuid"
 )
 
 func InitiateKeyExchange(ctx context.Context, c pb.StrikeClient, target string, username string, privateEDKey []byte, publicCurveKey []byte, chat *pb.Chat) {
@@ -19,15 +22,33 @@ func InitiateKeyExchange(ctx context.Context, c pb.StrikeClient, target string, 
 		log.Fatalf("Error generating nonce: %v", err)
 	}
 
+	block, _ := pem.Decode(privateEDKey)
+	if block == nil {
+		log.Print("failed to decode PEM block")
+		return
+	}
+
+	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		log.Print("failed to parse private key")
+		return
+	}
+	// ok if ed25519
+	priv, ok := key.(ed25519.PrivateKey)
+	if !ok {
+		log.Print("invalid ED25519 private key")
+		return
+	}
+
 	// signatures
-	nonceSig := ed25519.Sign(ed25519.PrivateKey(privateEDKey), nonce)
-	publicKeySig := ed25519.Sign(ed25519.PrivateKey(privateEDKey), publicCurveKey)
+	nonceSig := ed25519.Sign(priv, nonce)
+	publicKeySig := ed25519.Sign(priv, publicCurveKey)
 
 	sigs := [][]byte{nonceSig, publicKeySig}
 
 	exchangeInfo := pb.KeyExchangeRequest{
 		ChatId:         chat.Id,
-		SenderUserId:   username, // TODO: Users need ID's
+		SenderUserId:   uuid.New().String(), // TODO: Users need ID's
 		CurvePublicKey: publicCurveKey,
 		Nonce:          nonce,
 		Signatures:     sigs,
@@ -54,15 +75,34 @@ func ReciprocateKeyExchange(ctx context.Context, c pb.StrikeClient, target strin
 		log.Fatalf("Error generating nonce: %v", err)
 	}
 
+	block, _ := pem.Decode(privateEDKey)
+	if block == nil {
+		log.Print("failed to decode PEM block")
+		return
+	}
+
+	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		log.Print("failed to parse private key")
+		return
+	}
+	// ok if ed25519
+	priv, ok := key.(ed25519.PrivateKey)
+	if !ok {
+		log.Print("invalid ED25519 private key")
+		return
+	}
+
 	// signatures
-	nonceSig := ed25519.Sign(ed25519.PrivateKey(privateEDKey), nonce)
-	publicKeySig := ed25519.Sign(ed25519.PrivateKey(privateEDKey), publicCurveKey)
+	nonceSig := ed25519.Sign(priv, nonce)
+	publicKeySig := ed25519.Sign(priv, publicCurveKey)
 
 	sigs := [][]byte{nonceSig, publicKeySig}
 
 	exchangeInfo := pb.KeyExchangeResponse{
 		ChatId:          chat.Id,
-		ResponderUserId: username,
+    //TODO:UUID NOT USERNAME, REAL uuid
+		ResponderUserId: uuid.New().String(),
 		CurvePublicKey:  publicCurveKey,
 		Nonce:           nonce,
 		Signatures:      sigs,
@@ -101,19 +141,32 @@ func ConfirmKeyExchange(ctx context.Context, c pb.StrikeClient, target string, s
 }
 
 func ComputeSharedSecret(privateCurveKey []byte, inboundKey []byte) ([]byte, error) {
+	block, _ := pem.Decode(privateCurveKey)
+	if block == nil {
+		log.Print("failed to decode PEM block")
+	}
+
 	// Validate our keys from []byte``
-	private, err := ecdh.X25519().NewPrivateKey(privateCurveKey)
+	private, err := ecdh.X25519().NewPrivateKey(block.Bytes)
 	if err != nil {
+		log.Printf("Couldnt validate private key: %v", err)
 		return nil, fmt.Errorf("failed to validate key: %v", err)
 	}
 
-	public, err := ecdh.X25519().NewPublicKey(inboundKey)
+	pubblock, _ := pem.Decode(inboundKey)
+	if block == nil {
+		log.Print("failed to decode PEM block")
+	}
+
+	public, err := ecdh.X25519().NewPublicKey(pubblock.Bytes)
 	if err != nil {
+		log.Printf("Couldnt validate public key: %v", err)
 		return nil, fmt.Errorf("failed to validate key: %v", err)
 	}
 
 	sharedSecret, err := private.ECDH(public)
 	if err != nil {
+		log.Printf("failed to carry out diffie hellman key exchange: %v", err)
 		return nil, fmt.Errorf("failed to compute shared secret: %v", err)
 	}
 

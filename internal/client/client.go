@@ -26,6 +26,7 @@ type ClientInfo struct {
 	Pbclient    pb.StrikeClient
 	Keys        map[string][]byte
 	Username    string
+	UserID      string
 	Cache       ClientCache
 	DBpool      *pgxpool.Pool
 	Pstatements *db.ClientDB
@@ -218,15 +219,18 @@ func BeginChat(c pb.StrikeClient, username string, chatTarget string, chatName s
 
 	newInvite := uuid.New().String()
 
+	participants := []string{username, chatTarget}
+
 	beginChat := &pb.BeginChatRequest{
 		InviteId:  newInvite,
 		Initiator: username,
 		Target:    chatTarget,
 		ChatName:  chatName,
 		Chat: &pb.Chat{
-			Id:    uuid.New().String(),
-			Name:  chatName,
-			State: pb.Chat_INIT,
+			Id:           uuid.New().String(),
+			Name:         chatName,
+			State:        pb.Chat_INIT,
+			Participants: participants,
 		},
 	}
 

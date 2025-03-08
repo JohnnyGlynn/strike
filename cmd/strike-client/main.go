@@ -13,6 +13,7 @@ import (
 	"github.com/JohnnyGlynn/strike/internal/config"
 	"github.com/JohnnyGlynn/strike/internal/db"
 	"github.com/JohnnyGlynn/strike/internal/keys"
+	"github.com/google/uuid"
 
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 
@@ -141,6 +142,7 @@ func main() {
 			Chats:   make(map[string]*pb.Chat),
 		},
 		Username:    "",
+		UserID:      uuid.New().String(),
 		Pbclient:    newClient,
 		Pstatements: statements,
 		DBpool:      pool,
