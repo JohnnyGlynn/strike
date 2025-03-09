@@ -104,16 +104,18 @@ func (s *StrikeServer) Login(ctx context.Context, clientLogin *pb.LoginRequest) 
 func (s *StrikeServer) Signup(ctx context.Context, userInit *pb.InitUser) (*pb.ServerResponse, error) {
 	fmt.Printf("New User signup: %s\n", userInit.Username)
 
-	newId := uuid.New()
-
+	unstrungUUID, err := uuid.Parse(userInit.UserId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse uuid: %v", err)
+	}
 	// user: uuid, username, password_hash, salt
-	_, err := s.DBpool.Exec(ctx, s.PStatements.CreateUser, newId, userInit.Username, userInit.PasswordHash, userInit.Salt)
+	_, err = s.DBpool.Exec(ctx, s.PStatements.CreateUser, unstrungUUID, userInit.Username, userInit.PasswordHash, userInit.Salt)
 	if err != nil {
 		return &pb.ServerResponse{Success: false, Message: "failed to register user"}, err
 	}
 
 	// keys: uuid, encryption, signing
-	_, err = s.DBpool.Exec(ctx, s.PStatements.CreatePublicKeys, newId, userInit.EncryptionPublicKey, userInit.SigningPublicKey)
+	_, err = s.DBpool.Exec(ctx, s.PStatements.CreatePublicKeys, unstrungUUID, userInit.EncryptionPublicKey, userInit.SigningPublicKey)
 	if err != nil {
 		return &pb.ServerResponse{Success: false, Message: "failed to register user keys"}, err
 	}

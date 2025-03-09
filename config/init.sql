@@ -1,7 +1,8 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+-- SERVER SPECIFIC TABLES
 CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(), -- If no UUID provided let postgres do it.
+    id UUID PRIMARY KEY NOT NULL, -- If no UUID provided let postgres do it.
     username VARCHAR(255) UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     salt BYTEA NOT NULL,
@@ -36,6 +37,13 @@ CREATE TABLE messages (
     sent_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE addressbook (
+    id UUID PRIMARY KEY NOT NULL,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    encryption_public_key BYTEA NOT NULL,
+    signing_public_key BYTEA NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 -- Auto-update updated_at
 CREATE OR REPLACE FUNCTION auto_update_timestamp_column()

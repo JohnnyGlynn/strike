@@ -8,9 +8,8 @@ import (
 )
 
 type ClientDB struct {
-	GetUserKeys     string
 	GetUserId       string
-	SaveUserKeys    string
+	SaveUserDetails string
 	SaltMine        string
 	CreateChat      string
 	UpdateChatState string
@@ -28,9 +27,8 @@ func PreparedClientStatements(ctx context.Context, dbpool *pgxpool.Pool) (*Clien
 	defer poolConnection.Release()
 
 	statements := &ClientDB{
-		GetUserKeys:     "getUserKeys",
 		GetUserId:       "getUserId",
-		SaveUserKeys:    "saveUserKeys",
+		SaveUserDetails: "saveUserDetails",
 		CreateChat:      "createChat",
 		GetChat:         "getChat",
 		UpdateChatState: "UpdateChatState",
@@ -38,18 +36,13 @@ func PreparedClientStatements(ctx context.Context, dbpool *pgxpool.Pool) (*Clien
 		GetMessages:     "getMessages",
 	}
 
-	// Get keys from key table
-	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetUserKeys, "SELECT key.encryption_public_key, key.signing_public_key FROM user_keys key JOIN users u ON key.user_id = u.id WHERE u.username = $1;"); err != nil {
+	// Insert into address book
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.SaveUserDetails, "INSERT INTO addressbook (user_id, username, encryption_public_key, signing_public_key) VALUES ($1, $2, $3, $4)"); err != nil {
 		return nil, err
 	}
 
 	// Get User Id
-	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetUserId, "SELECT id FROM users WHERE username = $1;"); err != nil {
-		return nil, err
-	}
-
-	// Insert Users keys - Save external user keys
-	if _, err := poolConnection.Conn().Prepare(ctx, statements.SaveUserKeys, "INSERT INTO user_keys (user_id, encryption_public_key, signing_public_key) VALUES ($1, $2, $3)"); err != nil {
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetUserId, "SELECT id FROM addressbook WHERE username = $1;"); err != nil {
 		return nil, err
 	}
 

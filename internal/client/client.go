@@ -26,7 +26,7 @@ type ClientInfo struct {
 	Pbclient    pb.StrikeClient
 	Keys        map[string][]byte
 	Username    string
-	UserID      string
+	UserID      uuid.UUID
 	Cache       ClientCache
 	DBpool      *pgxpool.Pool
 	Pstatements *db.ClientDB
@@ -125,7 +125,7 @@ func ConfirmChat(ctx context.Context, c ClientInfo, chatRequest *pb.BeginChatReq
 	return nil
 }
 
-func ClientSignup(c pb.StrikeClient, username string, password string, curve25519key []byte, ed25519key []byte) error {
+func ClientSignup(c ClientInfo, username string, password string, curve25519key []byte, ed25519key []byte, userID uuid.UUID) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -143,16 +143,23 @@ func ClientSignup(c pb.StrikeClient, username string, password string, curve2551
 
 	initUser := pb.InitUser{
 		Username:            username,
+		UserId:              userID.String(),
 		PasswordHash:        passwordHash,
 		Salt:                salt,
 		EncryptionPublicKey: curve25519key,
 		SigningPublicKey:    ed25519key,
 	}
 
-	serverRes, err := c.Signup(ctx, &initUser)
+	serverRes, err := c.Pbclient.Signup(ctx, &initUser)
 	if err != nil {
 		log.Fatalf("signup failed: %v", err)
 		return err
+	}
+
+	// Save users own details to local client db
+	_, err = c.DBpool.Exec(ctx, c.Pstatements.SaveUserDetails, userID, username, curve25519key, ed25519key)
+	if err != nil {
+		return fmt.Errorf("failed adding to address book: %v", err)
 	}
 
 	fmt.Printf("Server Response: %+v\n", serverRes)

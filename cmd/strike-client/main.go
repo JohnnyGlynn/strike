@@ -17,6 +17,7 @@ import (
 
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -86,7 +87,7 @@ func main() {
 
 	// +v to print struct fields too
 	log.Printf("Loaded client Config: %+v", clientCfg)
-
+	// TODO: load keys as their types and not []byte
 	keysMap := map[string]keys.KeyDefinition{
 		"SigningPrivateKey":    {Path: clientCfg.SigningPrivateKeyPath, Type: keys.SigningKey},
 		"SigningPublicKey":     {Path: clientCfg.SigningPublicKeyPath, Type: keys.SigningKey},
@@ -142,16 +143,14 @@ func main() {
 			Chats:   make(map[string]*pb.Chat),
 		},
 		Username:    "",
-		UserID:      uuid.New().String(),
+		UserID:      uuid.Nil,
 		Pbclient:    newClient,
 		Pstatements: statements,
 		DBpool:      pool,
 	}
 
 	inputReader := bufio.NewReader(os.Stdin)
-
 	isLoggedIn := false
-
 	var username string
 
 	fmt.Println("Type /login to log into the Strike Messaging service")
@@ -205,6 +204,19 @@ func main() {
 						log.Fatalf("error connecting: %v", err)
 					}
 				}()
+
+				var userID uuid.UUID
+
+				err = clientInfo.DBpool.QueryRow(context.TODO(), clientInfo.Pstatements.GetUserId, clientInfo.Username).Scan(&userID)
+				if err != nil {
+					if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
+						log.Fatalf("DB error: %v", err)
+					}
+					log.Fatalf("An Error occured while logging in: %v", err)
+				}
+
+				clientInfo.UserID = userID
+
 				isLoggedIn = true
 				fmt.Println("Logged In!")
 				// Logged in
@@ -229,7 +241,10 @@ func main() {
 					continue
 				}
 
-				err = client.ClientSignup(newClient, username, password, loadedKeys["EncryptionPublicKey"], loadedKeys["SigningPublicKey"])
+				newUserID := uuid.New()
+				clientInfo.UserID = newUserID
+
+				err = client.ClientSignup(clientInfo, username, password, loadedKeys["EncryptionPublicKey"], loadedKeys["SigningPublicKey"], newUserID)
 				if err != nil {
 					log.Fatalf("error connecting: %v", err)
 				}

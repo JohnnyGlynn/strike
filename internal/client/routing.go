@@ -201,7 +201,7 @@ func ProcessConfirmChatRequests(c ClientInfo, ch <-chan *pb.ConfirmChatRequest, 
 				fmt.Printf("Invitation %v for:%s, With: %s, Status: Accepted\n", confirmation.InviteId, confirmation.Chat.Name, confirmation.Confirmer)
 				c.Cache.Chats[confirmation.Chat.Id] = confirmation.Chat
 				// TODO: Initiator will probably have to change
-				InitiateKeyExchange(context.TODO(), c.Pbclient, confirmation.Confirmer, c.UserID, c.Keys["SigningPrivateKey"], c.Keys["EncryptionPublicKey"], confirmation.Chat)
+				InitiateKeyExchange(context.TODO(), c.Pbclient, confirmation.Confirmer, c.UserID.String(), c.Keys["SigningPrivateKey"], c.Keys["EncryptionPublicKey"], confirmation.Chat)
 			} else {
 				fmt.Printf("Invitation %v for:%s, With: %s, Status: Declined\n", confirmation.InviteId, confirmation.Chat.Name, confirmation.Confirmer)
 			}
@@ -246,7 +246,7 @@ func ProcessKeyExchangeRequests(c ClientInfo, ch <-chan *pb.KeyExchangeRequest, 
 			}
 
 			// TODO: Signature is gross
-			ReciprocateKeyExchange(context.TODO(), c.Pbclient, keyExReq.Target, c.UserID, c.Keys["SigningPrivateKey"], c.Keys["EncryptionPublicKey"], chat)
+			ReciprocateKeyExchange(context.TODO(), c.Pbclient, keyExReq.Target, c.UserID.String(), c.Keys["SigningPrivateKey"], c.Keys["EncryptionPublicKey"], chat)
 
 		case <-timeoutCh:
 			fmt.Printf("KeyExchangeRequest worker idle for %v, exiting.\n", idleTimeout) // shutdown ephemeral workers
