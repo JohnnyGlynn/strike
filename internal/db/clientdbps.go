@@ -15,6 +15,7 @@ type ClientDB struct {
 	UpdateChatState string
 	SaveMessage     string
 	GetChat         string
+	GetChats        string
 	GetMessages     string
 }
 
@@ -31,6 +32,7 @@ func PreparedClientStatements(ctx context.Context, dbpool *pgxpool.Pool) (*Clien
 		SaveUserDetails: "saveUserDetails",
 		CreateChat:      "createChat",
 		GetChat:         "getChat",
+		GetChats:        "getChats",
 		UpdateChatState: "UpdateChatState",
 		SaveMessage:     "saveMessage",
 		GetMessages:     "getMessages",
@@ -53,6 +55,11 @@ func PreparedClientStatements(ctx context.Context, dbpool *pgxpool.Pool) (*Clien
 
 	// get chat
 	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetChat, "SELECT * FROM chats WHERE chat_id = $1"); err != nil {
+		return nil, err
+	}
+
+	// get chats
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetChats, "SELECT * FROM chats"); err != nil {
 		return nil, err
 	}
 

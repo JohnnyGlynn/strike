@@ -120,6 +120,7 @@ func ConfirmChat(ctx context.Context, c ClientInfo, chatRequest *pb.BeginChatReq
 	if inviteState {
 		c.Cache.Chats[chatRequest.Chat.Id] = chatRequest.Chat
 	}
+
 	fmt.Printf("Chat invite acknowledged: %+v\n", resp)
 
 	return nil
