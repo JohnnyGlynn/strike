@@ -460,3 +460,37 @@ func printHelp() {
 		"/exit: ...\n",
 	)
 }
+
+func loadChats(c ClientInfo) error {
+	rows, err := c.DBpool.Query(context.TODO(), c.Pstatements.GetChats)
+	if err != nil {
+		return fmt.Errorf("error querying chats: %v", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			chat_id       uuid.UUID
+			chat_name     string
+			initiator     uuid.UUID
+			participants  []string
+			state         pb.Chat_State
+			shared_secret []byte
+		)
+		if err := rows.Scan(&chat_id, &chat_name, initiator, participants, state, shared_secret); err != nil {
+			log.Printf("error scanning row: %v", err)
+			return err
+		}
+
+		chat := &pb.Chat{
+			Id:           chat_id.String(), // TODO: Chat UUIDS
+			Name:         chat_name,
+			State:        state,
+			Participants: participants,
+		}
+
+		c.Cache.Chats[chat_id.String()] = chat
+	}
+
+	return nil
+}
