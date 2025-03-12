@@ -38,6 +38,14 @@ type ClientCache struct {
 	ActiveChat string
 }
 
+// TODO: CLEAN THIS UP
+type MessageStruct struct {
+	Id      uuid.UUID
+	ChatId  uuid.UUID
+	Sender  uuid.UUID
+	Content []byte
+}
+
 func ConnectPayloadStream(ctx context.Context, c ClientInfo) error {
 	// Pass your own username to register your stream
 	stream, err := c.Pbclient.PayloadStream(ctx, &pb.Username{Username: c.Username})
@@ -359,8 +367,15 @@ func shellInvites(ctx context.Context, c ClientInfo) {
 }
 
 func shellChat(inputReader *bufio.Reader, c ClientInfo) {
-	if len(c.Cache.ActiveChat) == 0 {
-		fmt.Println("You haven't joined any Chats")
+	if len(c.Cache.Chats) == 0 {
+		if err := loadChats(c); err != nil {
+			log.Printf("Error loading chats: %v", err)
+			return
+		}
+	}
+
+	if len(c.Cache.Chats) == 0 {
+		fmt.Println("No chats available")
 		return
 	}
 
@@ -493,4 +508,25 @@ func loadChats(c ClientInfo) error {
 	}
 
 	return nil
+}
+
+func loadMessages(c ClientInfo) ([]MessageStruct, error) {
+	rows, err := c.DBpool.Query(context.TODO(), c.Pstatements.GetMessages, c.Cache.ActiveChat)
+	if err != nil {
+		return nil, fmt.Errorf("error querying messages: %v", err)
+	}
+	defer rows.Close()
+
+	var messages []MessageStruct
+
+	for rows.Next() {
+		var msg MessageStruct
+		if err := rows.Scan(&msg.Id, &msg.ChatId, &msg.Sender, &msg.Content); err != nil {
+			log.Printf("error scanning row: %v", err)
+			return nil, err
+		}
+		messages = append(messages, msg)
+	}
+
+	return messages, nil
 }
