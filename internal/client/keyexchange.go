@@ -143,13 +143,12 @@ func ConfirmKeyExchange(ctx context.Context, c pb.StrikeClient, target string, s
 func ComputeSharedSecret(privateCurveKey []byte, inboundKey []byte) ([]byte, error) {
 	block, _ := pem.Decode(privateCurveKey)
 	if block == nil {
-		log.Print("failed to decode PEM block")
+		return nil, fmt.Errorf("failed to decode PEM block")
 	}
 
 	// Validate our keys from []byte``
 	private, err := ecdh.X25519().NewPrivateKey(block.Bytes)
 	if err != nil {
-		log.Printf("Couldnt validate private key: %v", err)
 		return nil, fmt.Errorf("failed to validate key: %v", err)
 	}
 
@@ -160,7 +159,6 @@ func ComputeSharedSecret(privateCurveKey []byte, inboundKey []byte) ([]byte, err
 
 	public, err := ecdh.X25519().NewPublicKey(pubblock.Bytes)
 	if err != nil {
-		log.Printf("Couldnt validate public key: %v", err)
 		return nil, fmt.Errorf("failed to validate key: %v", err)
 	}
 
