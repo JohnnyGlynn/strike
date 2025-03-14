@@ -50,11 +50,11 @@ func (s *StrikeServer) SendPayload(ctx context.Context, payload *pb.StreamPayloa
 	}
 }
 
-func (s *StrikeServer) SaltMine(ctx context.Context, user *pb.Username) (*pb.Salt, error) {
+func (s *StrikeServer) SaltMine(ctx context.Context, userInfo *pb.UserInfo) (*pb.Salt, error) {
 	var salt []byte
 
 	// TODO: ERROR this fails after server has been running long
-	err := s.DBpool.QueryRow(ctx, s.PStatements.SaltMine, user.Username).Scan(&salt)
+	err := s.DBpool.QueryRow(ctx, s.PStatements.SaltMine, userInfo.Username).Scan(&salt)
 	if err != nil {
 		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
 			log.Fatalf("Unable mine salt: %v", err)
@@ -126,7 +126,7 @@ func (s *StrikeServer) Signup(ctx context.Context, userInit *pb.InitUser) (*pb.S
 	}, nil
 }
 
-func (s *StrikeServer) UserStatus(req *pb.StatusRequest, stream pb.Strike_UserStatusServer) error {
+func (s *StrikeServer) UserStatus(req *pb.UserInfo, stream pb.Strike_UserStatusServer) error {
 	username := req.Username
 
 	// TODO: cleaner map initilization
@@ -168,8 +168,8 @@ func (s *StrikeServer) UserStatus(req *pb.StatusRequest, stream pb.Strike_UserSt
 	}
 }
 
-func (s *StrikeServer) PayloadStream(username *pb.Username, stream pb.Strike_PayloadStreamServer) error {
-	log.Printf("Stream Established: %v online \n", username.Username)
+func (s *StrikeServer) PayloadStream(user *pb.UserInfo, stream pb.Strike_PayloadStreamServer) error {
+	log.Printf("Stream Established: %v online \n", user.Username)
 
 	// TODO: cleaner map initilization
 	if s.PayloadStreams == nil {
@@ -178,7 +178,7 @@ func (s *StrikeServer) PayloadStream(username *pb.Username, stream pb.Strike_Pay
 
 	// Register the users message steam
 	s.mu.Lock()
-	s.PayloadStreams[username.Username] = stream
+	s.PayloadStreams[user.Username] = stream
 	s.mu.Unlock()
 
 	if s.PayloadChannels == nil {
@@ -190,17 +190,17 @@ func (s *StrikeServer) PayloadStream(username *pb.Username, stream pb.Strike_Pay
 
 	// Register the users message channel
 	s.mu.Lock()
-	s.PayloadChannels[username.Username] = payloadChannel
+	s.PayloadChannels[user.Username] = payloadChannel
 	s.mu.Unlock()
 
 	// Defer our cleanup of stream map and message channel
 	defer func() {
 		s.mu.Lock()
-		delete(s.PayloadStreams, username.Username)
-		delete(s.PayloadChannels, username.Username)
+		delete(s.PayloadStreams, user.Username)
+		delete(s.PayloadChannels, user.Username)
 		close(payloadChannel) // Safely close the channel
 		s.mu.Unlock()
-		fmt.Printf("Client %s disconnected.\n", username.Username)
+		fmt.Printf("Client %s disconnected.\n", user.Username)
 	}()
 
 	// Goroutine to send messages from channel
@@ -208,7 +208,7 @@ func (s *StrikeServer) PayloadStream(username *pb.Username, stream pb.Strike_Pay
 	go func() {
 		for msg := range payloadChannel {
 			if err := stream.Send(msg); err != nil {
-				fmt.Printf("Failed to send message to %s: %v\n", username.Username, err)
+				fmt.Printf("Failed to send message to %s: %v\n", user.Username, err)
 				return
 			}
 		}

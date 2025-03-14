@@ -48,7 +48,12 @@ type MessageStruct struct {
 
 func ConnectPayloadStream(ctx context.Context, c ClientInfo) error {
 	// Pass your own username to register your stream
-	stream, err := c.Pbclient.PayloadStream(ctx, &pb.Username{Username: c.Username})
+	stream, err := c.Pbclient.PayloadStream(ctx, &pb.UserInfo{
+		Username:            c.Username,
+		UserId:              c.UserID.String(),
+		EncryptionPublicKey: c.Keys["EncryptionPublicKey"],
+		SigningPublicKey:    c.Keys["SigningPublicKey"],
+	})
 	if err != nil {
 		log.Printf("MessageStream Failed: %v", err)
 		return err
@@ -134,7 +139,7 @@ func ConfirmChat(ctx context.Context, c ClientInfo, chatRequest *pb.BeginChatReq
 	return nil
 }
 
-func ClientSignup(c ClientInfo, username string, password string, curve25519key []byte, ed25519key []byte, userID uuid.UUID) error {
+func ClientSignup(c ClientInfo, password string, curve25519key []byte, ed25519key []byte) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -151,10 +156,10 @@ func ClientSignup(c ClientInfo, username string, password string, curve25519key 
 	}
 
 	initUser := pb.InitUser{
-		Username:            username,
-		UserId:              userID.String(),
+		Username:            c.Username,
+		UserId:              c.UserID.String(),
 		PasswordHash:        passwordHash,
-		Salt:                salt,
+		Salt:                &pb.Salt{Salt: salt},
 		EncryptionPublicKey: curve25519key,
 		SigningPublicKey:    ed25519key,
 	}
@@ -166,7 +171,7 @@ func ClientSignup(c ClientInfo, username string, password string, curve25519key 
 	}
 
 	// Save users own details to local client db
-	_, err = c.DBpool.Exec(ctx, c.Pstatements.SaveUserDetails, userID, username, curve25519key, ed25519key)
+	_, err = c.DBpool.Exec(ctx, c.Pstatements.SaveUserDetails, c.UserID, c.Username, curve25519key, ed25519key)
 	if err != nil {
 		return fmt.Errorf("failed adding to address book: %v", err)
 	}
@@ -175,15 +180,18 @@ func ClientSignup(c ClientInfo, username string, password string, curve25519key 
 	return nil
 }
 
-func Login(c pb.StrikeClient, username string, password string) error {
+func Login(c ClientInfo, password string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	saltMine := pb.Username{
-		Username: username,
+	userInfo := pb.UserInfo{
+		Username:            c.Username,
+		UserId:              c.UserID.String(),
+		EncryptionPublicKey: c.Keys["EncryptionPublicKey"],
+		SigningPublicKey:    c.Keys["SigningPublicKey"],
 	}
 
-	salt, err := c.SaltMine(ctx, &saltMine)
+	salt, err := c.Pbclient.SaltMine(ctx, &userInfo)
 	if err != nil {
 		log.Fatalf("Salt retrieval failed: %v", err)
 		return err
@@ -195,15 +203,11 @@ func Login(c pb.StrikeClient, username string, password string) error {
 	}
 
 	loginUP := pb.LoginRequest{
-		Username:     username,
+		Username:     c.Username,
 		PasswordHash: passwordHash,
 	}
 
-	userStatus := pb.StatusRequest{
-		Username: username,
-	}
-
-	loginReq, err := c.Login(ctx, &loginUP)
+	loginReq, err := c.Pbclient.Login(ctx, &loginUP)
 	if err != nil {
 		log.Fatalf("login failed: %v", err)
 		return err
@@ -212,7 +216,7 @@ func Login(c pb.StrikeClient, username string, password string) error {
 	fmt.Printf("%v:%s\n", loginReq.Success, loginReq.Message)
 
 	// TODO: handle this elsewhere?
-	stream, err := c.UserStatus(ctx, &userStatus)
+	stream, err := c.Pbclient.UserStatus(ctx, &userInfo)
 	if err != nil {
 		log.Fatalf("status failure: %v", err)
 		return err
@@ -225,7 +229,7 @@ func Login(c pb.StrikeClient, username string, password string) error {
 			return err
 		}
 
-		fmt.Printf("%s Status: %s\n", username, connectionStream.Message)
+		fmt.Printf("%s Status: %s\n", c.Username, connectionStream.Message)
 	}
 }
 

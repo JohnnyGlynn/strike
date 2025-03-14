@@ -195,18 +195,8 @@ func main() {
 
 				clientInfo.Username = username
 
-				// Spawn a goroutine so we can have the login function maintain userstatus stream aka Online
-				// TODO: Clean this up, Login isnt really correct now, RegisterStatus?
-				go func() {
-					// Login now connects to UserStatus stream to show wheter user is online
-					err = client.Login(newClient, username, password)
-					if err != nil {
-						log.Fatalf("error connecting: %v", err)
-					}
-				}()
-
+				// Retrieve UUID
 				var userID uuid.UUID
-
 				err = clientInfo.DBpool.QueryRow(context.TODO(), clientInfo.Pstatements.GetUserId, clientInfo.Username).Scan(&userID)
 				if err != nil {
 					if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
@@ -216,6 +206,16 @@ func main() {
 				}
 
 				clientInfo.UserID = userID
+
+				// Spawn a goroutine so we can have the login function maintain userstatus stream aka Online
+				// TODO: Clean this up, Login isnt really correct now, RegisterStatus?
+				go func() {
+					// Login now connects to UserStatus stream to show wheter user is online
+					err = client.Login(clientInfo, password)
+					if err != nil {
+						log.Fatalf("error connecting: %v", err)
+					}
+				}()
 
 				isLoggedIn = true
 				fmt.Println("Logged In!")
@@ -241,10 +241,11 @@ func main() {
 					continue
 				}
 
+				// Create a new UUID
 				newUserID := uuid.New()
 				clientInfo.UserID = newUserID
 
-				err = client.ClientSignup(clientInfo, username, password, loadedKeys["EncryptionPublicKey"], loadedKeys["SigningPublicKey"], newUserID)
+				err = client.ClientSignup(clientInfo, password, loadedKeys["EncryptionPublicKey"], loadedKeys["SigningPublicKey"])
 				if err != nil {
 					log.Fatalf("error connecting: %v", err)
 				}
@@ -253,7 +254,7 @@ func main() {
 
 				go func() {
 					// Login now connects to UserStatus stream to show wheter user is online
-					err = client.Login(newClient, username, password)
+					err = client.Login(clientInfo, password)
 					if err != nil {
 						log.Fatalf("error connecting: %v", err)
 					}

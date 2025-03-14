@@ -35,10 +35,10 @@ type StrikeClient interface {
 	Signup(ctx context.Context, in *InitUser, opts ...grpc.CallOption) (*ServerResponse, error)
 	ConfirmChat(ctx context.Context, in *ConfirmChatRequest, opts ...grpc.CallOption) (*ServerResponse, error)
 	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*ServerResponse, error)
-	SaltMine(ctx context.Context, in *Username, opts ...grpc.CallOption) (*Salt, error)
+	SaltMine(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (*Salt, error)
 	SendPayload(ctx context.Context, in *StreamPayload, opts ...grpc.CallOption) (*ServerResponse, error)
-	UserStatus(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (Strike_UserStatusClient, error)
-	PayloadStream(ctx context.Context, in *Username, opts ...grpc.CallOption) (Strike_PayloadStreamClient, error)
+	UserStatus(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (Strike_UserStatusClient, error)
+	PayloadStream(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (Strike_PayloadStreamClient, error)
 }
 
 type strikeClient struct {
@@ -79,7 +79,7 @@ func (c *strikeClient) Login(ctx context.Context, in *LoginRequest, opts ...grpc
 	return out, nil
 }
 
-func (c *strikeClient) SaltMine(ctx context.Context, in *Username, opts ...grpc.CallOption) (*Salt, error) {
+func (c *strikeClient) SaltMine(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (*Salt, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Salt)
 	err := c.cc.Invoke(ctx, Strike_SaltMine_FullMethodName, in, out, cOpts...)
@@ -99,7 +99,7 @@ func (c *strikeClient) SendPayload(ctx context.Context, in *StreamPayload, opts 
 	return out, nil
 }
 
-func (c *strikeClient) UserStatus(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (Strike_UserStatusClient, error) {
+func (c *strikeClient) UserStatus(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (Strike_UserStatusClient, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &Strike_ServiceDesc.Streams[0], Strike_UserStatus_FullMethodName, cOpts...)
 	if err != nil {
@@ -132,7 +132,7 @@ func (x *strikeUserStatusClient) Recv() (*StatusUpdate, error) {
 	return m, nil
 }
 
-func (c *strikeClient) PayloadStream(ctx context.Context, in *Username, opts ...grpc.CallOption) (Strike_PayloadStreamClient, error) {
+func (c *strikeClient) PayloadStream(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (Strike_PayloadStreamClient, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &Strike_ServiceDesc.Streams[1], Strike_PayloadStream_FullMethodName, cOpts...)
 	if err != nil {
@@ -172,10 +172,10 @@ type StrikeServer interface {
 	Signup(context.Context, *InitUser) (*ServerResponse, error)
 	ConfirmChat(context.Context, *ConfirmChatRequest) (*ServerResponse, error)
 	Login(context.Context, *LoginRequest) (*ServerResponse, error)
-	SaltMine(context.Context, *Username) (*Salt, error)
+	SaltMine(context.Context, *UserInfo) (*Salt, error)
 	SendPayload(context.Context, *StreamPayload) (*ServerResponse, error)
-	UserStatus(*StatusRequest, Strike_UserStatusServer) error
-	PayloadStream(*Username, Strike_PayloadStreamServer) error
+	UserStatus(*UserInfo, Strike_UserStatusServer) error
+	PayloadStream(*UserInfo, Strike_PayloadStreamServer) error
 	mustEmbedUnimplementedStrikeServer()
 }
 
@@ -192,16 +192,16 @@ func (UnimplementedStrikeServer) ConfirmChat(context.Context, *ConfirmChatReques
 func (UnimplementedStrikeServer) Login(context.Context, *LoginRequest) (*ServerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Login not implemented")
 }
-func (UnimplementedStrikeServer) SaltMine(context.Context, *Username) (*Salt, error) {
+func (UnimplementedStrikeServer) SaltMine(context.Context, *UserInfo) (*Salt, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SaltMine not implemented")
 }
 func (UnimplementedStrikeServer) SendPayload(context.Context, *StreamPayload) (*ServerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendPayload not implemented")
 }
-func (UnimplementedStrikeServer) UserStatus(*StatusRequest, Strike_UserStatusServer) error {
+func (UnimplementedStrikeServer) UserStatus(*UserInfo, Strike_UserStatusServer) error {
 	return status.Errorf(codes.Unimplemented, "method UserStatus not implemented")
 }
-func (UnimplementedStrikeServer) PayloadStream(*Username, Strike_PayloadStreamServer) error {
+func (UnimplementedStrikeServer) PayloadStream(*UserInfo, Strike_PayloadStreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method PayloadStream not implemented")
 }
 func (UnimplementedStrikeServer) mustEmbedUnimplementedStrikeServer() {}
@@ -272,7 +272,7 @@ func _Strike_Login_Handler(srv interface{}, ctx context.Context, dec func(interf
 }
 
 func _Strike_SaltMine_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Username)
+	in := new(UserInfo)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -284,7 +284,7 @@ func _Strike_SaltMine_Handler(srv interface{}, ctx context.Context, dec func(int
 		FullMethod: Strike_SaltMine_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StrikeServer).SaltMine(ctx, req.(*Username))
+		return srv.(StrikeServer).SaltMine(ctx, req.(*UserInfo))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -308,7 +308,7 @@ func _Strike_SendPayload_Handler(srv interface{}, ctx context.Context, dec func(
 }
 
 func _Strike_UserStatus_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(StatusRequest)
+	m := new(UserInfo)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
@@ -329,7 +329,7 @@ func (x *strikeUserStatusServer) Send(m *StatusUpdate) error {
 }
 
 func _Strike_PayloadStream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(Username)
+	m := new(UserInfo)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
