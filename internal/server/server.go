@@ -23,16 +23,21 @@ type StrikeServer struct {
 	DBpool      *pgxpool.Pool
 	PStatements *db.ServerDB
 
-	OnlineUsers     map[string]pb.Strike_UserStatusServer
-	PayloadStreams  map[string]pb.Strike_PayloadStreamServer
-	PayloadChannels map[string]chan *pb.StreamPayload
+	OnlineUsers     map[uuid.UUID]pb.Strike_UserStatusServer
+	PayloadStreams  map[uuid.UUID]pb.Strike_PayloadStreamServer
+	PayloadChannels map[uuid.UUID]chan *pb.StreamPayload
 	mu              sync.Mutex
 }
 
 func (s *StrikeServer) SendPayload(ctx context.Context, payload *pb.StreamPayload) (*pb.ServerResponse, error) {
 	// TODO: Work out the most effecient Syncing for mutexs, this is a lot of locking and unlocking
+
+	parsedId, err := uuid.Parse(payload.TargetId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse target uuid: %v", err)
+	}
 	s.mu.Lock()
-	channel, ok := s.PayloadChannels[payload.Target]
+	channel, ok := s.PayloadChannels[parsedId]
 	s.mu.Unlock()
 
 	if !ok {
@@ -127,27 +132,30 @@ func (s *StrikeServer) Signup(ctx context.Context, userInit *pb.InitUser) (*pb.S
 }
 
 func (s *StrikeServer) UserStatus(req *pb.UserInfo, stream pb.Strike_UserStatusServer) error {
-	username := req.Username
-
 	// TODO: cleaner map initilization
 	if s.OnlineUsers == nil {
-		s.OnlineUsers = make(map[string]pb.Strike_UserStatusServer)
+		s.OnlineUsers = make(map[uuid.UUID]pb.Strike_UserStatusServer)
 	}
 
+	// TODO: Parse function
+	parsedId, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return fmt.Errorf("failed to parse user ID: %v", err)
+	}
 	// Register the user as online
 	s.mu.Lock()
-	s.OnlineUsers[username] = stream
+	s.OnlineUsers[parsedId] = stream
 	s.mu.Unlock()
 
 	// Defer so regardless of how we exit (gracefully or an error), the user is removed from OnlineUsers
 	defer func() {
 		s.mu.Lock()
-		delete(s.OnlineUsers, username)
+		delete(s.OnlineUsers, parsedId)
 		s.mu.Unlock()
-		fmt.Printf("%s is now offline.\n", username)
+		fmt.Printf("%s is now offline.\n", req.Username)
 	}()
 
-	fmt.Printf("%s is online.\n", username)
+	fmt.Printf("%s is online.\n", req.Username)
 
 	for {
 		select {
@@ -173,16 +181,20 @@ func (s *StrikeServer) PayloadStream(user *pb.UserInfo, stream pb.Strike_Payload
 
 	// TODO: cleaner map initilization
 	if s.PayloadStreams == nil {
-		s.PayloadStreams = make(map[string]pb.Strike_PayloadStreamServer)
+		s.PayloadStreams = make(map[uuid.UUID]pb.Strike_PayloadStreamServer)
 	}
 
+	parsedId, err := uuid.Parse(user.UserId)
+	if err != nil {
+		return fmt.Errorf("failed to parse user id: %v", err)
+	}
 	// Register the users message steam
 	s.mu.Lock()
-	s.PayloadStreams[user.Username] = stream
+	s.PayloadStreams[parsedId] = stream
 	s.mu.Unlock()
 
 	if s.PayloadChannels == nil {
-		s.PayloadChannels = make(map[string]chan *pb.StreamPayload)
+		s.PayloadChannels = make(map[uuid.UUID]chan *pb.StreamPayload)
 	}
 
 	// create a channel for each connected client
@@ -190,14 +202,14 @@ func (s *StrikeServer) PayloadStream(user *pb.UserInfo, stream pb.Strike_Payload
 
 	// Register the users message channel
 	s.mu.Lock()
-	s.PayloadChannels[user.Username] = payloadChannel
+	s.PayloadChannels[parsedId] = payloadChannel
 	s.mu.Unlock()
 
 	// Defer our cleanup of stream map and message channel
 	defer func() {
 		s.mu.Lock()
-		delete(s.PayloadStreams, user.Username)
-		delete(s.PayloadChannels, user.Username)
+		delete(s.PayloadStreams, parsedId)
+		delete(s.PayloadChannels, parsedId)
 		close(payloadChannel) // Safely close the channel
 		s.mu.Unlock()
 		fmt.Printf("Client %s disconnected.\n", user.Username)

@@ -107,13 +107,14 @@ message StatusUpdate {
 // TODO: this is getting messy
 message StreamPayload {
   string target = 1;
+  string target_id = 2;
   oneof payload {
-    BeginChatRequest chat_request = 2;
-    ConfirmChatRequest chat_confirm = 3;
-    Envelope envelope = 4;
-    KeyExchangeRequest key_exch_request = 5;
-    KeyExchangeResponse key_exch_response = 6;
-    KeyExchangeConfirmation key_exch_confirm = 7;
+    BeginChatRequest chat_request = 3;
+    ConfirmChatRequest chat_confirm = 4;
+    Envelope envelope = 5;
+    KeyExchangeRequest key_exch_request = 6;
+    KeyExchangeResponse key_exch_response = 7;
+    KeyExchangeConfirmation key_exch_confirm = 8;
   }
 }
 
