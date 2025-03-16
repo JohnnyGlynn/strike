@@ -202,7 +202,7 @@ func ProcessConfirmChatRequests(c ClientInfo, ch <-chan *pb.ConfirmChatRequest, 
 				fmt.Printf("Invitation %v for:%s, With: %s, Status: Accepted\n", confirmation.InviteId, confirmation.Chat.Name, confirmation.Confirmer)
 				c.Cache.Chats[confirmation.Chat.Id] = confirmation.Chat
 				// TODO: Initiator will probably have to change
-				InitiateKeyExchange(context.TODO(), c.Pbclient, confirmation.Confirmer, c.UserID.String(), c.Keys["SigningPrivateKey"], c.Keys["EncryptionPublicKey"], confirmation.Chat)
+				InitiateKeyExchange(context.TODO(), c, uuid.MustParse(confirmation.Confirmer), confirmation.Chat)
 			} else {
 				fmt.Printf("Invitation %v for:%s, With: %s, Status: Declined\n", confirmation.InviteId, confirmation.Chat.Name, confirmation.Confirmer)
 			}
@@ -247,7 +247,7 @@ func ProcessKeyExchangeRequests(c ClientInfo, ch <-chan *pb.KeyExchangeRequest, 
 			}
 
 			// TODO: Signature is gross
-			ReciprocateKeyExchange(context.TODO(), c.Pbclient, keyExReq.Target, c.UserID.String(), c.Keys["SigningPrivateKey"], c.Keys["EncryptionPublicKey"], chat)
+			ReciprocateKeyExchange(context.TODO(), c, uuid.MustParse(keyExReq.Target), chat)
 
 		case <-timeoutCh:
 			fmt.Printf("KeyExchangeRequest worker idle for %v, exiting.\n", idleTimeout) // shutdown ephemeral workers
@@ -293,7 +293,7 @@ func ProcessKeyExchangeResponses(c ClientInfo, ch <-chan *pb.KeyExchangeResponse
 			}
 
 			// TODO: Something fails so the confirmations can be false???
-			ConfirmKeyExchange(context.TODO(), c.Pbclient, keyExRes.ResponderUserId, true, chat)
+			ConfirmKeyExchange(context.TODO(), c, uuid.MustParse(keyExRes.ResponderUserId), true, chat)
 
 		case <-timeoutCh:
 			fmt.Printf("KeyExchangeResponse worker idle for %v, exiting.\n", idleTimeout) // shutdown ephemeral workers
@@ -333,7 +333,7 @@ func ProcessKeyExchangeConfirmations(c ClientInfo, ch <-chan *pb.KeyExchangeConf
 					log.Fatal("Failed to save Chat")
 				}
 
-				ConfirmKeyExchange(context.TODO(), c.Pbclient, keyExCon.ConfirmerUserId, true, chat)
+				ConfirmKeyExchange(context.TODO(), c, uuid.MustParse(keyExCon.ConfirmerUserId), true, chat)
 			} else {
 				// TODO: right approach to return?
 				return

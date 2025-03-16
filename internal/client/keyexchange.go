@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func InitiateKeyExchange(ctx context.Context, c pb.StrikeClient, target string, username string, privateEDKey []byte, publicCurveKey []byte, chat *pb.Chat) {
+func InitiateKeyExchange(ctx context.Context, c ClientInfo, target uuid.UUID, chat *pb.Chat) {
 	// make nonce
 	nonce := make([]byte, 32)
 	_, err := rand.Read(nonce)
@@ -22,7 +22,7 @@ func InitiateKeyExchange(ctx context.Context, c pb.StrikeClient, target string, 
 		log.Fatalf("Error generating nonce: %v", err)
 	}
 
-	block, _ := pem.Decode(privateEDKey)
+	block, _ := pem.Decode(c.Keys["SigningPrivateKey"])
 	if block == nil {
 		log.Print("failed to decode PEM block")
 		return
@@ -42,24 +42,24 @@ func InitiateKeyExchange(ctx context.Context, c pb.StrikeClient, target string, 
 
 	// signatures
 	nonceSig := ed25519.Sign(priv, nonce)
-	publicKeySig := ed25519.Sign(priv, publicCurveKey)
+	publicKeySig := ed25519.Sign(priv, c.Keys["EncryptionPublicKey"])
 
 	sigs := [][]byte{nonceSig, publicKeySig}
 
 	exchangeInfo := pb.KeyExchangeRequest{
 		ChatId:         chat.Id,
-		SenderUserId:   uuid.New().String(), // TODO: Users need ID's
-		CurvePublicKey: publicCurveKey,
+		SenderUserId:   c.UserID.String(),
+		CurvePublicKey: c.Keys["EncryptionPublicKey"],
 		Nonce:          nonce,
 		Signatures:     sigs,
 	}
 
 	payload := pb.StreamPayload{
-		Target:  target,
+		Target:  target.String(),
 		Payload: &pb.StreamPayload_KeyExchRequest{KeyExchRequest: &exchangeInfo},
 	}
 
-	resp, err := c.SendPayload(ctx, &payload)
+	resp, err := c.Pbclient.SendPayload(ctx, &payload)
 	if err != nil {
 		log.Fatalf("Error initiating key exchange: %v", err)
 	}
@@ -67,7 +67,7 @@ func InitiateKeyExchange(ctx context.Context, c pb.StrikeClient, target string, 
 	fmt.Printf("Key Exchange initiated: %v", resp.Success)
 }
 
-func ReciprocateKeyExchange(ctx context.Context, c pb.StrikeClient, target string, username string, privateEDKey []byte, publicCurveKey []byte, chat *pb.Chat) {
+func ReciprocateKeyExchange(ctx context.Context, c ClientInfo, target uuid.UUID, chat *pb.Chat) {
 	// make nonce
 	nonce := make([]byte, 32)
 	_, err := rand.Read(nonce)
@@ -75,7 +75,7 @@ func ReciprocateKeyExchange(ctx context.Context, c pb.StrikeClient, target strin
 		log.Fatalf("Error generating nonce: %v", err)
 	}
 
-	block, _ := pem.Decode(privateEDKey)
+	block, _ := pem.Decode(c.Keys["SigningPrivateKey"])
 	if block == nil {
 		log.Print("failed to decode PEM block")
 		return
@@ -95,25 +95,25 @@ func ReciprocateKeyExchange(ctx context.Context, c pb.StrikeClient, target strin
 
 	// signatures
 	nonceSig := ed25519.Sign(priv, nonce)
-	publicKeySig := ed25519.Sign(priv, publicCurveKey)
+	publicKeySig := ed25519.Sign(priv, c.Keys["EncryptionPublicKey"])
 
 	sigs := [][]byte{nonceSig, publicKeySig}
 
 	exchangeInfo := pb.KeyExchangeResponse{
-		ChatId:          chat.Id,
-    //TODO:UUID NOT USERNAME, REAL uuid
-		ResponderUserId: uuid.New().String(),
-		CurvePublicKey:  publicCurveKey,
+		ChatId: chat.Id,
+		// TODO:UUID NOT USERNAME, REAL uuid
+		ResponderUserId: c.UserID.String(),
+		CurvePublicKey:  c.Keys["EncryptionPublicKey"],
 		Nonce:           nonce,
 		Signatures:      sigs,
 	}
 
 	payload := pb.StreamPayload{
-		Target:  target,
+		Target:  target.String(),
 		Payload: &pb.StreamPayload_KeyExchResponse{KeyExchResponse: &exchangeInfo},
 	}
 
-	resp, err := c.SendPayload(ctx, &payload)
+	resp, err := c.Pbclient.SendPayload(ctx, &payload)
 	if err != nil {
 		log.Fatalf("Error reciprocating key exchange: %v", err)
 	}
@@ -121,18 +121,19 @@ func ReciprocateKeyExchange(ctx context.Context, c pb.StrikeClient, target strin
 	fmt.Printf("Key Exchange reciprocated: %v", resp.Success)
 }
 
-func ConfirmKeyExchange(ctx context.Context, c pb.StrikeClient, target string, status bool, chat *pb.Chat) {
+func ConfirmKeyExchange(ctx context.Context, c ClientInfo, target uuid.UUID, status bool, chat *pb.Chat) {
 	confirmation := pb.KeyExchangeConfirmation{
-		ChatId: chat.Id,
-		Status: status,
+		ChatId:          chat.Id,
+		Status:          status,
+		ConfirmerUserId: c.UserID.String(),
 	}
 
 	payload := pb.StreamPayload{
-		Target:  target,
+		Target:  target.String(),
 		Payload: &pb.StreamPayload_KeyExchConfirm{KeyExchConfirm: &confirmation},
 	}
 
-	resp, err := c.SendPayload(ctx, &payload)
+	resp, err := c.Pbclient.SendPayload(ctx, &payload)
 	if err != nil {
 		log.Fatalf("Error confirming key exchange: %v", err)
 	}
