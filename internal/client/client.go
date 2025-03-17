@@ -17,6 +17,7 @@ import (
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 	"github.com/google/uuid"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -87,18 +88,18 @@ func ConnectPayloadStream(ctx context.Context, c ClientInfo) error {
 	}
 }
 
-func SendMessage(c ClientInfo, target string, message string) {
+func SendMessage(c ClientInfo, target uuid.UUID, message string) {
 	envelope := pb.Envelope{
 		SenderPublicKey: c.Keys["SigningPublicKey"],
 		SentAt:          timestamppb.Now(),
-		FromUser:        c.Username,
-		ToUser:          target,
+		FromUser:        c.UserID.String(),
+		ToUser:          target.String(),
 		Chat:            c.Cache.Chats[c.Cache.ActiveChat], // TODO: Ensure nothing can be set if ActiveChat == ""
 		Message:         message,
 	}
 
 	payloadEnvelope := pb.StreamPayload{
-		Target:  target,
+		Target:  target.String(),
 		Payload: &pb.StreamPayload_Envelope{Envelope: &envelope},
 	}
 
@@ -233,18 +234,18 @@ func Login(c ClientInfo, password string) error {
 	}
 }
 
-func BeginChat(c pb.StrikeClient, username string, chatTarget string, chatName string) error {
+func BeginChat(c ClientInfo, target uuid.UUID, chatName string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	newInvite := uuid.New().String()
 
-	participants := []string{username, chatTarget}
+	participants := []string{c.UserID.String(), target.String()}
 
 	beginChat := &pb.BeginChatRequest{
 		InviteId:  newInvite,
-		Initiator: username,
-		Target:    chatTarget,
+		Initiator: c.UserID.String(),
+		Target:    target.String(),
 		ChatName:  chatName,
 		Chat: &pb.Chat{
 			Id:           uuid.New().String(),
@@ -255,11 +256,11 @@ func BeginChat(c pb.StrikeClient, username string, chatTarget string, chatName s
 	}
 
 	payloadChatRequest := pb.StreamPayload{
-		Target:  chatTarget,
+		Target:  target.String(),
 		Payload: &pb.StreamPayload_ChatRequest{ChatRequest: beginChat},
 	}
 
-	beginChatResponse, err := c.SendPayload(ctx, &payloadChatRequest)
+	beginChatResponse, err := c.Pbclient.SendPayload(ctx, &payloadChatRequest)
 	if err != nil {
 		log.Fatalf("Begin Chat failed: %v", err)
 		return err
@@ -433,6 +434,15 @@ func shellBeginChat(c ClientInfo, inputReader *bufio.Reader) {
 	}
 	inviteUser = strings.TrimSpace(inviteUser)
 
+	var targetID uuid.UUID
+	err = c.DBpool.QueryRow(context.TODO(), c.Pstatements.GetUserId, inviteUser).Scan(&targetID)
+	if err != nil {
+		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
+			log.Fatalf("DB error: %v", err)
+		}
+		log.Fatalf("An Error occured while logging in: %v", err)
+	}
+
 	fmt.Print("Chat Name> ")
 	chatName, err := inputReader.ReadString('\n')
 	if err != nil {
@@ -441,7 +451,7 @@ func shellBeginChat(c ClientInfo, inputReader *bufio.Reader) {
 	}
 	chatName = strings.TrimSpace(chatName)
 
-	err = BeginChat(c.Pbclient, c.Username, inviteUser, chatName)
+	err = BeginChat(c, targetID, chatName)
 	if err != nil {
 		log.Printf("error beginning chat: %v", err)
 	}
@@ -464,7 +474,17 @@ func shellSendMessage(input string, c ClientInfo) error {
 
 	target, message := userAndMessage[0], userAndMessage[1]
 
-	SendMessage(c, target, message)
+	// TODO: Migrate messaging shell to active chat only, stop having to query uuid on every message
+	var targetID uuid.UUID
+	err := c.DBpool.QueryRow(context.TODO(), c.Pstatements.GetUserId, target).Scan(&targetID)
+	if err != nil {
+		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
+			log.Fatalf("DB error: %v", err)
+		}
+		log.Fatalf("An Error occured while logging in: %v", err)
+	}
+
+	SendMessage(c, targetID, message)
 	fmt.Printf("[YOU]: %s\n", message)
 
 	return nil
