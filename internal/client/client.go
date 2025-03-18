@@ -512,7 +512,7 @@ func loadChats(c ClientInfo) error {
 			chat_id       uuid.UUID
 			chat_name     string
 			initiator     uuid.UUID
-			participants  []string
+			participants  []uuid.UUID
 			state         pb.Chat_State
 			shared_secret []byte
 		)
@@ -521,11 +521,16 @@ func loadChats(c ClientInfo) error {
 			return err
 		}
 
+		var participantsStrung []string
+		for _, uID := range participants {
+			participantsStrung = append(participantsStrung, uID.String())
+		}
+
 		chat := &pb.Chat{
 			Id:           chat_id.String(), // TODO: Chat UUIDS
 			Name:         chat_name,
 			State:        state,
-			Participants: participants,
+			Participants: participantsStrung,
 		}
 
 		c.Cache.Chats[chat_id.String()] = chat

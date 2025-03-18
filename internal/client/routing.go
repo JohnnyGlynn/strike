@@ -147,7 +147,7 @@ func ProcessEnvelopes(ch <-chan *pb.Envelope, c ClientInfo, idleTimeout time.Dur
 				return
 			}
 			fmt.Printf("[%s] [%s] [From:%s] : %s\n", envelope.SentAt.AsTime(), envelope.Chat.Name, envelope.FromUser, envelope.Message)
-      // TODO: Batch insert messages?
+			// TODO: Batch insert messages?
 			_, err := c.DBpool.Exec(context.TODO(), c.Pstatements.SaveMessage, uuid.New(), envelope.Chat.Id, envelope.FromUser, envelope.Message)
 			if err != nil {
 				log.Fatalf("Failed to save message")
@@ -238,10 +238,16 @@ func ProcessKeyExchangeRequests(c ClientInfo, ch <-chan *pb.KeyExchangeRequest, 
 			if err != nil {
 				// TODO: Error return
 				log.Print("failed to compute shared secret")
-        return
+				return
 			}
 
-			_, err = c.DBpool.Exec(context.TODO(), c.Pstatements.CreateChat, keyExReq.ChatId, chat.Name, keyExReq.SenderUserId, chat.Participants, pb.Chat_KEY_EXCHANGE_PENDING.String(), sharedSecret)
+			var participantsUUID []uuid.UUID
+			for _, sUID := range chat.Participants {
+				parsedUUID := uuid.MustParse(sUID)
+				participantsUUID = append(participantsUUID, parsedUUID)
+			}
+
+			_, err = c.DBpool.Exec(context.TODO(), c.Pstatements.CreateChat, uuid.MustParse(keyExReq.ChatId), chat.Name, uuid.MustParse(keyExReq.SenderUserId), participantsUUID, pb.Chat_KEY_EXCHANGE_PENDING.String(), sharedSecret)
 			if err != nil {
 				log.Fatal("Failed to save Chat")
 			}
@@ -287,7 +293,13 @@ func ProcessKeyExchangeResponses(c ClientInfo, ch <-chan *pb.KeyExchangeResponse
 			// TODO: More robust cache rather than maps (Redis?)
 			chat.State = pb.Chat_KEY_EXCHANGE_PENDING
 
-			_, err = c.DBpool.Exec(context.TODO(), c.Pstatements.CreateChat, keyExRes.ChatId, chat.Name, keyExRes.ResponderUserId, chat.Participants, chat.State.String(), sharedSecret)
+			var participantsUUID []uuid.UUID
+			for _, sUID := range chat.Participants {
+				parsedUUID := uuid.MustParse(sUID)
+				participantsUUID = append(participantsUUID, parsedUUID)
+			}
+
+			_, err = c.DBpool.Exec(context.TODO(), c.Pstatements.CreateChat, uuid.MustParse(keyExRes.ChatId), chat.Name, uuid.MustParse(keyExRes.ResponderUserId), participantsUUID, chat.State.String(), sharedSecret)
 			if err != nil {
 				log.Fatal("Failed to save Chat")
 			}
@@ -328,7 +340,7 @@ func ProcessKeyExchangeConfirmations(c ClientInfo, ch <-chan *pb.KeyExchangeConf
 				// TODO: More robust cache rather than maps (Redis?)
 				chat.State = pb.Chat_ENCRYPTED
 
-				_, err := c.DBpool.Exec(context.TODO(), c.Pstatements.UpdateChatState, pb.Chat_ENCRYPTED.String(), keyExCon.ChatId)
+				_, err := c.DBpool.Exec(context.TODO(), c.Pstatements.UpdateChatState, pb.Chat_ENCRYPTED.String(), uuid.MustParse(keyExCon.ChatId))
 				if err != nil {
 					log.Fatal("Failed to save Chat")
 				}
