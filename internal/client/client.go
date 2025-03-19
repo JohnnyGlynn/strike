@@ -34,9 +34,9 @@ type ClientInfo struct {
 }
 
 type ClientCache struct {
-	Invites    map[string]*pb.BeginChatRequest
-	Chats      map[string]*pb.Chat
-	ActiveChat string
+	Invites    map[uuid.UUID]*pb.BeginChatRequest
+	Chats      map[uuid.UUID]*pb.Chat
+	ActiveChat *pb.Chat
 }
 
 // TODO: CLEAN THIS UP
@@ -94,7 +94,7 @@ func SendMessage(c ClientInfo, target uuid.UUID, message string) {
 		SentAt:          timestamppb.Now(),
 		FromUser:        c.UserID.String(),
 		ToUser:          target.String(),
-		Chat:            c.Cache.Chats[c.Cache.ActiveChat], // TODO: Ensure nothing can be set if ActiveChat == ""
+		Chat:            c.Cache.Chats[uuid.MustParse(c.Cache.ActiveChat.Id)], // TODO: Ensure nothing can be set if ActiveChat == ""
 		Message:         message,
 	}
 
@@ -129,10 +129,11 @@ func ConfirmChat(ctx context.Context, c ClientInfo, chatRequest *pb.BeginChatReq
 		return fmt.Errorf("failed to confirm chat: %v", err)
 	}
 
-	delete(c.Cache.Invites, chatRequest.InviteId)
+	delete(c.Cache.Invites, uuid.MustParse(chatRequest.InviteId))
 	// Cache a chat when you acceot an invite
+
 	if inviteState {
-		c.Cache.Chats[chatRequest.Chat.Id] = chatRequest.Chat
+		c.Cache.Chats[uuid.MustParse(chatRequest.Chat.Id)] = chatRequest.Chat
 	}
 
 	fmt.Printf("Chat invite acknowledged: %+v\n", resp)
@@ -304,7 +305,7 @@ func MessagingShell(c ClientInfo) {
 
 	for {
 		// Prompt for input
-		if c.Cache.ActiveChat == "" {
+		if c.Cache.ActiveChat == nil {
 			fmt.Print("[NO-CHAT]msgshell> ")
 		} else {
 			fmt.Printf("[CHAT:%s]> ", c.Cache.ActiveChat)
@@ -386,12 +387,12 @@ func shellChat(inputReader *bufio.Reader, c ClientInfo) {
 
 	fmt.Println("Available Chats:")
 
-	chatList := make([]string, 0, len(c.Cache.Chats))
+	chatList := make([]*pb.Chat, 0, len(c.Cache.Chats))
 	index := 1
 
-	for chatID, chat := range c.Cache.Chats {
+	for _, chat := range c.Cache.Chats {
 		fmt.Printf("%d: %s [STATE: %v]\n", index, chat.Name, chat.State.String())
-		chatList = append(chatList, chatID)
+		chatList = append(chatList, chat)
 		index++
 	}
 
@@ -414,15 +415,15 @@ func shellChat(inputReader *bufio.Reader, c ClientInfo) {
 		return
 	}
 
-	selectedChatID := chatList[selectedIndex-1]
+	selectedChat := chatList[selectedIndex-1]
 
-	if c.Cache.ActiveChat == selectedChatID {
-		fmt.Printf("%s already active", selectedChatID)
+	if c.Cache.ActiveChat == selectedChat {
+		fmt.Printf("%s already active", selectedChat.Name)
 		return
 	}
 
-	c.Cache.ActiveChat = selectedChatID
-	fmt.Printf("Active chat: %s\n", c.Cache.Chats[selectedChatID].Name)
+	c.Cache.ActiveChat = selectedChat
+	fmt.Printf("Active chat: %s\n", c.Cache.Chats[uuid.MustParse(selectedChat.Id)].Name)
 }
 
 func shellBeginChat(c ClientInfo, inputReader *bufio.Reader) {
@@ -468,7 +469,7 @@ func shellSendMessage(input string, c ClientInfo) error {
 	}
 
 	// TODO: Stopgap handle this elsewhere
-	if c.Cache.ActiveChat == "" {
+	if c.Cache.ActiveChat == nil {
 		return fmt.Errorf("No chat has been selected. Use /chats to enable a chat first")
 	}
 
@@ -533,7 +534,7 @@ func loadChats(c ClientInfo) error {
 			Participants: participantsStrung,
 		}
 
-		c.Cache.Chats[chat_id.String()] = chat
+		c.Cache.Chats[chat_id] = chat
 	}
 
 	return nil

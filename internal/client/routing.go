@@ -175,7 +175,7 @@ func ProcessChatRequests(ch <-chan *pb.BeginChatRequest, c ClientInfo, idleTimeo
 			}
 			fmt.Printf("Chat Invite recieved from:%v Chat Name: %v\n", chatRequest.Initiator, chatRequest.Chat.Name)
 			// Recieve an invite, cache it
-			c.Cache.Invites[chatRequest.InviteId] = chatRequest
+			c.Cache.Invites[uuid.MustParse(chatRequest.InviteId)] = chatRequest
 		case <-timeoutCh:
 			fmt.Printf("ChatRequest worker idle for %v, exiting.\n", idleTimeout) // shutdown ephemeral workers
 			mu.Lock()
@@ -200,7 +200,7 @@ func ProcessConfirmChatRequests(c ClientInfo, ch <-chan *pb.ConfirmChatRequest, 
 
 			if confirmation.State {
 				fmt.Printf("Invitation %v for:%s, With: %s, Status: Accepted\n", confirmation.InviteId, confirmation.Chat.Name, confirmation.Confirmer)
-				c.Cache.Chats[confirmation.Chat.Id] = confirmation.Chat
+				c.Cache.Chats[uuid.MustParse(confirmation.Chat.Id)] = confirmation.Chat
 				// TODO: Initiator will probably have to change
 				InitiateKeyExchange(context.TODO(), c, uuid.MustParse(confirmation.Confirmer), confirmation.Chat)
 			} else {
@@ -228,7 +228,7 @@ func ProcessKeyExchangeRequests(c ClientInfo, ch <-chan *pb.KeyExchangeRequest, 
 				return
 			}
 			fmt.Printf("Key exchange initiated for: %v\n", keyExReq.ChatId)
-			chat, exists := c.Cache.Chats[keyExReq.ChatId]
+			chat, exists := c.Cache.Chats[uuid.MustParse(keyExReq.ChatId)]
 			if !exists {
 				log.Printf("Failed to find chat: %v", keyExReq.ChatId)
 				return
@@ -277,7 +277,7 @@ func ProcessKeyExchangeResponses(c ClientInfo, ch <-chan *pb.KeyExchangeResponse
 				return
 			}
 			fmt.Printf("Key exchange response for: %v\n", keyExRes.ChatId)
-			chat, exists := c.Cache.Chats[keyExRes.ChatId]
+			chat, exists := c.Cache.Chats[uuid.MustParse(keyExRes.ChatId)]
 			if !exists {
 				log.Printf("Failed to find chat: %v", keyExRes.ChatId)
 				return
@@ -328,7 +328,7 @@ func ProcessKeyExchangeConfirmations(c ClientInfo, ch <-chan *pb.KeyExchangeConf
 			if !ok {
 				return
 			}
-			chat, exists := c.Cache.Chats[keyExCon.ChatId]
+			chat, exists := c.Cache.Chats[uuid.MustParse(keyExCon.ChatId)]
 			if !exists {
 				log.Printf("Failed to find chat: %v", keyExCon.ChatId)
 				return
