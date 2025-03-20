@@ -112,7 +112,6 @@ func SendMessage(c ClientInfo, target uuid.UUID, message string) {
 func ConfirmChat(ctx context.Context, c ClientInfo, chatRequest *pb.BeginChatRequest, inviteState bool) error {
 	confirmation := pb.ConfirmChatRequest{
 		InviteId:  chatRequest.InviteId,
-		ChatName:  chatRequest.Chat.Name,
 		Initiator: chatRequest.Initiator,
 		Confirmer: chatRequest.Target,
 		State:     inviteState,
@@ -247,7 +246,6 @@ func BeginChat(c ClientInfo, target uuid.UUID, chatName string) error {
 		InviteId:  newInvite,
 		Initiator: c.UserID.String(),
 		Target:    target.String(),
-		ChatName:  chatName,
 		Chat: &pb.Chat{
 			Id:           uuid.New().String(),
 			Name:         chatName,

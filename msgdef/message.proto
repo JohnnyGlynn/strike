@@ -30,6 +30,7 @@ message UserInfo {
     bytes encryption_public_key = 3;
     bytes signing_public_key = 4;
 }
+
 //TODO: Getting very verbose here, prune
 message Salt {
     bytes salt = 1;
@@ -49,17 +50,15 @@ message BeginChatRequest {
   string invite_id = 1; //UUID of invite
   string initiator = 2; // client beginning chat username
   string target = 3;    // target client username
-  string chat_name = 4;    // target client username
-  Chat chat = 5;
+  Chat chat = 4;
 }
 
 message ConfirmChatRequest {
   string invite_id = 1; //UUID of invite
-  string chat_name = 2; // chat name
-  string initiator = 3;
-  string confirmer = 4; // target user accepting chat
-  bool state = 5; // yes/no
-  Chat chat = 6;
+  string initiator = 2;
+  string confirmer = 3; // target user accepting chat
+  bool state = 4; // yes/no
+  Chat chat = 5;
 }
 
 message LoginRequest {
@@ -84,19 +83,10 @@ message Chat {
   google.protobuf.Timestamp updated_at = 6;
 }
 
-message ChatStreamRequest {
-  string chat_id = 1; // chat name
-}
-
 message ServerResponse {
   bool success = 1;
   string message = 2;
   //TODO: Have server sign this?
-}
-
-//Replace with ServerResponse
-message Stamp {
-  bytes key_used = 1;
 }
 
 message StatusUpdate {
@@ -138,8 +128,8 @@ message EncryptedEnvelope {
   google.protobuf.Timestamp sent_at = 6; // timestamp
 }
 
-
 // -----------------------------------Key Exchange---------------------------------------------
+// TODO: these could proably be a single type
 message KeyExchangeRequest {
   string chat_id = 1;
   string target = 2;
