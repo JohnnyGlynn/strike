@@ -59,7 +59,7 @@ func (s *StrikeServer) SaltMine(ctx context.Context, userInfo *pb.UserInfo) (*pb
 	var salt []byte
 
 	// TODO: ERROR this fails after server has been running long
-	err := s.DBpool.QueryRow(ctx, s.PStatements.SaltMine, userInfo.Username).Scan(&salt)
+	err := s.DBpool.QueryRow(ctx, s.PStatements.SaltMine, userInfo.UserId).Scan(&salt)
 	if err != nil {
 		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
 			log.Fatalf("Unable mine salt: %v", err)
@@ -73,11 +73,9 @@ func (s *StrikeServer) SaltMine(ctx context.Context, userInfo *pb.UserInfo) (*pb
 }
 
 func (s *StrikeServer) Login(ctx context.Context, clientLogin *pb.LoginRequest) (*pb.ServerResponse, error) {
-	fmt.Printf("%s logging in...\n", clientLogin.Username)
-
 	var storedHash string
 
-	err := s.DBpool.QueryRow(ctx, s.PStatements.LoginUser, clientLogin.Username).Scan(&storedHash)
+	err := s.DBpool.QueryRow(ctx, s.PStatements.LoginUser, clientLogin.UserId).Scan(&storedHash)
 	if err != nil {
 		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
 			log.Fatalf("Unable to login: %v", err)
@@ -95,10 +93,10 @@ func (s *StrikeServer) Login(ctx context.Context, clientLogin *pb.LoginRequest) 
 	}
 
 	if passMatch {
-		fmt.Printf("%s login successful\n", clientLogin.Username)
+		fmt.Printf("%s login successful\n", clientLogin.UserId)
 		return &pb.ServerResponse{Success: passMatch, Message: "login successful"}, nil
 	} else if !passMatch {
-		fmt.Printf("failed login attempt for: %s\n", clientLogin.Username)
+		fmt.Printf("failed login attempt for: %s\n", clientLogin.UserId)
 		return &pb.ServerResponse{Success: passMatch, Message: "login unsuccessful"}, nil
 	}
 
@@ -109,18 +107,14 @@ func (s *StrikeServer) Login(ctx context.Context, clientLogin *pb.LoginRequest) 
 func (s *StrikeServer) Signup(ctx context.Context, userInit *pb.InitUser) (*pb.ServerResponse, error) {
 	fmt.Printf("New User signup: %s\n", userInit.Username)
 
-	unstrungUUID, err := uuid.Parse(userInit.UserId)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse uuid: %v", err)
-	}
 	// user: uuid, username, password_hash, salt
-	_, err = s.DBpool.Exec(ctx, s.PStatements.CreateUser, unstrungUUID, userInit.Username, userInit.PasswordHash, userInit.Salt)
+  _, err := s.DBpool.Exec(ctx, s.PStatements.CreateUser, uuid.MustParse(userInit.UserId), userInit.Username, userInit.PasswordHash, userInit.Salt.Salt)
 	if err != nil {
 		return &pb.ServerResponse{Success: false, Message: "failed to register user"}, err
 	}
 
 	// keys: uuid, encryption, signing
-	_, err = s.DBpool.Exec(ctx, s.PStatements.CreatePublicKeys, unstrungUUID, userInit.EncryptionPublicKey, userInit.SigningPublicKey)
+	_, err = s.DBpool.Exec(ctx, s.PStatements.CreatePublicKeys, uuid.MustParse(userInit.UserId), userInit.EncryptionPublicKey, userInit.SigningPublicKey)
 	if err != nil {
 		return &pb.ServerResponse{Success: false, Message: "failed to register user keys"}, err
 	}

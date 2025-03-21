@@ -2,7 +2,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- SERVER SPECIFIC TABLES
 CREATE TABLE users (
-    id UUID PRIMARY KEY NOT NULL, -- If no UUID provided let postgres do it.
+    user_id UUID PRIMARY KEY NOT NULL, -- If no UUID provided let postgres do it.
     username VARCHAR(255) UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     salt BYTEA NOT NULL,
@@ -10,7 +10,7 @@ CREATE TABLE users (
 );
 
 CREATE TABLE user_keys (
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
     encryption_public_key BYTEA NOT NULL,
     signing_public_key BYTEA NOT NULL,
     PRIMARY KEY (user_id)
@@ -21,7 +21,7 @@ CREATE TABLE user_keys (
 CREATE TABLE chats (
     chat_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     chat_name VARCHAR(255) NOT NULL,
-    initiator UUID NOT NULL REFERENCES users(id),
+    initiator UUID NOT NULL REFERENCES users(user_id),
     participants UUID[] NOT NULL,
     state VARCHAR(20) NOT NULL CHECK (state IN ('INIT', 'KEY_EXCHANGE_PENDING', 'ENCRYPTED')),
     shared_secret BYTEA,
@@ -32,13 +32,13 @@ CREATE TABLE chats (
 CREATE TABLE messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     chat_id UUID NOT NULL REFERENCES chats(chat_id),
-    sender UUID NOT NULL REFERENCES users(id),
+    sender UUID NOT NULL REFERENCES users(user_id),
     content TEXT NOT NULL, -- TODO: Encrypted Content? Extra fields to support encryption?
     sent_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE addressbook (
-    id UUID PRIMARY KEY NOT NULL,
+    user_id UUID PRIMARY KEY NOT NULL,
     username VARCHAR(50) UNIQUE NOT NULL,
     encryption_public_key BYTEA NOT NULL,
     signing_public_key BYTEA NOT NULL,

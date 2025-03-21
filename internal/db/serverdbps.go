@@ -41,22 +41,22 @@ func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*ServerDB, er
 	}
 
 	// LoginUser
-	if _, err := poolConnection.Conn().Prepare(ctx, statements.LoginUser, "SELECT password_hash FROM users WHERE username = $1"); err != nil {
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.LoginUser, "SELECT password_hash FROM users WHERE user_id = $1"); err != nil {
 		return nil, err
 	}
 
 	// salt retrieval
-	if _, err := poolConnection.Conn().Prepare(ctx, statements.SaltMine, "SELECT salt FROM users WHERE username = $1"); err != nil {
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.SaltMine, "SELECT salt FROM users WHERE user_id = $1"); err != nil {
 		return nil, err
 	}
 
 	// Get keys from key table
-	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetPublicKeys, "SELECT key.encryption_public_key, key.signing_public_key FROM user_keys key JOIN users u ON key.user_id = u.id WHERE u.username = $1;"); err != nil {
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetPublicKeys, "SELECT key.encryption_public_key, key.signing_public_key FROM user_keys key JOIN users u ON key.user_id = u.user_id WHERE u.username = $1;"); err != nil {
 		return nil, err
 	}
 
 	// Get User Id
-	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetUserId, "SELECT id FROM users WHERE username = $1;"); err != nil {
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetUserId, "SELECT user_id FROM users WHERE username = $1;"); err != nil {
 		return nil, err
 	}
 
@@ -66,7 +66,7 @@ func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*ServerDB, er
 	}
 
 	// Insert Users with password
-	if _, err := poolConnection.Conn().Prepare(ctx, statements.CreateUser, "INSERT INTO users (id, username, password_hash, salt) VALUES ($1, $2, $3, $4)"); err != nil {
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.CreateUser, "INSERT INTO users (user_id, username, password_hash, salt) VALUES ($1, $2, $3, $4)"); err != nil {
 		return nil, err
 	}
 

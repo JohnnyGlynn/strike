@@ -44,7 +44,7 @@ func PreparedClientStatements(ctx context.Context, dbpool *pgxpool.Pool) (*Clien
 	}
 
 	// Get User Id
-	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetUserId, "SELECT id FROM addressbook WHERE username = $1;"); err != nil {
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetUserId, "SELECT user_id FROM addressbook WHERE username = $1;"); err != nil {
 		return nil, err
 	}
 

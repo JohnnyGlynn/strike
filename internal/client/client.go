@@ -204,7 +204,7 @@ func Login(c ClientInfo, password string) error {
 	}
 
 	loginUP := pb.LoginRequest{
-		Username:     c.Username,
+		UserId:       c.UserID.String(),
 		PasswordHash: passwordHash,
 	}
 
