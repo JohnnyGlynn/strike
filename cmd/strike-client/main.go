@@ -195,6 +195,7 @@ func main() {
 
 				clientInfo.Username = username
 
+
 				// Retrieve UUID
 				var userID uuid.UUID
 				err = clientInfo.DBpool.QueryRow(context.TODO(), clientInfo.Pstatements.GetUserId, clientInfo.Username).Scan(&userID)
@@ -244,13 +245,12 @@ func main() {
 				// Create a new UUID
 				newUserID := uuid.New()
 				clientInfo.UserID = newUserID
+        clientInfo.Username = username
 
 				err = client.ClientSignup(clientInfo, password, loadedKeys["EncryptionPublicKey"], loadedKeys["SigningPublicKey"])
 				if err != nil {
 					log.Fatalf("error connecting: %v", err)
 				}
-
-				clientInfo.Username = username
 
 				go func() {
 					// Login now connects to UserStatus stream to show wheter user is online

@@ -434,6 +434,8 @@ func shellBeginChat(c ClientInfo, inputReader *bufio.Reader) {
 	inviteUser = strings.TrimSpace(inviteUser)
 
 	var targetID uuid.UUID
+
+  // TODO: New RPC needed to query active users from server, then save them to addressbook
 	err = c.DBpool.QueryRow(context.TODO(), c.Pstatements.GetUserId, inviteUser).Scan(&targetID)
 	if err != nil {
 		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
