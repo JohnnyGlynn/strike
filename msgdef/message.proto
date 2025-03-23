@@ -17,6 +17,8 @@ service Strike {
 
   rpc SendPayload(StreamPayload) returns (ServerResponse) {}
 
+  rpc UserRequest(UserInfo) returns (UserInfo) {}
+
   rpc UserStatus(UserInfo) returns (stream StatusUpdate) {}
 
   rpc PayloadStream(UserInfo) returns (stream StreamPayload) {}
