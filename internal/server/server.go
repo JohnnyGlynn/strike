@@ -23,6 +23,7 @@ type StrikeServer struct {
 	DBpool      *pgxpool.Pool
 	PStatements *db.ServerDB
 
+	// TODO: Package the stream better
 	OnlineUsers     map[uuid.UUID]pb.Strike_UserStatusServer
 	PayloadStreams  map[uuid.UUID]pb.Strike_PayloadStreamServer
 	PayloadChannels map[uuid.UUID]chan *pb.StreamPayload
@@ -108,7 +109,7 @@ func (s *StrikeServer) Signup(ctx context.Context, userInit *pb.InitUser) (*pb.S
 	fmt.Printf("New User signup: %s\n", userInit.Username)
 
 	// user: uuid, username, password_hash, salt
-  _, err := s.DBpool.Exec(ctx, s.PStatements.CreateUser, uuid.MustParse(userInit.UserId), userInit.Username, userInit.PasswordHash, userInit.Salt.Salt)
+	_, err := s.DBpool.Exec(ctx, s.PStatements.CreateUser, uuid.MustParse(userInit.UserId), userInit.Username, userInit.PasswordHash, userInit.Salt.Salt)
 	if err != nil {
 		return &pb.ServerResponse{Success: false, Message: "failed to register user"}, err
 	}
@@ -168,6 +169,29 @@ func (s *StrikeServer) UserStatus(req *pb.UserInfo, stream pb.Strike_UserStatusS
 			}
 		}
 	}
+}
+
+func (s *StrikeServer) UserRequest(ctx context.Context, userInfo *pb.UserInfo) (*pb.UserInfo, error) {
+	var reqUserId uuid.UUID
+	var encryptionPubKey, signingPubKey []byte
+
+	// TODO: db pool expiring
+	err := s.DBpool.QueryRow(ctx, s.PStatements.GetUserId, userInfo.Username).Scan(&reqUserId)
+	if err != nil {
+		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
+			log.Fatalf("Unable mine salt: %v", err)
+			return nil, nil
+		}
+		log.Fatalf("An Error occured while mining salt: %v", err)
+		return nil, nil
+	}
+
+	row := s.DBpool.QueryRow(ctx, s.PStatements.GetUserKeys, &reqUserId)
+	if err := row.Scan(&encryptionPubKey, &signingPubKey); err != nil {
+		return nil, err
+	}
+
+	return &pb.UserInfo{UserId: reqUserId.String(), Username: userInfo.Username, EncryptionPublicKey: encryptionPubKey, SigningPublicKey: signingPubKey}, nil
 }
 
 func (s *StrikeServer) PayloadStream(user *pb.UserInfo, stream pb.Strike_PayloadStreamServer) error {
