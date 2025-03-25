@@ -227,8 +227,12 @@ func ProcessKeyExchangeRequests(c ClientInfo, ch <-chan *pb.KeyExchangeRequest, 
 			if !ok {
 				return
 			}
-			fmt.Printf("Key exchange initiated for: %v\n", keyExReq.ChatId)
-			chat, exists := c.Cache.Chats[uuid.MustParse(keyExReq.ChatId)]
+
+      chatId := uuid.MustParse(keyExReq.ChatId)
+			fmt.Printf("Key exchange initiated for: %v\n", chatId)
+
+
+			chat, exists := c.Cache.Chats[chatId]
 			if !exists {
 				log.Printf("Failed to find chat: %v", keyExReq.ChatId)
 				return
@@ -247,7 +251,7 @@ func ProcessKeyExchangeRequests(c ClientInfo, ch <-chan *pb.KeyExchangeRequest, 
 				participantsUUID = append(participantsUUID, parsedUUID)
 			}
 
-			_, err = c.DBpool.Exec(context.TODO(), c.Pstatements.CreateChat, uuid.MustParse(keyExReq.ChatId), chat.Name, uuid.MustParse(keyExReq.SenderUserId), participantsUUID, pb.Chat_KEY_EXCHANGE_PENDING.String(), sharedSecret)
+			_, err = c.DBpool.Exec(context.TODO(), c.Pstatements.CreateChat, chatId, chat.Name, uuid.MustParse(keyExReq.SenderUserId), participantsUUID, pb.Chat_KEY_EXCHANGE_PENDING.String(), sharedSecret)
 			if err != nil {
 				log.Fatal("Failed to save Chat")
 			}

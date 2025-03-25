@@ -242,6 +242,8 @@ func BeginChat(c ClientInfo, target uuid.UUID, chatName string) error {
 
 	participants := []string{c.UserID.String(), target.String()}
 
+  fmt.Printf("Target from BeginChat: %s", target.String())
+
 	beginChat := &pb.BeginChatRequest{
 		InviteId:  newInvite,
 		Initiator: c.UserID.String(),
@@ -443,6 +445,8 @@ func shellBeginChat(c ClientInfo, inputReader *bufio.Reader) {
 		}
 		log.Fatalf("An Error occured while logging in: %v", err)
 	}
+  
+
 
 	fmt.Print("Chat Name> ")
 	chatName, err := inputReader.ReadString('\n')

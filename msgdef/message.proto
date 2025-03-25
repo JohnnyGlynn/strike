@@ -99,7 +99,6 @@ message StatusUpdate {
 // TODO: this is getting messy
 message StreamPayload {
   string target = 1;
-  string target_id = 2;
   oneof payload {
     BeginChatRequest chat_request = 3;
     ConfirmChatRequest chat_confirm = 4;
