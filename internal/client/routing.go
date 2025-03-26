@@ -199,10 +199,11 @@ func ProcessConfirmChatRequests(c ClientInfo, ch <-chan *pb.ConfirmChatRequest, 
 			}
 
 			if confirmation.State {
-				fmt.Printf("Invitation %v for:%s, With: %s, Status: Accepted\n", confirmation.InviteId, confirmation.Chat.Name, confirmation.Confirmer)
+        confirmerParsed := uuid.MustParse(confirmation.Confirmer)
+				fmt.Printf("Invitation %v for:%s, With: %s, Status: Accepted\n", confirmation.InviteId, confirmation.Chat.Name, confirmerParsed)
 				c.Cache.Chats[uuid.MustParse(confirmation.Chat.Id)] = confirmation.Chat
 				// TODO: Initiator will probably have to change
-				InitiateKeyExchange(context.TODO(), c, uuid.MustParse(confirmation.Confirmer), confirmation.Chat)
+				InitiateKeyExchange(context.TODO(), c, confirmerParsed, confirmation.Chat)
 			} else {
 				fmt.Printf("Invitation %v for:%s, With: %s, Status: Declined\n", confirmation.InviteId, confirmation.Chat.Name, confirmation.Confirmer)
 			}
@@ -227,8 +228,14 @@ func ProcessKeyExchangeRequests(c ClientInfo, ch <-chan *pb.KeyExchangeRequest, 
 			if !ok {
 				return
 			}
+      
+
+      fmt.Printf("keyExReq: %v", keyExReq)
+
+
 
       chatId := uuid.MustParse(keyExReq.ChatId)
+      targetId := uuid.MustParse(keyExReq.Target)
 			fmt.Printf("Key exchange initiated for: %v\n", chatId)
 
 
@@ -257,7 +264,7 @@ func ProcessKeyExchangeRequests(c ClientInfo, ch <-chan *pb.KeyExchangeRequest, 
 			}
 
 			// TODO: Signature is gross
-			ReciprocateKeyExchange(context.TODO(), c, uuid.MustParse(keyExReq.Target), chat)
+			ReciprocateKeyExchange(context.TODO(), c, targetId, chat)
 
 		case <-timeoutCh:
 			fmt.Printf("KeyExchangeRequest worker idle for %v, exiting.\n", idleTimeout) // shutdown ephemeral workers

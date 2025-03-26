@@ -19,9 +19,9 @@ CREATE TABLE user_keys (
 
 -- CLIENT SPECIFIC TABLES
 CREATE TABLE chats (
-    chat_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chat_id UUID PRIMARY KEY,
     chat_name VARCHAR(255) NOT NULL,
-    initiator UUID NOT NULL REFERENCES users(user_id),
+    initiator UUID NOT NULL REFERENCES addressbook(user_id),
     participants UUID[] NOT NULL,
     state VARCHAR(20) NOT NULL CHECK (state IN ('INIT', 'KEY_EXCHANGE_PENDING', 'ENCRYPTED')),
     shared_secret BYTEA,

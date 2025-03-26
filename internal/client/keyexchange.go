@@ -49,10 +49,13 @@ func InitiateKeyExchange(ctx context.Context, c ClientInfo, target uuid.UUID, ch
 	exchangeInfo := pb.KeyExchangeRequest{
 		ChatId:         chat.Id,
 		SenderUserId:   c.UserID.String(),
+		Target:         target.String(),
 		CurvePublicKey: c.Keys["EncryptionPublicKey"],
 		Nonce:          nonce,
 		Signatures:     sigs,
 	}
+
+	fmt.Printf("Target UUID: %v", target.String())
 
 	payload := pb.StreamPayload{
 		Target:  target.String(),
