@@ -49,7 +49,7 @@ func PreparedClientStatements(ctx context.Context, dbpool *pgxpool.Pool) (*Clien
 	}
 
 	// Insert Chat - Create a chat, containing secret key after successful key exchange.
-	if _, err := poolConnection.Conn().Prepare(ctx, statements.CreateChat, "INSERT INTO chats (chat_id, chat_name, initiator, participants, state, shared_secret) VALUES ($1, $2, $3, $4, $5, $6)"); err != nil {
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.CreateChat, "INSERT INTO chats2 (chat_id, chat_name, initiator, participants, state, shared_secret) VALUES ($1, $2, $3, $4, $5, $6)"); err != nil {
 		return nil, err
 	}
 

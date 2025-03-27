@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func InitiateKeyExchange(ctx context.Context, c ClientInfo, target uuid.UUID, chat *pb.Chat) {
+func InitiateKeyExchange(ctx context.Context, c *ClientInfo, target uuid.UUID, chat *pb.Chat) {
 	// make nonce
 	nonce := make([]byte, 32)
 	_, err := rand.Read(nonce)
@@ -70,7 +70,7 @@ func InitiateKeyExchange(ctx context.Context, c ClientInfo, target uuid.UUID, ch
 	fmt.Printf("Key Exchange initiated: %v", resp.Success)
 }
 
-func ReciprocateKeyExchange(ctx context.Context, c ClientInfo, target uuid.UUID, chat *pb.Chat) {
+func ReciprocateKeyExchange(ctx context.Context, c *ClientInfo, target uuid.UUID, chat *pb.Chat) {
 	// make nonce
 	nonce := make([]byte, 32)
 	_, err := rand.Read(nonce)
@@ -124,7 +124,7 @@ func ReciprocateKeyExchange(ctx context.Context, c ClientInfo, target uuid.UUID,
 	fmt.Printf("Key Exchange reciprocated: %v", resp.Success)
 }
 
-func ConfirmKeyExchange(ctx context.Context, c ClientInfo, target uuid.UUID, status bool, chat *pb.Chat) {
+func ConfirmKeyExchange(ctx context.Context, c *ClientInfo, target uuid.UUID, status bool, chat *pb.Chat) {
 	confirmation := pb.KeyExchangeConfirmation{
 		ChatId:          chat.Id,
 		Status:          status,

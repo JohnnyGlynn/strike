@@ -47,7 +47,7 @@ type MessageStruct struct {
 	Content []byte
 }
 
-func ConnectPayloadStream(ctx context.Context, c ClientInfo) error {
+func ConnectPayloadStream(ctx context.Context, c *ClientInfo) error {
 	// Pass your own username to register your stream
 	stream, err := c.Pbclient.PayloadStream(ctx, &pb.UserInfo{
 		Username:            c.Username,
@@ -88,7 +88,7 @@ func ConnectPayloadStream(ctx context.Context, c ClientInfo) error {
 	}
 }
 
-func SendMessage(c ClientInfo, target uuid.UUID, message string) {
+func SendMessage(c *ClientInfo, target uuid.UUID, message string) {
 	envelope := pb.Envelope{
 		SenderPublicKey: c.Keys["SigningPublicKey"],
 		SentAt:          timestamppb.Now(),
@@ -109,7 +109,7 @@ func SendMessage(c ClientInfo, target uuid.UUID, message string) {
 	}
 }
 
-func ConfirmChat(ctx context.Context, c ClientInfo, chatRequest *pb.BeginChatRequest, inviteState bool) error {
+func ConfirmChat(ctx context.Context, c *ClientInfo, chatRequest *pb.BeginChatRequest, inviteState bool) error {
 	confirmation := pb.ConfirmChatRequest{
 		InviteId:  chatRequest.InviteId,
 		Initiator: chatRequest.Initiator,
@@ -140,7 +140,7 @@ func ConfirmChat(ctx context.Context, c ClientInfo, chatRequest *pb.BeginChatReq
 	return nil
 }
 
-func ClientSignup(c ClientInfo, password string, curve25519key []byte, ed25519key []byte) error {
+func ClientSignup(c *ClientInfo, password string, curve25519key []byte, ed25519key []byte) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -181,7 +181,7 @@ func ClientSignup(c ClientInfo, password string, curve25519key []byte, ed25519ke
 	return nil
 }
 
-func Login(c ClientInfo, password string) error {
+func Login(c *ClientInfo, password string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -234,7 +234,7 @@ func Login(c ClientInfo, password string) error {
 	}
 }
 
-func BeginChat(c ClientInfo, target uuid.UUID, chatName string) error {
+func BeginChat(c *ClientInfo, target uuid.UUID, chatName string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -242,7 +242,7 @@ func BeginChat(c ClientInfo, target uuid.UUID, chatName string) error {
 
 	participants := []string{c.UserID.String(), target.String()}
 
-  fmt.Printf("Target from BeginChat: %s", target.String())
+	fmt.Printf("Target from BeginChat: %s", target.String())
 
 	beginChat := &pb.BeginChatRequest{
 		InviteId:  newInvite,
@@ -273,7 +273,7 @@ func BeginChat(c ClientInfo, target uuid.UUID, chatName string) error {
 }
 
 // TODO: No longer fit for purpose - Terminal UI library time
-func MessagingShell(c ClientInfo) {
+func MessagingShell(c *ClientInfo) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -330,6 +330,7 @@ func MessagingShell(c ClientInfo) {
 
 		if err := shellSendMessage(input, c); err != nil {
 			fmt.Println(err)
+			continue
 		}
 	}
 }
@@ -344,7 +345,7 @@ func LoginInput(prompt string, reader *bufio.Reader) (string, error) {
 	return strings.TrimSpace(input), nil
 }
 
-func shellInvites(ctx context.Context, c ClientInfo) {
+func shellInvites(ctx context.Context, c *ClientInfo) {
 	if len(c.Cache.Invites) == 0 {
 		fmt.Println("No pending invites :^[")
 		return
@@ -372,7 +373,7 @@ func shellInvites(ctx context.Context, c ClientInfo) {
 	}
 }
 
-func shellChat(inputReader *bufio.Reader, c ClientInfo) {
+func shellChat(inputReader *bufio.Reader, c *ClientInfo) {
 	if len(c.Cache.Chats) == 0 {
 		if err := loadChats(c); err != nil {
 			log.Printf("Error loading chats: %v", err)
@@ -426,7 +427,7 @@ func shellChat(inputReader *bufio.Reader, c ClientInfo) {
 	fmt.Printf("Active chat: %s\n", c.Cache.Chats[uuid.MustParse(selectedChat.Id)].Name)
 }
 
-func shellBeginChat(c ClientInfo, inputReader *bufio.Reader) {
+func shellBeginChat(c *ClientInfo, inputReader *bufio.Reader) {
 	fmt.Print("Invite User> ")
 	inviteUser, err := inputReader.ReadString('\n')
 	if err != nil {
@@ -437,7 +438,7 @@ func shellBeginChat(c ClientInfo, inputReader *bufio.Reader) {
 
 	var targetID uuid.UUID
 
-  // TODO: New RPC needed to query active users from server, then save them to addressbook
+	// TODO: New RPC needed to query active users from server, then save them to addressbook
 	err = c.DBpool.QueryRow(context.TODO(), c.Pstatements.GetUserId, inviteUser).Scan(&targetID)
 	if err != nil {
 		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
@@ -445,8 +446,6 @@ func shellBeginChat(c ClientInfo, inputReader *bufio.Reader) {
 		}
 		log.Fatalf("An Error occured while logging in: %v", err)
 	}
-  
-
 
 	fmt.Print("Chat Name> ")
 	chatName, err := inputReader.ReadString('\n')
@@ -462,7 +461,7 @@ func shellBeginChat(c ClientInfo, inputReader *bufio.Reader) {
 	}
 }
 
-func shellSendMessage(input string, c ClientInfo) error {
+func shellSendMessage(input string, c *ClientInfo) error {
 	if input == "" {
 		return nil
 	}
@@ -505,7 +504,7 @@ func printHelp() {
 	)
 }
 
-func loadChats(c ClientInfo) error {
+func loadChats(c *ClientInfo) error {
 	rows, err := c.DBpool.Query(context.TODO(), c.Pstatements.GetChats)
 	if err != nil {
 		return fmt.Errorf("error querying chats: %v", err)
@@ -544,7 +543,7 @@ func loadChats(c ClientInfo) error {
 	return nil
 }
 
-func loadMessages(c ClientInfo) ([]MessageStruct, error) {
+func loadMessages(c *ClientInfo) ([]MessageStruct, error) {
 	rows, err := c.DBpool.Query(context.TODO(), c.Pstatements.GetMessages, c.Cache.ActiveChat)
 	if err != nil {
 		return nil, fmt.Errorf("error querying messages: %v", err)

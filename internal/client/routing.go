@@ -30,7 +30,7 @@ type Demultiplexer struct {
 	mu sync.Mutex
 }
 
-func NewDemultiplexer(c ClientInfo) *Demultiplexer {
+func NewDemultiplexer(c *ClientInfo) *Demultiplexer {
 	d := &Demultiplexer{
 		chatRequestChannel: make(chan *pb.BeginChatRequest, 20),
 		chatConfirmChannel: make(chan *pb.ConfirmChatRequest, 20),
@@ -106,7 +106,7 @@ func (d *Demultiplexer) Dispatcher(msg *pb.StreamPayload) {
 	}
 }
 
-func (d *Demultiplexer) StartMonitoring(c ClientInfo) {
+func (d *Demultiplexer) StartMonitoring(c *ClientInfo) {
 	const ephemeralTimeout = 5 * time.Second
 
 	// Monitor our channels - spawn workers if needed - more for messages obviously
@@ -135,7 +135,7 @@ func (d *Demultiplexer) StartMonitoring(c ClientInfo) {
 	)
 }
 
-func ProcessEnvelopes(ch <-chan *pb.Envelope, c ClientInfo, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
+func ProcessEnvelopes(ch <-chan *pb.Envelope, c *ClientInfo, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
 	for {
 		var timeoutCh <-chan time.Time // channel for timer
 		if idleTimeout > 0 {
@@ -162,7 +162,7 @@ func ProcessEnvelopes(ch <-chan *pb.Envelope, c ClientInfo, idleTimeout time.Dur
 	}
 }
 
-func ProcessChatRequests(ch <-chan *pb.BeginChatRequest, c ClientInfo, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
+func ProcessChatRequests(ch <-chan *pb.BeginChatRequest, c *ClientInfo, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
 	for {
 		var timeoutCh <-chan time.Time // channel for timer
 		if idleTimeout > 0 {
@@ -186,7 +186,7 @@ func ProcessChatRequests(ch <-chan *pb.BeginChatRequest, c ClientInfo, idleTimeo
 	}
 }
 
-func ProcessConfirmChatRequests(c ClientInfo, ch <-chan *pb.ConfirmChatRequest, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
+func ProcessConfirmChatRequests(c *ClientInfo, ch <-chan *pb.ConfirmChatRequest, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
 	for {
 		var timeoutCh <-chan time.Time // channel for timer
 		if idleTimeout > 0 {
@@ -217,7 +217,7 @@ func ProcessConfirmChatRequests(c ClientInfo, ch <-chan *pb.ConfirmChatRequest, 
 	}
 }
 
-func ProcessKeyExchangeRequests(c ClientInfo, ch <-chan *pb.KeyExchangeRequest, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
+func ProcessKeyExchangeRequests(c *ClientInfo, ch <-chan *pb.KeyExchangeRequest, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
 	for {
 		var timeoutCh <-chan time.Time // channel for timer
 		if idleTimeout > 0 {
@@ -276,7 +276,7 @@ func ProcessKeyExchangeRequests(c ClientInfo, ch <-chan *pb.KeyExchangeRequest, 
 	}
 }
 
-func ProcessKeyExchangeResponses(c ClientInfo, ch <-chan *pb.KeyExchangeResponse, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
+func ProcessKeyExchangeResponses(c *ClientInfo, ch <-chan *pb.KeyExchangeResponse, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
 	for {
 		var timeoutCh <-chan time.Time // channel for timer
 		if idleTimeout > 0 {
@@ -328,7 +328,7 @@ func ProcessKeyExchangeResponses(c ClientInfo, ch <-chan *pb.KeyExchangeResponse
 	}
 }
 
-func ProcessKeyExchangeConfirmations(c ClientInfo, ch <-chan *pb.KeyExchangeConfirmation, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
+func ProcessKeyExchangeConfirmations(c *ClientInfo, ch <-chan *pb.KeyExchangeConfirmation, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
 	for {
 		var timeoutCh <-chan time.Time // channel for timer
 		if idleTimeout > 0 {

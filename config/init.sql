@@ -18,8 +18,27 @@ CREATE TABLE user_keys (
 
 
 -- CLIENT SPECIFIC TABLES
+CREATE TABLE addressbook (
+    user_id UUID PRIMARY KEY NOT NULL,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    encryption_public_key BYTEA NOT NULL,
+    signing_public_key BYTEA NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE chats (
     chat_id UUID PRIMARY KEY,
+    chat_name VARCHAR(255) NOT NULL,
+    initiator UUID NOT NULL REFERENCES addressbook(user_id),
+    participants UUID[] NOT NULL,
+    state VARCHAR(20) NOT NULL CHECK (state IN ('INIT', 'KEY_EXCHANGE_PENDING', 'ENCRYPTED')),
+    shared_secret BYTEA,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE chats2 (
+    chat_id UUID,
     chat_name VARCHAR(255) NOT NULL,
     initiator UUID NOT NULL REFERENCES addressbook(user_id),
     participants UUID[] NOT NULL,
@@ -35,14 +54,6 @@ CREATE TABLE messages (
     sender UUID NOT NULL REFERENCES users(user_id),
     content TEXT NOT NULL, -- TODO: Encrypted Content? Extra fields to support encryption?
     sent_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE addressbook (
-    user_id UUID PRIMARY KEY NOT NULL,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    encryption_public_key BYTEA NOT NULL,
-    signing_public_key BYTEA NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Auto-update updated_at

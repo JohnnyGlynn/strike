@@ -135,7 +135,7 @@ func main() {
 
 	newClient := pb.NewStrikeClient(conn)
 
-	clientInfo := client.ClientInfo{
+	clientInfo := &client.ClientInfo{
 		Config: &clientCfg,
 		Keys:   loadedKeys,
 		Cache: client.ClientCache{
@@ -195,7 +195,6 @@ func main() {
 
 				clientInfo.Username = username
 
-
 				// Retrieve UUID
 				var userID uuid.UUID
 				err = clientInfo.DBpool.QueryRow(context.TODO(), clientInfo.Pstatements.GetUserId, clientInfo.Username).Scan(&userID)
@@ -245,7 +244,7 @@ func main() {
 				// Create a new UUID
 				newUserID := uuid.New()
 				clientInfo.UserID = newUserID
-        clientInfo.Username = username
+				clientInfo.Username = username
 
 				err = client.ClientSignup(clientInfo, password, loadedKeys["EncryptionPublicKey"], loadedKeys["SigningPublicKey"])
 				if err != nil {
