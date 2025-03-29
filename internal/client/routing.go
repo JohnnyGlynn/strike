@@ -199,9 +199,10 @@ func ProcessConfirmChatRequests(c *ClientInfo, ch <-chan *pb.ConfirmChatRequest,
 			}
 
 			if confirmation.State {
-        confirmerParsed := uuid.MustParse(confirmation.Confirmer)
+				confirmerParsed := uuid.MustParse(confirmation.Confirmer)
 				fmt.Printf("Invitation %v for:%s, With: %s, Status: Accepted\n", confirmation.InviteId, confirmation.Chat.Name, confirmerParsed)
 				c.Cache.Chats[uuid.MustParse(confirmation.Chat.Id)] = confirmation.Chat
+				c.Cache.Chats[uuid.MustParse(confirmation.Chat.Id)].State = pb.Chat_KEY_EXCHANGE_PENDING
 				// TODO: Initiator will probably have to change
 				InitiateKeyExchange(context.TODO(), c, confirmerParsed, confirmation.Chat)
 			} else {
@@ -228,16 +229,12 @@ func ProcessKeyExchangeRequests(c *ClientInfo, ch <-chan *pb.KeyExchangeRequest,
 			if !ok {
 				return
 			}
-      
 
-      fmt.Printf("keyExReq: %v", keyExReq)
+			fmt.Printf("keyExReq: %v", keyExReq)
 
-
-
-      chatId := uuid.MustParse(keyExReq.ChatId)
-      targetId := uuid.MustParse(keyExReq.Target)
+			chatId := uuid.MustParse(keyExReq.ChatId)
+			targetId := uuid.MustParse(keyExReq.Target)
 			fmt.Printf("Key exchange initiated for: %v\n", chatId)
-
 
 			chat, exists := c.Cache.Chats[chatId]
 			if !exists {
@@ -258,7 +255,7 @@ func ProcessKeyExchangeRequests(c *ClientInfo, ch <-chan *pb.KeyExchangeRequest,
 				participantsUUID = append(participantsUUID, parsedUUID)
 			}
 
-			_, err = c.DBpool.Exec(context.TODO(), c.Pstatements.CreateChat, chatId, chat.Name, uuid.MustParse(keyExReq.SenderUserId), participantsUUID, pb.Chat_KEY_EXCHANGE_PENDING.String(), sharedSecret)
+			_, err = c.DBpool.Exec(context.TODO(), c.Pstatements.CreateChat, chatId, chat.Name, uuid.MustParse(keyExReq.SenderUserId), participantsUUID, chat.State.String(), sharedSecret)
 			if err != nil {
 				log.Fatal("Failed to save Chat")
 			}
@@ -302,7 +299,6 @@ func ProcessKeyExchangeResponses(c *ClientInfo, ch <-chan *pb.KeyExchangeRespons
 
 			// As the map is *pb.chat it should update directly.
 			// TODO: More robust cache rather than maps (Redis?)
-			chat.State = pb.Chat_KEY_EXCHANGE_PENDING
 
 			var participantsUUID []uuid.UUID
 			for _, sUID := range chat.Participants {
@@ -345,22 +341,19 @@ func ProcessKeyExchangeConfirmations(c *ClientInfo, ch <-chan *pb.KeyExchangeCon
 				return
 			}
 
-			if chat.State == pb.Chat_KEY_EXCHANGE_PENDING {
-				fmt.Printf("Key exchange confirmation for: %v\n", keyExCon.ChatId)
+			_, err := c.DBpool.Exec(context.TODO(), c.Pstatements.UpdateChatState, pb.Chat_ENCRYPTED.String(), uuid.MustParse(keyExCon.ChatId))
+			if err != nil {
+				log.Fatal("Failed to save Chat")
+			}
 
-				// TODO: More robust cache rather than maps (Redis?)
-				chat.State = pb.Chat_ENCRYPTED
+			ConfirmKeyExchange(context.TODO(), c, uuid.MustParse(keyExCon.ConfirmerUserId), true, chat)
 
-				_, err := c.DBpool.Exec(context.TODO(), c.Pstatements.UpdateChatState, pb.Chat_ENCRYPTED.String(), uuid.MustParse(keyExCon.ChatId))
-				if err != nil {
-					log.Fatal("Failed to save Chat")
-				}
-
-				ConfirmKeyExchange(context.TODO(), c, uuid.MustParse(keyExCon.ConfirmerUserId), true, chat)
-			} else {
-				// TODO: right approach to return?
+			if chat.State == pb.Chat_ENCRYPTED {
+				fmt.Println("chat already encrypted")
 				return
 			}
+
+			return
 
 		case <-timeoutCh:
 			fmt.Printf("KeyExchangeResponse worker idle for %v, exiting.\n", idleTimeout) // shutdown ephemeral workers

@@ -113,7 +113,7 @@ func ConfirmChat(ctx context.Context, c *ClientInfo, chatRequest *pb.BeginChatRe
 	confirmation := pb.ConfirmChatRequest{
 		InviteId:  chatRequest.InviteId,
 		Initiator: chatRequest.Initiator,
-		Confirmer: chatRequest.Target,
+		Confirmer: c.UserID.String(),
 		State:     inviteState,
 		Chat:      chatRequest.Chat,
 	}
@@ -379,11 +379,10 @@ func shellChat(inputReader *bufio.Reader, c *ClientInfo) {
 			log.Printf("Error loading chats: %v", err)
 			return
 		}
-	}
-
-	if len(c.Cache.Chats) == 0 {
-		fmt.Println("No chats available")
-		return
+    if len(c.Cache.Chats) == 0 {
+		  fmt.Println("No chats available")
+		  return
+	  }
 	}
 
 	fmt.Println("Available Chats:")
@@ -517,13 +516,20 @@ func loadChats(c *ClientInfo) error {
 			chat_name     string
 			initiator     uuid.UUID
 			participants  []uuid.UUID
-			state         pb.Chat_State
+			stateStr      string
 			shared_secret []byte
 		)
-		if err := rows.Scan(&chat_id, &chat_name, initiator, participants, state, shared_secret); err != nil {
+
+		if err := rows.Scan(&chat_id, &chat_name, &initiator, &participants, &stateStr, &shared_secret); err != nil {
 			log.Printf("error scanning row: %v", err)
 			return err
 		}
+
+    stateEnum, ok := pb.Chat_State_value[stateStr]
+    if !ok {
+        log.Printf("invalid chat state from DB: %s", stateStr)
+        return fmt.Errorf("invalid chat state: %s", stateStr)
+    }
 
 		var participantsStrung []string
 		for _, uID := range participants {
@@ -531,9 +537,9 @@ func loadChats(c *ClientInfo) error {
 		}
 
 		chat := &pb.Chat{
-			Id:           chat_id.String(), // TODO: Chat UUIDS
+			Id:           chat_id.String(),
 			Name:         chat_name,
-			State:        state,
+			State:        pb.Chat_State(stateEnum),
 			Participants: participantsStrung,
 		}
 

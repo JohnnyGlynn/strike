@@ -56,6 +56,14 @@ CREATE TABLE messages (
     sent_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE messages2 (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chat_id UUID NOT NULL,
+    sender UUID NOT NULL REFERENCES users(user_id),
+    content TEXT NOT NULL, -- TODO: Encrypted Content? Extra fields to support encryption?
+    sent_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Auto-update updated_at
 CREATE OR REPLACE FUNCTION auto_update_timestamp_column()
 RETURNS TRIGGER AS $auto_update$

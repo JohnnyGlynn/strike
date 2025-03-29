@@ -54,27 +54,27 @@ func PreparedClientStatements(ctx context.Context, dbpool *pgxpool.Pool) (*Clien
 	}
 
 	// get chat
-	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetChat, "SELECT * FROM chats WHERE chat_id = $1"); err != nil {
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetChat, "SELECT * FROM chats2 WHERE chat_id = $1"); err != nil {
 		return nil, err
 	}
 
 	// get chats
-	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetChats, "SELECT * FROM chats"); err != nil {
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetChats, "SELECT * FROM chats2"); err != nil {
 		return nil, err
 	}
 
 	// Updated Chat state
-	if _, err := poolConnection.Conn().Prepare(ctx, statements.UpdateChatState, "UPDATE chats SET state = $1 WHERE chat_id = $2"); err != nil {
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.UpdateChatState, "UPDATE chats2 SET state = $1 WHERE chat_id = $2"); err != nil {
 		return nil, err
 	}
 
 	// Insert Message - Insert message bound by chat
-	if _, err := poolConnection.Conn().Prepare(ctx, statements.SaveMessage, "INSERT INTO messages (id, chat_id, sender, content) VALUES ($1, $2, $3, $4)"); err != nil {
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.SaveMessage, "INSERT INTO messages2 (id, chat_id, sender, content) VALUES ($1, $2, $3, $4)"); err != nil {
 		return nil, err
 	}
 
 	// get all messages
-	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetMessages, "SELECT * FROM messages WHERE chat_id = $1 ORDER BY sent_at ASC, id ASC;"); err != nil {
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetMessages, "SELECT * FROM messages2 WHERE chat_id = $1 ORDER BY sent_at ASC, id ASC;"); err != nil {
 		return nil, err
 	}
 

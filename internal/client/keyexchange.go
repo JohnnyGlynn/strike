@@ -136,6 +136,8 @@ func ConfirmKeyExchange(ctx context.Context, c *ClientInfo, target uuid.UUID, st
 		Payload: &pb.StreamPayload_KeyExchConfirm{KeyExchConfirm: &confirmation},
 	}
 
+  c.Cache.Chats[uuid.MustParse(chat.Id)] = chat
+
 	resp, err := c.Pbclient.SendPayload(ctx, &payload)
 	if err != nil {
 		log.Fatalf("Error confirming key exchange: %v", err)
