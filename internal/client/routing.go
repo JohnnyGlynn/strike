@@ -341,16 +341,19 @@ func ProcessKeyExchangeConfirmations(c *ClientInfo, ch <-chan *pb.KeyExchangeCon
 				return
 			}
 
-			_, err := c.DBpool.Exec(context.TODO(), c.Pstatements.UpdateChatState, pb.Chat_ENCRYPTED.String(), uuid.MustParse(keyExCon.ChatId))
-			if err != nil {
-				log.Fatal("Failed to save Chat")
-			}
+      if chat.State != pb.Chat_ENCRYPTED {
+        _, err := c.DBpool.Exec(context.TODO(), c.Pstatements.UpdateChatState, pb.Chat_ENCRYPTED.String(), uuid.MustParse(keyExCon.ChatId))
+        if err != nil {
+          log.Fatal("Failed to save Chat")
+        }
 
-			ConfirmKeyExchange(context.TODO(), c, uuid.MustParse(keyExCon.ConfirmerUserId), true, chat)
+        chat.State = pb.Chat_ENCRYPTED
 
+        ConfirmKeyExchange(context.TODO(), c, uuid.MustParse(keyExCon.ConfirmerUserId), true, chat)
+
+      }
 			if chat.State == pb.Chat_ENCRYPTED {
-				fmt.Println("chat already encrypted")
-				return
+       fmt.Println("Chat already encrypted, confirmation skipped")
 			}
 
 			return

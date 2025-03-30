@@ -46,6 +46,8 @@ func InitiateKeyExchange(ctx context.Context, c *ClientInfo, target uuid.UUID, c
 
 	sigs := [][]byte{nonceSig, publicKeySig}
 
+  c.Cache.Chats[uuid.MustParse(chat.Id)].State = pb.Chat_KEY_EXCHANGE_PENDING
+
 	exchangeInfo := pb.KeyExchangeRequest{
 		ChatId:         chat.Id,
 		SenderUserId:   c.UserID.String(),
