@@ -233,7 +233,7 @@ func ProcessKeyExchangeRequests(c *ClientInfo, ch <-chan *pb.KeyExchangeRequest,
 			fmt.Printf("keyExReq: %v", keyExReq)
 
 			chatId := uuid.MustParse(keyExReq.ChatId)
-			targetId := uuid.MustParse(keyExReq.Target)
+			senderId := uuid.MustParse(keyExReq.SenderUserId)
 			fmt.Printf("Key exchange initiated for: %v\n", chatId)
 
 			chat, exists := c.Cache.Chats[chatId]
@@ -261,7 +261,7 @@ func ProcessKeyExchangeRequests(c *ClientInfo, ch <-chan *pb.KeyExchangeRequest,
 			}
 
 			// TODO: Signature is gross
-			ReciprocateKeyExchange(context.TODO(), c, targetId, chat)
+			ReciprocateKeyExchange(context.TODO(), c, senderId, chat)
 
 		case <-timeoutCh:
 			fmt.Printf("KeyExchangeRequest worker idle for %v, exiting.\n", idleTimeout) // shutdown ephemeral workers
@@ -296,6 +296,8 @@ func ProcessKeyExchangeResponses(c *ClientInfo, ch <-chan *pb.KeyExchangeRespons
 				// TODO: Error return
 				log.Print("failed to compute shared secret")
 			}
+
+      chat.State = pb.Chat_ENCRYPTED
 
 			// As the map is *pb.chat it should update directly.
 			// TODO: More robust cache rather than maps (Redis?)

@@ -50,7 +50,7 @@ func (s *StrikeServer) SendPayload(ctx context.Context, payload *pb.StreamPayloa
 	// Push Message into Channel TODO: handle full channel case
 	select {
 	case channel <- payload:
-		log.Printf("Payload Sent to: %s\n", payload.Target)
+    log.Printf("Payload %v Sent to: %s From: %v\n", payload.GetPayload(), payload.Target, payload.Sender)
 		return &pb.ServerResponse{Success: true, Message: "PAYLOAD OK"}, nil
 	default:
 		return &pb.ServerResponse{Success: false}, fmt.Errorf("%s's channel is full", payload.Target)

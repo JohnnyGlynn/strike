@@ -46,7 +46,7 @@ func InitiateKeyExchange(ctx context.Context, c *ClientInfo, target uuid.UUID, c
 
 	sigs := [][]byte{nonceSig, publicKeySig}
 
-  c.Cache.Chats[uuid.MustParse(chat.Id)].State = pb.Chat_KEY_EXCHANGE_PENDING
+	c.Cache.Chats[uuid.MustParse(chat.Id)].State = pb.Chat_KEY_EXCHANGE_PENDING
 
 	exchangeInfo := pb.KeyExchangeRequest{
 		ChatId:         chat.Id,
@@ -61,6 +61,7 @@ func InitiateKeyExchange(ctx context.Context, c *ClientInfo, target uuid.UUID, c
 
 	payload := pb.StreamPayload{
 		Target:  target.String(),
+		Sender:  c.UserID.String(),
 		Payload: &pb.StreamPayload_KeyExchRequest{KeyExchRequest: &exchangeInfo},
 	}
 
@@ -115,6 +116,7 @@ func ReciprocateKeyExchange(ctx context.Context, c *ClientInfo, target uuid.UUID
 
 	payload := pb.StreamPayload{
 		Target:  target.String(),
+		Sender:  c.UserID.String(),
 		Payload: &pb.StreamPayload_KeyExchResponse{KeyExchResponse: &exchangeInfo},
 	}
 
@@ -135,10 +137,11 @@ func ConfirmKeyExchange(ctx context.Context, c *ClientInfo, target uuid.UUID, st
 
 	payload := pb.StreamPayload{
 		Target:  target.String(),
+		Sender:  c.UserID.String(),
 		Payload: &pb.StreamPayload_KeyExchConfirm{KeyExchConfirm: &confirmation},
 	}
 
-  c.Cache.Chats[uuid.MustParse(chat.Id)] = chat
+	c.Cache.Chats[uuid.MustParse(chat.Id)] = chat
 
 	resp, err := c.Pbclient.SendPayload(ctx, &payload)
 	if err != nil {

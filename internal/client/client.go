@@ -100,6 +100,7 @@ func SendMessage(c *ClientInfo, target uuid.UUID, message string) {
 
 	payloadEnvelope := pb.StreamPayload{
 		Target:  target.String(),
+		Sender:  c.UserID.String(),
 		Payload: &pb.StreamPayload_Envelope{Envelope: &envelope},
 	}
 
@@ -120,6 +121,7 @@ func ConfirmChat(ctx context.Context, c *ClientInfo, chatRequest *pb.BeginChatRe
 
 	payload := pb.StreamPayload{
 		Target:  chatRequest.Initiator,
+		Sender:  c.UserID.String(),
 		Payload: &pb.StreamPayload_ChatConfirm{ChatConfirm: &confirmation},
 	}
 
@@ -258,6 +260,7 @@ func BeginChat(c *ClientInfo, target uuid.UUID, chatName string) error {
 
 	payloadChatRequest := pb.StreamPayload{
 		Target:  target.String(),
+		Sender:  c.UserID.String(),
 		Payload: &pb.StreamPayload_ChatRequest{ChatRequest: beginChat},
 	}
 
@@ -379,10 +382,10 @@ func shellChat(inputReader *bufio.Reader, c *ClientInfo) {
 			log.Printf("Error loading chats: %v", err)
 			return
 		}
-    if len(c.Cache.Chats) == 0 {
-		  fmt.Println("No chats available")
-		  return
-	  }
+		if len(c.Cache.Chats) == 0 {
+			fmt.Println("No chats available")
+			return
+		}
 	}
 
 	fmt.Println("Available Chats:")
@@ -525,11 +528,11 @@ func loadChats(c *ClientInfo) error {
 			return err
 		}
 
-    stateEnum, ok := pb.Chat_State_value[stateStr]
-    if !ok {
-        log.Printf("invalid chat state from DB: %s", stateStr)
-        return fmt.Errorf("invalid chat state: %s", stateStr)
-    }
+		stateEnum, ok := pb.Chat_State_value[stateStr]
+		if !ok {
+			log.Printf("invalid chat state from DB: %s", stateStr)
+			return fmt.Errorf("invalid chat state: %s", stateStr)
+		}
 
 		var participantsStrung []string
 		for _, uID := range participants {
