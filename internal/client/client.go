@@ -79,6 +79,7 @@ func ConnectPayloadStream(ctx context.Context, c *ClientInfo) error {
 				log.Println("Stream closed by server.")
 				return nil
 			} else if err != nil {
+        log.Printf("Message for error case: %v", msg.GetPayload())
 				log.Printf("Error receiving message: %v", err)
 				return err
 			}
@@ -311,7 +312,7 @@ func MessagingShell(c *ClientInfo) {
 		if c.Cache.ActiveChat == nil {
 			fmt.Print("[NO-CHAT]msgshell> ")
 		} else {
-			fmt.Printf("[CHAT:%s]> ", c.Cache.ActiveChat)
+      fmt.Printf("[CHAT:%s]\n[%s]>", c.Cache.ActiveChat.Name[:20], c.Username)
 		}
 
 		input, err := inputReader.ReadString('\n')
@@ -491,7 +492,6 @@ func shellSendMessage(input string, c *ClientInfo) error {
 	}
 
 	SendMessage(c, targetID, message)
-	fmt.Printf("[YOU]: %s\n", message)
 
 	return nil
 }
