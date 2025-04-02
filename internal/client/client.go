@@ -79,7 +79,7 @@ func ConnectPayloadStream(ctx context.Context, c *ClientInfo) error {
 				log.Println("Stream closed by server.")
 				return nil
 			} else if err != nil {
-        log.Printf("Message for error case: %v", msg.GetPayload())
+        log.Printf("Message for error case: %v", msg)
 				log.Printf("Error receiving message: %v", err)
 				return err
 			}

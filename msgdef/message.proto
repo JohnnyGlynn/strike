@@ -108,6 +108,7 @@ message StreamPayload {
     KeyExchangeResponse key_exch_response = 7;
     KeyExchangeConfirmation key_exch_confirm = 8;
   }
+  string info = 9;
 }
 
 // -----------------------------------Messages---------------------------------------------
