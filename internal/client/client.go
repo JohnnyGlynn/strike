@@ -79,7 +79,7 @@ func ConnectPayloadStream(ctx context.Context, c *ClientInfo) error {
 				log.Println("Stream closed by server.")
 				return nil
 			} else if err != nil {
-        log.Printf("Message for error case: %v", msg)
+				log.Printf("Message for error case: %v", msg)
 				log.Printf("Error receiving message: %v", err)
 				return err
 			}
@@ -103,6 +103,7 @@ func SendMessage(c *ClientInfo, target uuid.UUID, message string) {
 		Target:  target.String(),
 		Sender:  c.UserID.String(),
 		Payload: &pb.StreamPayload_Envelope{Envelope: &envelope},
+		Info:    "Message Payload",
 	}
 
 	_, err := c.Pbclient.SendPayload(context.Background(), &payloadEnvelope)
@@ -124,6 +125,7 @@ func ConfirmChat(ctx context.Context, c *ClientInfo, chatRequest *pb.BeginChatRe
 		Target:  chatRequest.Initiator,
 		Sender:  c.UserID.String(),
 		Payload: &pb.StreamPayload_ChatConfirm{ChatConfirm: &confirmation},
+		Info:    "Chat Confirmation payload",
 	}
 
 	resp, err := c.Pbclient.SendPayload(ctx, &payload)
@@ -263,6 +265,7 @@ func BeginChat(c *ClientInfo, target uuid.UUID, chatName string) error {
 		Target:  target.String(),
 		Sender:  c.UserID.String(),
 		Payload: &pb.StreamPayload_ChatRequest{ChatRequest: beginChat},
+		Info:    "Begin Chat payload",
 	}
 
 	beginChatResponse, err := c.Pbclient.SendPayload(ctx, &payloadChatRequest)
@@ -312,7 +315,7 @@ func MessagingShell(c *ClientInfo) {
 		if c.Cache.ActiveChat == nil {
 			fmt.Print("[NO-CHAT]msgshell> ")
 		} else {
-      fmt.Printf("[CHAT:%s]\n[%s]>", c.Cache.ActiveChat.Name[:20], c.Username)
+			fmt.Printf("[CHAT:%s]\n[%s]>", c.Cache.ActiveChat.Name[:20], c.Username)
 		}
 
 		input, err := inputReader.ReadString('\n')

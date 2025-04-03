@@ -63,6 +63,7 @@ func InitiateKeyExchange(ctx context.Context, c *ClientInfo, target uuid.UUID, c
 		Target:  target.String(),
 		Sender:  c.UserID.String(),
 		Payload: &pb.StreamPayload_KeyExchRequest{KeyExchRequest: &exchangeInfo},
+		Info:    "Key Exchange initation payload",
 	}
 
 	resp, err := c.Pbclient.SendPayload(ctx, &payload)
@@ -118,6 +119,7 @@ func ReciprocateKeyExchange(ctx context.Context, c *ClientInfo, target uuid.UUID
 		Target:  target.String(),
 		Sender:  c.UserID.String(),
 		Payload: &pb.StreamPayload_KeyExchResponse{KeyExchResponse: &exchangeInfo},
+		Info:    "Key Exchange reciprocation payload",
 	}
 
 	resp, err := c.Pbclient.SendPayload(ctx, &payload)
@@ -139,6 +141,7 @@ func ConfirmKeyExchange(ctx context.Context, c *ClientInfo, target uuid.UUID, st
 		Target:  target.String(),
 		Sender:  c.UserID.String(),
 		Payload: &pb.StreamPayload_KeyExchConfirm{KeyExchConfirm: &confirmation},
+		Info:    "Key Exchange confirmation paload",
 	}
 
 	c.Cache.Chats[uuid.MustParse(chat.Id)] = chat
