@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# export DOCKER_HOST=ssh://root@localhost:53685
+# export DOCKER_SOCK=/run/podman/podman.sock
+
 #TODO: create network if not exist
 #podman network create strikenw
 
