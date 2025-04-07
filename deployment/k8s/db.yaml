@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: strike_db
+  labels:
+    app: strike_db
+spec:
+  selector:
+    matchLabels:
+      app: strike_db
+  template:
+    metadata:
+      labels:
+        app: strike_db
+    spec:
+      containers:
+      - name: strike_db
+        image: strike_db 
+        ports:
+        - containerPort: 5432

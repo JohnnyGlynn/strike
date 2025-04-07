@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: strike_client
+  labels:
+    app: strike_client
+spec:
+  selector:
+    matchLabels:
+      app: strike_client
+  template:
+    metadata:
+      labels:
+        app: strike_client
+    spec:
+      containers:
+      - name: strike_client
+        image: strike_client

@@ -2,20 +2,12 @@
 
 End-to-End Encrypted Messaging service using gRPC
 
-## Running Strike Locally
-
-The following instructions may reference `podman` as the container runtime, but `docker` is interchangeable here.
-
-The makefile will account for whether you are using Docker or Podman (target: check-runtime)
 
 ## Keys
 
 Signing: ED25519 key pair is used for signing messages to ensure that the sender of a message is authentic.
-Encryption: Curve25519 key pair is used for message encryption Key-Exchange/Encryption/Key derivation
-
-Keys that are yet to be implemented:
-- Ephemeral Key Pair - Session keys
-- Symmetric Key Pair - Message Encryption
+Encryption: Curve25519 key pair is used for message encryption Key-Exchange/Encryption/Key derivation.
+Shared secrets: DHKE shared secret used between clients for chat encryption.
 
 Configuration references a key path for `~/.strike-keys/`, this is where keys will be placed by default if you make use of the strike client binary `--keygen` flag. This generates 2 sets of long term keys (ED25519 signing keys & Curve25519 encryption keys)
 
@@ -48,69 +40,14 @@ The Server container also requires Env vars to specify paths to keys and its cer
 These Env vars are loaded into the containers by their repective Makefile targets and currently only work for a local deployment,
 but should you wish to deploy Strike another way, `env.server` & `env.client` can be found in the config directory.
 
-### Container runtime network
-Create a network for strike using the following:
-```bash
-podman network create strikenw
-```
-This will facilitate our container's communicating
-
 <!-- TODO: [k3d](https://k3d.io/stable/) + [tilt](https://tilt.dev/) as a means for Docker users or Implementing [Podman pods](https://docs.podman.io/en/v5.2.5/markdown/podman-pod-create.1.html) directly.
 
 Either way the K8s manifests will be rolled once and used as needed. -->
-
-### Postgres
-
-Build DB container
-```bash
-make db-container-build
-```
-Run DB container
-```bash
-make db-container-run
-```
-
-### Server
-Build Server container
-```bash
-make server-container-build
-```
-Run Server container
-```bash
-make server-container-run
-```
-
-### Client
-Build client container
-```bash
-make client-container-build
-```
-Run client container
-```bash
-make client-container-run
-```
-
-Run another client container (Testing purposes)
-```bash
-make another-client-container-run
-```
-
-Build client binary
-```bash
-make client-binary-build
-```
-
-Run client binary
-```bash
-make client-binary-run
-```
 
 ## Useage
 
 To run a local version of the Strike Messaging service, you can make use of the above steps for key generation, and the supplied environment files.
 The generated keys will be placed in `~/.strike-keys` for the client, and `~/.strike_server` will hold the servers signing keys and its certificate which is used by any client you wish to connect as TLS is enabled.
-
-As it stands, a local useage should look like the following.
 
 Run the Strike DB: `make db-container-build` followed by `make db-container-run`
 
@@ -123,7 +60,7 @@ Run Strike Clients: `make client-container-build` followed by `make client-conta
 
 Note: `make another-client-container-run` will create a second client container with the same set of keys, but a new container name, `strike_client1`, this will be useful to test functions between 2 clients (Chat creation, messaging, etc.)
 
-Now that you are running the client/clients you will be presented a shell and have access the following commands:
+## Commands
 
 `/signup` will enable the client to register a user with the server, followed by logging that User in.
 
