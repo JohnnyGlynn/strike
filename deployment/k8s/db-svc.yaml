@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: strike-db
+  namespace: strike
+spec:
+  selector:
+    app: strike-db
+  ports:
+    - port: 8080
+      targetPort: 8080
