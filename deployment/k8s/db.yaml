@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: strike-db
+  namespace: strike
   labels:
     app: strike-db
 spec:
@@ -18,3 +19,6 @@ spec:
         image: strike_db 
         ports:
         - containerPort: 5432
+        envFrom:
+            - secretRef:
+                name: strike-db-env

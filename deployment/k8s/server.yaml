@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: strike-server
+  namespace: strike
   labels:
     app: strike-server
 spec:
@@ -18,3 +19,6 @@ spec:
         image: strike_server
         ports:
         - containerPort: 8080
+        envFrom:
+            - secretRef:
+                name: strike-server-env

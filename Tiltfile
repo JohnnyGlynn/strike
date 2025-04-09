@@ -1,5 +1,19 @@
 k8s_yaml('deployment/k8s/ns.yaml')
 
+k8s_namespace('strike')
+
+local_resource(
+  'strike-db-env',
+  'kubectl delete secret strike-db-env -n strike --ignore-not-found && kubectl create secret generic strike-db-env --from-env-file=./config/env.db --namespace=strike',
+  deps=['.env']
+)
+
+local_resource(
+  'strike-server-env',
+  'kubectl delete secret strike-server-env -n strike --ignore-not-found && kubectl create secret generic strike-server-env --from-env-file=./config/env.server --namespace=strike',
+  deps=['.env']
+)
+
 k8s_yaml([
   'deployment/k8s/db.yaml',
   'deployment/k8s/db-svc.yaml',
@@ -8,12 +22,10 @@ k8s_yaml([
   'deployment/k8s/client.yaml',
 ])
 
-k8s_namespace('strike')
-
 docker_build('strike_db', './', dockerfile='deployment/StrikeDatabase.ContainerFile')
 docker_build('strike_server', './', dockerfile='deployment/StrikeServer.ContainerFile')
 docker_build('strike_client', './', dockerfile='deployment/StrikeClient.ContainerFile')
 
-k8s_resource('strike-db', port_forwards=5432)
-k8s_resource('strike-server', port_forwards=8080)
+k8s_resource('strike-db', port_forwards=5432, resource_deps=['strike-db-env'])
+k8s_resource('strike-server', port_forwards=8080, resource_deps=['strike-server-env'])
 
