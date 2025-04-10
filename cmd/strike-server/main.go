@@ -67,7 +67,13 @@ func main() {
 	log.Printf("Loaded Server Config: %+v", serverCfg)
 
 	// PostgreSQL setup
-	pgConfig, err := pgxpool.ParseConfig("postgres://strikeadmin:plaintextisbad@strike_db:5432/strike")
+	// pgConfig, err := pgxpool.ParseConfig("postgres://strikeadmin:plaintextisbad@strike_db:5432/strike")
+	// if err != nil {
+	// 	log.Fatalf("Config parsing failed: %v", err)
+	// }
+
+  //TODO: Config for connection string
+	pgConfig, err := pgxpool.ParseConfig("postgres://strikeadmin:plaintextisbad@strike-db:5432/strike")
 	if err != nil {
 		log.Fatalf("Config parsing failed: %v", err)
 	}
@@ -82,6 +88,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to prepare statements: %v", err)
 	}
+
+	log.Println("DB connection established...")
 
 	serverCreds, err := credentials.NewServerTLSFromFile(serverCfg.CertificatePath, serverCfg.SigningPrivateKeyPath)
 	if err != nil {
