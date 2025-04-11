@@ -1,25 +1,49 @@
-k8s_yaml('deployment/k8s/ns.yaml')
+k8s_yaml('./deployment/k8s/ns.yaml')
 
-k8s_namespace('strike')
+local_resource(
+  'strike-namespace',
+  'kubectl apply -f ./deployment/k8s/ns.yaml',
+  deps=['./deployment/k8s/ns.yaml']
+)
 
 local_resource(
   'strike-db-env',
   'kubectl delete secret strike-db-env -n strike --ignore-not-found && kubectl create secret generic strike-db-env --from-env-file=./config/env.db --namespace=strike',
-  deps=['.env']
+  deps=['./config/env.db', 'strike-namespace']
 )
 
 local_resource(
   'strike-server-env',
   'kubectl delete secret strike-server-env -n strike --ignore-not-found && kubectl create secret generic strike-server-env --from-env-file=./config/env.server --namespace=strike',
-  deps=['.env']
+  deps=['./config/env.server', 'strike-namespace']
 )
 
+local_resource(
+  'strike-client-env',
+  'kubectl delete secret strike-client-env -n strike --ignore-not-found && kubectl create secret generic strike-client-env --from-env-file=./config/env.client --namespace=strike',
+  deps=['./config/env.client', 'strike-namespace']
+)
+
+
+local_resource(
+  'strike-server-identity',
+  'kubectl delete secret strike-server-identity -n strike --ignore-not-found && kubectl create secret generic strike-server-identity --from-file=$HOME/.strike-server -n strike',
+  deps=['$HOME/.strike-server/', 'strike-namespace']
+)
+
+local_resource(
+  'strike-keys',
+  'kubectl delete secret strike-keys -n strike --ignore-not-found && kubectl create secret generic strike-keys --from-file=$HOME/.strike-keys -n strike',
+  deps=['$HOME/.strike-keys/', 'strike-namespace']
+)
+
+
 k8s_yaml([
-  'deployment/k8s/db.yaml',
-  'deployment/k8s/db-svc.yaml',
-  'deployment/k8s/server.yaml',
-  'deployment/k8s/server-svc.yaml',
-  'deployment/k8s/client.yaml',
+  './deployment/k8s/db.yaml',
+  './deployment/k8s/db-svc.yaml',
+  './deployment/k8s/server.yaml',
+  './deployment/k8s/server-svc.yaml',
+  './deployment/k8s/client.yaml',
 ])
 
 docker_build('strike_db', './', dockerfile='deployment/StrikeDatabase.ContainerFile')

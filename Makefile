@@ -89,6 +89,22 @@ client-binary-run:
 
 # ===== STRIKE CLIENT =====
 
+
+
+# === strike cluster ===
+
+
+.PHONY: strike-cluster-start
+strike-cluster-start:
+	ctlptl create cluster k3d --registry=ctlptl-registry && tilt up
+
+.PHONY: strike-cluster-stop
+strike-cluster-stop:
+	tilt down && ctlptl delete cluster k3d-k3s-default
+
+
+# === strike cluster ===
+
 # Run Tests
 .PHONY: test
 test:

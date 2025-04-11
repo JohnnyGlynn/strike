@@ -22,3 +22,5 @@ spec:
         envFrom:
             - secretRef:
                 name: strike-server-env
+            - secretRef:
+                name: strike-server-identity

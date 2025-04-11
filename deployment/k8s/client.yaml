@@ -17,3 +17,8 @@ spec:
       containers:
       - name: strike-client
         image: strike_client
+        envFrom:
+            - secretRef:
+                name: strike-client-env
+            - secretRef:
+                name: strike-keys
