@@ -22,5 +22,11 @@ spec:
         envFrom:
             - secretRef:
                 name: strike-server-env
-            - secretRef:
-                name: strike-server-identity
+        volumeMounts:
+            - name: strike-server-identity
+              mountPath: /etc/strike-server-identity
+              readOnly: true
+      volumes:
+        - name: strike-server-identity
+          secret:
+            secretName: strike-server-identity

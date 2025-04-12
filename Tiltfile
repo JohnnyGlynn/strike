@@ -14,14 +14,14 @@ local_resource(
 
 local_resource(
   'strike-server-env',
-  'kubectl delete secret strike-server-env -n strike --ignore-not-found && kubectl create secret generic strike-server-env --from-env-file=./config/env.server --namespace=strike',
-  deps=['./config/env.server', 'strike-namespace']
+  'kubectl delete secret strike-server-env -n strike --ignore-not-found && kubectl create secret generic strike-server-env --from-env-file=./config/k8s/server.env --namespace=strike',
+  deps=['./config/k8s/server.env', 'strike-namespace']
 )
 
 local_resource(
   'strike-client-env',
-  'kubectl delete secret strike-client-env -n strike --ignore-not-found && kubectl create secret generic strike-client-env --from-env-file=./config/env.client --namespace=strike',
-  deps=['./config/env.client', 'strike-namespace']
+  'kubectl delete secret strike-client-env -n strike --ignore-not-found && kubectl create secret generic strike-client-env --from-env-file=./config/k8s/client.env --namespace=strike',
+  deps=['./config/k8s/client.env', 'strike-namespace']
 )
 
 
