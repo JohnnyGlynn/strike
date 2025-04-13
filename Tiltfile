@@ -18,11 +18,11 @@ local_resource(
   deps=['./config/k8s/server.env', 'strike-namespace']
 )
 
-local_resource(
-  'strike-client-env',
-  'kubectl delete secret strike-client-env -n strike --ignore-not-found && kubectl create secret generic strike-client-env --from-env-file=./config/k8s/client.env --namespace=strike',
-  deps=['./config/k8s/client.env', 'strike-namespace']
-)
+# local_resource(
+#   'strike-client-env',
+#   'kubectl delete secret strike-client-env -n strike --ignore-not-found && kubectl create secret generic strike-client-env --from-env-file=./config/k8s/client.env --namespace=strike',
+#   deps=['./config/k8s/client.env', 'strike-namespace']
+# )
 
 
 local_resource(
@@ -31,11 +31,11 @@ local_resource(
   deps=['$HOME/.strike-server/', 'strike-namespace']
 )
 
-local_resource(
-  'strike-keys',
-  'kubectl delete secret strike-keys -n strike --ignore-not-found && kubectl create secret generic strike-keys --from-file=$HOME/.strike-keys -n strike',
-  deps=['$HOME/.strike-keys/', 'strike-namespace']
-)
+# local_resource(
+#   'strike-keys',
+#   'kubectl delete secret strike-keys -n strike --ignore-not-found && kubectl create secret generic strike-keys --from-file=$HOME/.strike-keys -n strike',
+#   deps=['$HOME/.strike-keys/', 'strike-namespace']
+# )
 
 
 k8s_yaml([
@@ -43,12 +43,14 @@ k8s_yaml([
   './deployment/k8s/db-svc.yaml',
   './deployment/k8s/server.yaml',
   './deployment/k8s/server-svc.yaml',
-  './deployment/k8s/client.yaml',
 ])
+
+
+# './deployment/k8s/client.yaml',
 
 docker_build('strike_db', './', dockerfile='deployment/StrikeDatabase.ContainerFile')
 docker_build('strike_server', './', dockerfile='deployment/StrikeServer.ContainerFile')
-docker_build('strike_client', './', dockerfile='deployment/StrikeClient.ContainerFile')
+# docker_build('strike_client', './', dockerfile='deployment/StrikeClient.ContainerFile')
 
 k8s_resource('strike-db', port_forwards=5432, resource_deps=['strike-db-env'])
 k8s_resource('strike-server', port_forwards=8080, resource_deps=['strike-server-env'])
