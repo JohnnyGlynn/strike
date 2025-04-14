@@ -26,18 +26,18 @@ check-runtime:
 # ===== STRIKE SERVER =====
 
 # Build server container after checking runtime
-.PHONY: server-container-build
-server-container-build: check-runtime
+.PHONY: server-build
+server-build: check-runtime
 	$(CONTAINER_RUNTIME) build -t strike_server -f deployment/StrikeServer.ContainerFile .
 
 # Run server container after checking runtime
-.PHONY: server-container-run
-server-container-run: check-runtime
+.PHONY: server-run
+server-run: check-runtime
 	$(CONTAINER_RUNTIME) run --env-file=./config/env.server -v ~/.strike-server/:/home/strike-server/ --name strike_server --network=strikenw -p 8080:8080 localhost/strike_server:latest
 
 # Run server container and attach stdout
-.PHONY: server-container-start
-server-container-start: check-runtime
+.PHONY: server-start
+server-start: check-runtime
 	$(CONTAINER_RUNTIME) start -a strike_server
 
 # ===== STRIKE SERVER =====
@@ -45,54 +45,60 @@ server-container-start: check-runtime
 
 # ===== STRIKE DB =====
 
-.PHONY: db-container-build
-db-container-build: check-runtime
+.PHONY: db-build
+db-build: check-runtime
 	$(CONTAINER_RUNTIME) build -t strike_db -f deployment/StrikeDatabase.ContainerFile .
 
-.PHONY: db-container-run
-db-container-run: check-runtime
+.PHONY: db-run
+db-run: check-runtime
 	$(CONTAINER_RUNTIME) run --env-file=./config/env.db --name strike_db --network=strikenw -p 5432:5432 localhost/strike_db:latest
 
-.PHONY: db-container-start
-db-container-start: check-runtime
+.PHONY: db-start
+db-start: check-runtime
 	$(CONTAINER_RUNTIME) start strike_db 
 
 # ===== STRIKE DB =====
 
 # ===== STRIKE CLIENT =====
-.PHONY: client-container-build
-client-container-build: check-runtime
+.PHONY: client-build
+client-build: check-runtime
 	$(CONTAINER_RUNTIME) build -t strike_client -f deployment/StrikeClient.ContainerFile .
 
-.PHONY: client-container-run
-client-container-run: check-runtime
+.PHONY: client-run
+client-run: check-runtime
 	$(CONTAINER_RUNTIME) run -it --env-file=./config/env.client -v ~/.strike-keys/:/home/strike-client/ -v ~/.strike-server/strike_server.crt:/home/strike-client/strike_server.crt --name strike_client --network=strikenw localhost/strike_client:latest
 
-.PHONY: another-client-container-run
-another-client-container-run: check-runtime
+.PHONY: another-client-run
+another-client-run: check-runtime
 	$(CONTAINER_RUNTIME) run -it --env-file=./config/env.client -v ~/.strike-keys/:/home/strike-client/ -v ~/.strike-server/strike_server.crt:/home/strike-client/strike_server.crt --name strike_client1 --network=strikenw localhost/strike_client:latest
 
-.PHONY: client-container-start
-client-container-start: check-runtime
+.PHONY: client--start
+client-start: check-runtime
 	$(CONTAINER_RUNTIME) start -a strike_client 
 
-# Build strike client
-.PHONY: client-binary-build
-client-binary-build:
+# ===== STRIKE CLIENT =====
+
+# === keygen === 
+
+.PHONY: keygen-client
+keygen-client:
 	mkdir -p $(BUILD_DIR)
 	go build -o $(BUILD_DIR)/$(APP_NAME)-client cmd/strike-client/main.go
+	./$(BUILD_DIR)/$(APP_NAME)-client --keygen 
+	rm -rf $(BUILD_DIR)
 
-# Run strike-client
-.PHONY: client-binary-run
-client-binary-run:
-	./$(BUILD_DIR)/$(APP_NAME)-client --config=config/clientConfig.json
+.PHONY: keygen-server
+keygen-server:
+	mkdir -p $(BUILD_DIR)
+	go build -o $(BUILD_DIR)/$(APP_NAME)-server cmd/strike-server/main.go
+	./$(BUILD_DIR)/$(APP_NAME)-server --keygen 
+	rm -rf $(BUILD_DIR)
 
-# ===== STRIKE CLIENT =====
+# === keygen ===
 
 
 
 # === strike cluster ===
-
 
 .PHONY: strike-cluster-start
 strike-cluster-start:
@@ -101,7 +107,6 @@ strike-cluster-start:
 .PHONY: strike-cluster-stop
 strike-cluster-stop:
 	tilt down && ctlptl delete cluster k3d-k3s-default
-
 
 # === strike cluster ===
 
@@ -114,7 +119,6 @@ test:
 .PHONY: clean-binary-artifacts
 clean:
 	rm -rf $(BUILD_DIR)
-	rm -rf cfg/
 
 # Format code
 .PHONY: fmt

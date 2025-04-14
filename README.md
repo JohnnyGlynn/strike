@@ -1,64 +1,54 @@
 # Strike
+Distributed End-to-End Encrypted Messaging service, built on gRPC.
 
-End-to-End Encrypted Messaging service using gRPC
+## Configuration
 
+Example configuration for Strike can be found in `config/`.
 
-## Keys
+Configuration can be supplied via JSON or Environment variables.
+`env.<service>` files and `*Config.json` provide primarily paths to key files required to secure communication for the Strike service.
+JSON config must be supplied with `--config=<path to config file>`.
 
-Signing: ED25519 key pair is used for signing messages to ensure that the sender of a message is authentic.
-Encryption: Curve25519 key pair is used for message encryption Key-Exchange/Encryption/Key derivation.
-Shared secrets: DHKE shared secret used between clients for chat encryption.
+### Keys and Server Certificate
+Signing: ED25519 key pair for message origin authenticity via signing messages.
+Encryption: Curve25519 key pair used in key exchange to facilitate encryption via shared secret.
+Shared secrets: Diffie-Hellman Key Exchange shared secret used between clients for chat encryption.
 
-Configuration references a key path for `~/.strike-keys/`, this is where keys will be placed by default if you make use of the strike client binary `--keygen` flag. This generates 2 sets of long term keys (ED25519 signing keys & Curve25519 encryption keys)
+Key generation can be carried out with the `--keygen` flag for both client and server.
+Server key generation will also generate a certificate with its newly generated key pair.
 
-This will generate you a private and public key that can be then used with the client.
+There are Makefile targets for key generation, use `keygen-<client/server>`.
 
-## Certificate
-To use Strike with TLS enabled you will need to generate a Certificate for your server using its private key and distribute that to your users.
-Using the `--keygen` flag with the server binary (`go build cmd/strike-server/main.go && ./cmd/strike-server/main.go --keygen`) will automatically generate a certificate for you.
-Like the server keys these can be found at `~/.strike-server`.
+Currently, Strike will generate directories in the Users home directory during key generation, storing it's keys there.
+`~/strike-keys` - Client specific keys
+`~/strike-server` - Server specific keys + Server's Certificate
 
-### Configuration
-The Client currently supports config from either a JSON file or ENV vars.
+Strike is secured with TLS, so your server's certicate file will need to be distributed to users.
 
-If you wish to run the Client in a container use make target `client-container-run`, but ensure that you provide config to the container correctly, ENV vars recommended:
+All Kubernetes configuration is present in `config/k8s/`.
 
-    SERVER_HOST=strike_server:8080
-    PRIVATE_SIGNING_KEY_PATH=/home/.strike-keys/strike_signing.pem
-    PUBLIC_SIGNING_KEY_PATH=/home/.strike-keys/strike_public_signing.pem
-    PRIVATE_ENCRYPTION_KEY_PATH=/home/.strike-keys/strike_encryption.pem
-    PUBLIC_ENCRYPTION_KEY_PATH=/home/.strike-keys/strike_public_encryption.pem
-    CLIENT_SERVER_CERT_PATH=/home/strike-client/strike_server.crt
+## Usage
 
-The Server container also requires Env vars to specify paths to keys and its certificate.
+Currently there are two methods of running Strike locally:
+Containers locally on the host machine.
+K8s deployment of the Server and Database, accessable to client containers on the host machine.
 
-    SERVER_NAME=endpoint0
-    PRIVATE_SIGNING_KEY_PATH=/home/strike-server/strike_server.pem
-    PUBLIC_SIGNING_KEY_PATH=/home/strike-server/strike_server_public.pem
-    SERVER_CERT_PATH=/home/strike-server/strike_server.crt
+### Containers
 
-These Env vars are loaded into the containers by their repective Makefile targets and currently only work for a local deployment,
-but should you wish to deploy Strike another way, `env.server` & `env.client` can be found in the config directory.
+Using the provided make targets and service (db/server/client):
 
-<!-- TODO: [k3d](https://k3d.io/stable/) + [tilt](https://tilt.dev/) as a means for Docker users or Implementing [Podman pods](https://docs.podman.io/en/v5.2.5/markdown/podman-pod-create.1.html) directly.
+`make *-build` - Build the service.
+`make *-run` - Run the latest image on the machine, name the container, and provide the relevant config.
+`make *-start` - Restart an existing container.
 
-Either way the K8s manifests will be rolled once and used as needed. -->
+`make another-client-run` will run an additional client with the same keys to provide a secondary user to chat with.
 
-## Useage
+### Kubernetes
 
-To run a local version of the Strike Messaging service, you can make use of the above steps for key generation, and the supplied environment files.
-The generated keys will be placed in `~/.strike-keys` for the client, and `~/.strike_server` will hold the servers signing keys and its certificate which is used by any client you wish to connect as TLS is enabled.
+`make strike-cluster-start` - Build a local cluster, deploy Server and DB.
+`make strike-cluster-stop` - Stop all services and teardown the cluster.
 
-Run the Strike DB: `make db-container-build` followed by `make db-container-run`
-
-Assuming that keys have been generated by using a strike client and server binary.
-Run the Strike Server: `make server-container-build` followed by `make server-container-run`
-
-You can run several clients if you wish, but it is important to change the container name so it doesn't conflict when you try to run multiple. Both of these can be achieved by modifying the `make client-container-run` target, or running the container runtime commands yourself (podman/docker)
-
-Run Strike Clients: `make client-container-build` followed by `make client-container-run`
-
-Note: `make another-client-container-run` will create a second client container with the same set of keys, but a new container name, `strike_client1`, this will be useful to test functions between 2 clients (Chat creation, messaging, etc.)
+`make client-run` - Use this to create a client and connect it to the cluster via Config.
 
 ## Commands
 
@@ -80,10 +70,14 @@ This however, requires an active Chat.
 
 Inputting `<target username>:<message>` will deliver a message to the targetted user (i.e. `client0:Hello World!`)
 
-As of now invites and chats are not persisted.
-
-As this project is in a working state, changes will be incremental, eventually we would like to intergrate a terminal library for a nicer shell experience.
-
 ## Dependencies
+[Docker](https://www.docker.com)/[Podman](https://podman.io)- Container runtimes
+
+[k3d](https://k3d.io) - Lightweight Kubernetes distribution
+
+[ctlptl](https://github.com/tilt-dev/ctlptl) - Cluster management tool
+
+[tilt](https://tilt.dev) - K8s deployment automation
+
 [Protoc](https://grpc.io/docs/protoc-installation/) - for generating Protobuf definition code
-[]()
+
