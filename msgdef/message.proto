@@ -104,11 +104,12 @@ message StreamPayload {
     BeginChatRequest chat_request = 3;
     ConfirmChatRequest chat_confirm = 4;
     Envelope envelope = 5;
-    KeyExchangeRequest key_exch_request = 6;
-    KeyExchangeResponse key_exch_response = 7;
-    KeyExchangeConfirmation key_exch_confirm = 8;
+    EncryptedEnvelope encenv = 6;
+    KeyExchangeRequest key_exch_request = 7;
+    KeyExchangeResponse key_exch_response = 8;
+    KeyExchangeConfirmation key_exch_confirm = 9;
   }
-  string info = 9;
+  string info = 10;
 }
 
 // -----------------------------------Messages---------------------------------------------
