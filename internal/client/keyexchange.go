@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+  "crypto/sha256"
 	"crypto/ecdh"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -9,7 +10,10 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log"
+  "io"
 
+  "golang.org/x/crypto/hkdf"
+  
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 	"github.com/google/uuid"
 )
@@ -167,7 +171,7 @@ func ComputeSharedSecret(privateCurveKey []byte, inboundKey []byte) ([]byte, err
 	}
 
 	pubblock, _ := pem.Decode(inboundKey)
-	if block == nil {
+	if pubblock == nil {
 		log.Print("failed to decode PEM block")
 	}
 
@@ -183,6 +187,30 @@ func ComputeSharedSecret(privateCurveKey []byte, inboundKey []byte) ([]byte, err
 	}
 
 	return sharedSecret, nil
+}
+
+func DeriveKeys(c *ClientInfo) error {
+
+  const keyLen = 32 //256 bits
+
+  d := hkdf.New(sha256.New, c.Cache.ActiveChat.SharedSecret, nil, nil)
+
+  encKey := make([]byte, keyLen)
+  hmacKey := make([]byte, keyLen)
+
+  if _, err := io.ReadFull(d, encKey); err != nil {
+		return err
+	}
+
+  c.Cache.ActiveChat.EncKey = encKey
+
+	if _, err := io.ReadFull(d, hmacKey); err != nil {
+		return err
+	}
+
+  c.Cache.ActiveChat.HmacKey = hmacKey
+
+  return nil
 }
 
 func VerifyEdSignatures(pubKey ed25519.PublicKey, nonce, CurvePublicKey []byte, sigs [][]byte) bool {

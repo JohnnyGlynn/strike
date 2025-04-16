@@ -36,7 +36,15 @@ type ClientInfo struct {
 type ClientCache struct {
 	Invites    map[uuid.UUID]*pb.BeginChatRequest
 	Chats      map[uuid.UUID]*pb.Chat
-	ActiveChat *pb.Chat
+	ActiveChat ChatDetails
+}
+
+// In memory persistence for shared secret and derived keys
+type ChatDetails struct {
+	Chat         *pb.Chat
+	SharedSecret []byte
+	EncKey       []byte
+	HmacKey      []byte
 }
 
 // TODO: CLEAN THIS UP
@@ -95,7 +103,7 @@ func SendMessage(c *ClientInfo, target uuid.UUID, message string) {
 		SentAt:          timestamppb.Now(),
 		FromUser:        c.UserID.String(),
 		ToUser:          target.String(),
-		Chat:            c.Cache.Chats[uuid.MustParse(c.Cache.ActiveChat.Id)], // TODO: Ensure nothing can be set if ActiveChat == ""
+		Chat:            c.Cache.Chats[uuid.MustParse(c.Cache.ActiveChat.Chat.Id)], // TODO: Ensure nothing can be set if ActiveChat == ""
 		Message:         message,
 	}
 
@@ -312,10 +320,10 @@ func MessagingShell(c *ClientInfo) {
 
 	for {
 		// Prompt for input
-		if c.Cache.ActiveChat == nil {
+		if c.Cache.ActiveChat.Chat == nil {
 			fmt.Print("[NO-CHAT]msgshell> ")
 		} else {
-			fmt.Printf("[CHAT:%s]\n[%s]>", c.Cache.ActiveChat.Name[:20], c.Username)
+			fmt.Printf("[CHAT:%s]\n[%s]>", c.Cache.ActiveChat.Chat.Name[:20], c.Username)
 		}
 
 		input, err := inputReader.ReadString('\n')
@@ -424,12 +432,12 @@ func shellChat(inputReader *bufio.Reader, c *ClientInfo) {
 
 	selectedChat := chatList[selectedIndex-1]
 
-	if c.Cache.ActiveChat == selectedChat {
+	if c.Cache.ActiveChat.Chat == selectedChat {
 		fmt.Printf("%s already active", selectedChat.Name)
 		return
 	}
 
-	c.Cache.ActiveChat = selectedChat
+	c.Cache.ActiveChat.Chat = selectedChat
 	fmt.Printf("Active chat: %s\n", c.Cache.Chats[uuid.MustParse(selectedChat.Id)].Name)
 }
 
@@ -478,7 +486,7 @@ func shellSendMessage(input string, c *ClientInfo) error {
 	}
 
 	// TODO: Stopgap handle this elsewhere
-	if c.Cache.ActiveChat == nil {
+	if c.Cache.ActiveChat.Chat == nil {
 		return fmt.Errorf("No chat has been selected. Use /chats to enable a chat first")
 	}
 

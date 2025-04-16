@@ -76,13 +76,14 @@ message Chat {
     DEFAULT = 0;
     INIT = 1;
     KEY_EXCHANGE_PENDING = 2;
-    ENCRYPTED = 3;
+    KEYS_EXCHANGED = 3;
+    ENCRYPTED = 4;
   }
 
-  State state = 3;
-  repeated string participants = 4;
-  google.protobuf.Timestamp created_at = 5;
-  google.protobuf.Timestamp updated_at = 6;
+  State state = 5;
+  repeated string participants = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
 }
 
 message ServerResponse {

@@ -32,6 +32,7 @@ CREATE TABLE chats (
     initiator UUID NOT NULL REFERENCES addressbook(user_id),
     participants UUID[] NOT NULL,
     state VARCHAR(20) NOT NULL CHECK (state IN ('INIT', 'KEY_EXCHANGE_PENDING', 'ENCRYPTED')),
+    -- TODO: Shared secret should be loaded in memeory
     shared_secret BYTEA,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
