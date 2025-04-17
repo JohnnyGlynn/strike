@@ -189,11 +189,11 @@ func ComputeSharedSecret(privateCurveKey []byte, inboundKey []byte) ([]byte, err
 	return sharedSecret, nil
 }
 
-func DeriveKeys(c *ClientInfo) error {
+func DeriveKeys(c *ClientInfo, sct []byte) error {
 
   const keyLen = 32 //256 bits
 
-  d := hkdf.New(sha256.New, c.Cache.ActiveChat.SharedSecret, nil, nil)
+  d := hkdf.New(sha256.New, sct, nil, nil)
 
   encKey := make([]byte, keyLen)
   hmacKey := make([]byte, keyLen)

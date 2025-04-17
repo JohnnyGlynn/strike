@@ -50,6 +50,7 @@ func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*ServerDB, er
 		return nil, err
 	}
 
+  //
 	// Get keys from key table
 	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetPublicKeys, "SELECT key.encryption_public_key, key.signing_public_key FROM user_keys key JOIN users u ON key.user_id = u.user_id WHERE u.user_id = $1;"); err != nil {
 		return nil, err

@@ -439,6 +439,40 @@ func shellChat(inputReader *bufio.Reader, c *ClientInfo) {
 
 	c.Cache.ActiveChat.Chat = selectedChat
 	fmt.Printf("Active chat: %s\n", c.Cache.Chats[uuid.MustParse(selectedChat.Id)].Name)
+
+  participants := c.Cache.ActiveChat.Chat.Participants 
+
+  for k, v := range participants {
+    if v == c.UserID.String() {
+        participants = append(participants[:k], participants[k+1:]...)
+        break
+    }
+  }
+
+  uinfo := &pb.UserInfo{
+    UserId: participants[0],
+  }
+
+  target, err := c.Pbclient.UserRequest(context.TODO() ,uinfo)
+  if err != nil {
+		log.Printf("error beginning chat: %v", err)
+	}
+
+
+  sharedSecret, err := ComputeSharedSecret(c.Keys["EncryptionPrivateKey"], target.EncryptionPublicKey)
+  if err != nil {
+    // TODO: Error return
+    log.Print("failed to compute shared secret")
+    return
+  }
+
+  c.Cache.ActiveChat.SharedSecret = sharedSecret
+
+  err = DeriveKeys(c, sharedSecret)
+  if err != nil {
+    log.Fatalf("Failed to derive keys")
+  }
+
 }
 
 func shellBeginChat(c *ClientInfo, inputReader *bufio.Reader) {
@@ -531,10 +565,9 @@ func loadChats(c *ClientInfo) error {
 			initiator     uuid.UUID
 			participants  []uuid.UUID
 			stateStr      string
-			shared_secret []byte
 		)
 
-		if err := rows.Scan(&chat_id, &chat_name, &initiator, &participants, &stateStr, &shared_secret); err != nil {
+		if err := rows.Scan(&chat_id, &chat_name, &initiator, &participants, &stateStr); err != nil {
 			log.Printf("error scanning row: %v", err)
 			return err
 		}

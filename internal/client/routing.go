@@ -242,12 +242,12 @@ func ProcessKeyExchangeRequests(c *ClientInfo, ch <-chan *pb.KeyExchangeRequest,
 				return
 			}
 
-			sharedSecret, err := ComputeSharedSecret(c.Keys["EncryptionPrivateKey"], keyExReq.CurvePublicKey)
-			if err != nil {
-				// TODO: Error return
-				log.Print("failed to compute shared secret")
-				return
-			}
+			// sharedSecret, err := ComputeSharedSecret(c.Keys["EncryptionPrivateKey"], keyExReq.CurvePublicKey)
+			// if err != nil {
+			// 	// TODO: Error return
+			// 	log.Print("failed to compute shared secret")
+			// 	return
+			// }
 
 			var participantsUUID []uuid.UUID
 			for _, sUID := range chat.Participants {
@@ -255,7 +255,7 @@ func ProcessKeyExchangeRequests(c *ClientInfo, ch <-chan *pb.KeyExchangeRequest,
 				participantsUUID = append(participantsUUID, parsedUUID)
 			}
 
-			_, err = c.DBpool.Exec(context.TODO(), c.Pstatements.CreateChat, chatId, chat.Name, uuid.MustParse(keyExReq.SenderUserId), participantsUUID, chat.State.String(), sharedSecret)
+      _, err := c.DBpool.Exec(context.TODO(), c.Pstatements.CreateChat, chatId, chat.Name, uuid.MustParse(keyExReq.SenderUserId), participantsUUID, chat.State.String())
 			if err != nil {
 				log.Fatal("Failed to save Chat")
 			}
