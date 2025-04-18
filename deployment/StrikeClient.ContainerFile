@@ -3,7 +3,7 @@
 #Strike Client
 
 # Use an official Go image based on Alpine
-FROM golang:alpine as builder
+FROM golang:alpine AS builder
 
 WORKDIR /go/strike
 
