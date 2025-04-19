@@ -9,51 +9,51 @@ all: build
 # ===== STRIKE SERVER =====
 
 # Build server container after checking runtime
-.PHONY: server-build
-server-build: 
-	docker build -t strike_server -f deployment/StrikeServer.ContainerFile .
+# .PHONY: server-build
+# server-build: 
+# 	docker build -t strike_server -f deployment/StrikeServer.ContainerFile .
 
-# Run server container after checking runtime
-.PHONY: server-run
-server-run: 
-	docker run --env-file=./config/env.server -v ~/.strike-server/:/home/strike-server/ --name strike_server --network=strikenw -p 8080:8080 localhost/strike_server:latest
+# # Run server container after checking runtime
+# .PHONY: server-run
+# server-run: 
+# 	docker run --env-file=./config/env.server -v ~/.strike-server/:/home/strike-server/ --name strike_server --network=strikenw -p 8080:8080 localhost/strike_server:latest
 
-# Run server container and attach stdout
-.PHONY: server-start
-server-start:
-	docker start -a strike_server
+# # Run server container and attach stdout
+# .PHONY: server-start
+# server-start:
+# 	docker start -a strike_server
 
 # ===== STRIKE SERVER =====
 
 
 # ===== STRIKE DB =====
 
-.PHONY: db-build
-db-build:
-	docker build -t strike_db -f deployment/StrikeDatabase.ContainerFile .
+# .PHONY: db-build
+# db-build:
+# 	docker build -t strike_db -f deployment/StrikeDatabase.ContainerFile .
 
-.PHONY: db-run
-db-run:
-	docker run --env-file=./config/env.db --name strike_db --network=strikenw -p 5432:5432 localhost/strike_db:latest
+# .PHONY: db-run
+# db-run:
+# 	docker run --env-file=./config/env.db --name strike_db --network=strikenw -p 5432:5432 localhost/strike_db:latest
 
-.PHONY: db-start
-db-start:
-	docker start strike_db 
+# .PHONY: db-start
+# db-start:
+# 	docker start strike_db 
 
 # ===== STRIKE DB =====
 
 # ===== STRIKE CLIENT =====
 .PHONY: client-build
 client-build:
-	docker build -t strike_client -f deployment/StrikeClient.ContainerFile .
+	docker build -t localhost/strike_client -f deployment/StrikeClient.ContainerFile .
 
 .PHONY: client-run
 client-run: 
-	docker run -it --env-file=./config/env.client -v ~/.strike-keys/:/home/strike-client/ -v ~/.strike-server/strike_server.crt:/home/strike-client/strike_server.crt --name strike_client --network=strikenw localhost/strike_client:latest
+	docker run -it --env-file=./config/env.client -v ~/.strike-keys/:/home/strike-client/ -v ~/.strike-server/strike_server.crt:/home/strike-client/strike_server.crt --name strike_client --network="host" localhost/strike_client:latest
 
 .PHONY: another-client-run
 another-client-run:
-	docker run -it --env-file=./config/env.client -v ~/.strike-keys/:/home/strike-client/ -v ~/.strike-server/strike_server.crt:/home/strike-client/strike_server.crt --name strike_client1 --network=strikenw localhost/strike_client:latest
+	docker run -it --env-file=./config/env.client -v ~/.strike-keys/:/home/strike-client/ -v ~/.strike-server/strike_server.crt:/home/strike-client/strike_server.crt --name strike_client1 localhost/strike_client:latest
 
 .PHONY: client--start
 client-start:/
@@ -90,6 +90,12 @@ strike-cluster-start:
 .PHONY: strike-cluster-stop
 strike-cluster-stop:
 	tilt down && ctlptl delete cluster k3d-k3s-default
+
+# Run after tilt is up
+# .PHONY: k8s-pf
+# k8s-pf:
+# 	kubectl -n strike port-forward service/strike-db 5432:5432
+# 	kubectl -n strike port-forward service/strike-server 8080:8080
 
 # === strike cluster ===
 
