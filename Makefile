@@ -49,7 +49,7 @@ client-build:
 
 .PHONY: client-run
 client-run: 
-	docker run -it --env-file=./config/env.client -v ~/.strike-keys/:/home/strike-client/ -v ~/.strike-server/strike_server.crt:/home/strike-client/strike_server.crt --name strike_client --network="host" localhost/strike_client:latest
+	docker run -it --env-file=./config/env.client -v ~/.strike-keys/:/home/strike-client/ -v ~/.strike-server/strike_server.crt:/home/strike-client/strike_server.crt --name strike_client --rm --network=host localhost/strike_client:latest
 
 .PHONY: another-client-run
 another-client-run:

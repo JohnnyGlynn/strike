@@ -101,7 +101,7 @@ func main() {
 	}
 
 	// TODO: Seperate client db
-  pgConfig, err := pgxpool.ParseConfig("postgres://strikeadmin:plaintextisbad@strike-db:5432/strike")
+  pgConfig, err := pgxpool.ParseConfig("postgres://strikeadmin:plaintextisbad@localhost:5432/strike")
 	if err != nil {
 		log.Fatalf("Config parsing failed: %v", err)
 	}
