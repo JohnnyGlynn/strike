@@ -2,6 +2,8 @@ package client
 
 import (
 	"context"
+  "crypto/aes"
+  "crypto/cipher"
   "crypto/sha256"
 	"crypto/ecdh"
 	"crypto/ed25519"
@@ -224,3 +226,55 @@ func VerifyEdSignatures(pubKey ed25519.PublicKey, nonce, CurvePublicKey []byte, 
 
 	return ed25519.Verify(pubKey, CurvePublicKey, sigs[1])
 }
+
+func Encrypt(c *ClientInfo, plaintext []byte) ([]byte, error) {
+    block, err := aes.NewCipher(c.Cache.ActiveChat.EncKey)
+    if err != nil {
+        return nil, err
+    }
+
+    //Galois/Counter Mode - https://en.wikipedia.org/wiki/Galois/Counter_Mode
+    gcm, err := cipher.NewGCM(block)
+    if err != nil {
+        return nil, err
+    }
+
+    nonce := make([]byte, gcm.NonceSize())
+    if _, err := rand.Read(nonce); err != nil {
+        return nil, err
+    }
+
+    ciphertext := gcm.Seal(nil, nonce, plaintext, nil)
+
+    sealedMessage := append(nonce, ciphertext...)
+
+    return sealedMessage, nil
+}
+
+func Decrypt(c *ClientInfo, sealedMessage []byte) ([]byte, error) {
+    block, err := aes.NewCipher(c.Cache.ActiveChat.EncKey)
+    if err != nil {
+        return nil, err
+    }
+
+    gcm, err := cipher.NewGCM(block)
+    if err != nil {
+        return nil, err
+    }
+
+    nonceSize := gcm.NonceSize()
+    if len(sealedMessage) < nonceSize {
+        return nil, fmt.Errorf("data too short")
+    }
+
+    nonce := sealedMessage[:nonceSize]
+    ciphertext := sealedMessage[nonceSize:]
+
+    plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+    if err != nil {
+        return nil, err
+    }
+
+    return plaintext, nil
+}
+
