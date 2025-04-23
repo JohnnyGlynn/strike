@@ -53,7 +53,7 @@ client-run:
 
 .PHONY: another-client-run
 another-client-run:
-	docker run -it --env-file=./config/env.client -v ~/.strike-keys/:/home/strike-client/ -v ~/.strike-server/strike_server.crt:/home/strike-client/strike_server.crt --name strike_client1 localhost/strike_client:latest
+	docker run -it --env-file=./config/env.client -v ~/.strike-keys/:/home/strike-client/ -v ~/.strike-server/strike_server.crt:/home/strike-client/strike_server.crt --name anotherstrikeclient --rm --network=host localhost/strike_client:latest
 
 .PHONY: client--start
 client-start:/
@@ -89,7 +89,7 @@ strike-cluster-start:
 
 .PHONY: strike-cluster-stop
 strike-cluster-stop:
-	tilt down && ctlptl delete cluster k3d-k3s-default
+	tilt down && ctlptl delete cluster k3d-k3s-default 
 
 # Run after tilt is up
 # .PHONY: k8s-pf

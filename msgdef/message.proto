@@ -127,10 +127,13 @@ message Envelope {
 message EncryptedEnvelope {
   bytes sender_public_key = 1; // public Curve25519 sender
   bytes recipient_public_key = 2; // public Curve25519 recipient
-  bytes signature = 3; // sender ED25519 signature of encrypted_payload
-  bytes nonce = 4; // number once - encryption
-  bytes encrypted_payload = 5; // encrypted message content
-  google.protobuf.Timestamp sent_at = 6; // timestamp
+  string to_user = 3;
+  string from_user = 4;
+  bytes signature = 5; // sender ED25519 signature of encrypted_payload
+  Chat chat = 6;
+  bytes nonce = 7; // number once - encryption
+  bytes encrypted_message = 8; // encrypted message content
+  google.protobuf.Timestamp sent_at = 9; // timestamp
 }
 
 // -----------------------------------Key Exchange---------------------------------------------

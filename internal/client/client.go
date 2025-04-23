@@ -98,23 +98,37 @@ func ConnectPayloadStream(ctx context.Context, c *ClientInfo) error {
 }
 
 func SendMessage(c *ClientInfo, target uuid.UUID, message string) {
-	envelope := pb.Envelope{
-		SenderPublicKey: c.Keys["SigningPublicKey"],
+	// envelope := pb.Envelope{
+	// 	SenderPublicKey: c.Keys["SigningPublicKey"],
+	// 	SentAt:          timestamppb.Now(),
+	// 	FromUser:        c.UserID.String(),
+	// 	ToUser:          target.String(),
+	// 	Chat:            c.Cache.Chats[uuid.MustParse(c.Cache.ActiveChat.Chat.Id)], // TODO: Ensure nothing can be set if ActiveChat == ""
+	// 	Message:         message,
+	// }
+
+  sealedMessage, err := Encrypt(c, []byte(message))
+  if err != nil {
+    log.Fatal("Couldnt encrypt message")
+  }
+
+  encenv := pb.EncryptedEnvelope{
+    SenderPublicKey: c.Keys["SigningPublicKey"],
 		SentAt:          timestamppb.Now(),
 		FromUser:        c.UserID.String(),
 		ToUser:          target.String(),
 		Chat:            c.Cache.Chats[uuid.MustParse(c.Cache.ActiveChat.Chat.Id)], // TODO: Ensure nothing can be set if ActiveChat == ""
-		Message:         message,
-	}
+		EncryptedMessage:         sealedMessage,
+  }
 
 	payloadEnvelope := pb.StreamPayload{
 		Target:  target.String(),
 		Sender:  c.UserID.String(),
-		Payload: &pb.StreamPayload_Envelope{Envelope: &envelope},
+		Payload: &pb.StreamPayload_Encenv{Encenv: &encenv},
 		Info:    "Message Payload",
 	}
 
-	_, err := c.Pbclient.SendPayload(context.Background(), &payloadEnvelope)
+	_, err = c.Pbclient.SendPayload(context.Background(), &payloadEnvelope)
 	if err != nil {
 		log.Fatalf("Error sending message: %v", err)
 	}

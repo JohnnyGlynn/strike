@@ -19,7 +19,7 @@ import (
 
 type StrikeServer struct {
 	pb.UnimplementedStrikeServer
-	Env         []*pb.Envelope
+	Env         []*pb.EncryptedEnvelope
 	DBpool      *pgxpool.Pool
 	PStatements *db.ServerDB
 
@@ -33,8 +33,8 @@ type StrikeServer struct {
 func (s *StrikeServer) SendPayload(ctx context.Context, payload *pb.StreamPayload) (*pb.ServerResponse, error) {
 	// TODO: Work out the most effecient Syncing for mutexs, this is a lot of locking and unlocking
 
-  fmt.Printf("payload from SendPayload: %v", payload.Payload)
-  fmt.Printf("uuid from SendPayload: %v", payload.Target)
+	fmt.Printf("payload from SendPayload: %v", payload.Payload)
+	fmt.Printf("uuid from SendPayload: %v", payload.Target)
 
 	parsedId := uuid.MustParse(payload.Target)
 
@@ -50,7 +50,7 @@ func (s *StrikeServer) SendPayload(ctx context.Context, payload *pb.StreamPayloa
 	// Push Message into Channel TODO: handle full channel case
 	select {
 	case channel <- payload:
-    log.Printf("Payload sent to: %s From: %v\n", payload.Target, payload.Sender)
+		log.Printf("Payload sent to: %s From: %v\n", payload.Target, payload.Sender)
 		return &pb.ServerResponse{Success: true, Message: "PAYLOAD OK"}, nil
 	default:
 		return &pb.ServerResponse{Success: false}, fmt.Errorf("%s's channel is full", payload.Target)
@@ -175,26 +175,31 @@ func (s *StrikeServer) UserStatus(req *pb.UserInfo, stream pb.Strike_UserStatusS
 func (s *StrikeServer) UserRequest(ctx context.Context, userInfo *pb.UserInfo) (*pb.UserInfo, error) {
 	var encryptionPubKey, signingPubKey []byte
 
-  if userInfo.Username == "" && userInfo.UserId != ""{
-    fmt.Println("uid provided")
+	if userInfo.Username == "" && userInfo.UserId != "" {
+		fmt.Println("uid provided")
+		row := s.DBpool.QueryRow(ctx, s.PStatements.GetUserKeys, userInfo.Username)
+		if err := row.Scan(&encryptionPubKey, &signingPubKey); err != nil {
+			return nil, err
+		}
+
+	} else if userInfo.Username != "" && userInfo.UserId == "" {
+		fmt.Println("uname provided")
+		err := s.DBpool.QueryRow(ctx, s.PStatements.GetUserId, userInfo.Username).Scan(userInfo.UserId)
+		if err != nil {
+			if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
+				log.Fatalf("Unable mine salt: %v", err)
+				return nil, nil
+			}
+			log.Fatalf("An Error occured while mining salt: %v", err)
+			return nil, nil
+		}
+
     row := s.DBpool.QueryRow(ctx, s.PStatements.GetUserKeys, userInfo.Username)
-    if err := row.Scan(&encryptionPubKey, &signingPubKey); err != nil {
-      return nil, err
-    }
+		if err := row.Scan(&encryptionPubKey, &signingPubKey); err != nil {
+			return nil, err
+		}
 
-  } else if userInfo.Username != "" && userInfo.UserId == "" {
-    fmt.Println("uname provided")
-    err := s.DBpool.QueryRow(ctx, s.PStatements.GetUserId, userInfo.Username).Scan(userInfo.UserId)
-    if err != nil {
-      if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
-        log.Fatalf("Unable mine salt: %v", err)
-        return nil, nil
-      }
-      log.Fatalf("An Error occured while mining salt: %v", err)
-      return nil, nil
-    }
-  }
-
+	}
 
 	return &pb.UserInfo{UserId: userInfo.UserId, Username: userInfo.Username, EncryptionPublicKey: encryptionPubKey, SigningPublicKey: signingPubKey}, nil
 }

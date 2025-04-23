@@ -14,7 +14,7 @@ import (
 type Demultiplexer struct {
 	chatRequestChannel             chan *pb.BeginChatRequest
 	chatConfirmChannel             chan *pb.ConfirmChatRequest
-	envelopeChannel                chan *pb.Envelope
+	encenvelopeChannel             chan *pb.EncryptedEnvelope
 	keyExchangeChannel             chan *pb.KeyExchangeRequest
 	keyExchangeResponseChannel     chan *pb.KeyExchangeResponse
 	keyExchangeConfirmationChannel chan *pb.KeyExchangeConfirmation
@@ -34,7 +34,7 @@ func NewDemultiplexer(c *ClientInfo) *Demultiplexer {
 	d := &Demultiplexer{
 		chatRequestChannel: make(chan *pb.BeginChatRequest, 20),
 		chatConfirmChannel: make(chan *pb.ConfirmChatRequest, 20),
-		envelopeChannel:    make(chan *pb.Envelope, 200),
+		encenvelopeChannel: make(chan *pb.EncryptedEnvelope, 200),
 		// TODO: There has to be a better way
 		keyExchangeChannel:             make(chan *pb.KeyExchangeRequest, 20),
 		keyExchangeResponseChannel:     make(chan *pb.KeyExchangeResponse, 20),
@@ -50,7 +50,7 @@ func NewDemultiplexer(c *ClientInfo) *Demultiplexer {
 	d.mu.Unlock()
 
 	// Run demultiplexer channel processors - Permanent processors
-	go ProcessEnvelopes(d.envelopeChannel, c, 0, &d.envelopeWorkerCount, &d.mu)
+	go ProcessEnvelopes(d.encenvelopeChannel, c, 0, &d.envelopeWorkerCount, &d.mu)
 	go ProcessChatRequests(d.chatRequestChannel, c, 0, &d.chatRequestWorkerCount, &d.mu)
 	go ProcessConfirmChatRequests(c, d.chatConfirmChannel, 0, &d.chatConfirmWorkerCount, &d.mu)
 	go ProcessKeyExchangeRequests(c, d.keyExchangeChannel, 0, &d.keyExchangeRequestWorkerCount, &d.mu)
@@ -62,11 +62,11 @@ func NewDemultiplexer(c *ClientInfo) *Demultiplexer {
 
 func (d *Demultiplexer) Dispatcher(msg *pb.StreamPayload) {
 	switch payload := msg.Payload.(type) {
-	case *pb.StreamPayload_Envelope:
+	case *pb.StreamPayload_Encenv:
 		select {
-		case d.envelopeChannel <- payload.Envelope:
+		case d.encenvelopeChannel <- payload.Encenv:
 		default:
-			log.Printf("WARNING: Channel full - Envelope dropped - Sender: %v\n", payload.Envelope.FromUser)
+			log.Printf("WARNING: Channel full - Envelope dropped - Sender: %v\n", payload.Encenv.FromUser)
 		}
 	case *pb.StreamPayload_ChatRequest:
 		select {
@@ -110,9 +110,9 @@ func (d *Demultiplexer) StartMonitoring(c *ClientInfo) {
 	const ephemeralTimeout = 5 * time.Second
 
 	// Monitor our channels - spawn workers if needed - more for messages obviously
-	go monitorChannel(d.envelopeChannel, 20, 5, &d.envelopeWorkerCount, ephemeralTimeout, &d.mu,
+	go monitorChannel(d.encenvelopeChannel, 20, 5, &d.envelopeWorkerCount, ephemeralTimeout, &d.mu,
 		func() {
-			ProcessEnvelopes(d.envelopeChannel, c, ephemeralTimeout, &d.envelopeWorkerCount, &d.mu)
+			ProcessEnvelopes(d.encenvelopeChannel, c, ephemeralTimeout, &d.envelopeWorkerCount, &d.mu)
 		},
 	)
 
@@ -135,7 +135,7 @@ func (d *Demultiplexer) StartMonitoring(c *ClientInfo) {
 	)
 }
 
-func ProcessEnvelopes(ch <-chan *pb.Envelope, c *ClientInfo, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
+func ProcessEnvelopes(ch <-chan *pb.EncryptedEnvelope, c *ClientInfo, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
 	for {
 		var timeoutCh <-chan time.Time // channel for timer
 		if idleTimeout > 0 {
@@ -146,9 +146,15 @@ func ProcessEnvelopes(ch <-chan *pb.Envelope, c *ClientInfo, idleTimeout time.Du
 			if !ok {
 				return
 			}
-			fmt.Printf("[%s] [%s] [From:%s] : %s\n", envelope.SentAt.AsTime(), envelope.Chat.Name, envelope.FromUser, envelope.Message)
+
+			msg, err := Decrypt(c, envelope.EncryptedMessage)
+			if err != nil {
+				log.Fatal("Failed to decrypt sealed message")
+			}
+
+			fmt.Printf("[%s] [%s] [From:%s] : %s\n", envelope.SentAt.AsTime(), envelope.Chat.Name, envelope.FromUser, msg)
 			// TODO: Batch insert messages?
-			_, err := c.DBpool.Exec(context.TODO(), c.Pstatements.SaveMessage, uuid.New(), envelope.Chat.Id, envelope.FromUser, envelope.Message)
+			_, err = c.DBpool.Exec(context.TODO(), c.Pstatements.SaveMessage, uuid.New(), envelope.Chat.Id, envelope.FromUser, msg)
 			if err != nil {
 				log.Fatalf("Failed to save message")
 			}
@@ -255,7 +261,7 @@ func ProcessKeyExchangeRequests(c *ClientInfo, ch <-chan *pb.KeyExchangeRequest,
 				participantsUUID = append(participantsUUID, parsedUUID)
 			}
 
-      _, err := c.DBpool.Exec(context.TODO(), c.Pstatements.CreateChat, chatId, chat.Name, uuid.MustParse(keyExReq.SenderUserId), participantsUUID, chat.State.String())
+			_, err := c.DBpool.Exec(context.TODO(), c.Pstatements.CreateChat, chatId, chat.Name, uuid.MustParse(keyExReq.SenderUserId), participantsUUID, chat.State.String())
 			if err != nil {
 				log.Fatal("Failed to save Chat")
 			}
@@ -291,13 +297,7 @@ func ProcessKeyExchangeResponses(c *ClientInfo, ch <-chan *pb.KeyExchangeRespons
 				return
 			}
 
-			sharedSecret, err := ComputeSharedSecret(c.Keys["EncryptionPrivateKey"], keyExRes.CurvePublicKey)
-			if err != nil {
-				// TODO: Error return
-				log.Print("failed to compute shared secret")
-			}
-
-      chat.State = pb.Chat_ENCRYPTED
+			chat.State = pb.Chat_ENCRYPTED
 
 			// As the map is *pb.chat it should update directly.
 			// TODO: More robust cache rather than maps (Redis?)
@@ -308,7 +308,7 @@ func ProcessKeyExchangeResponses(c *ClientInfo, ch <-chan *pb.KeyExchangeRespons
 				participantsUUID = append(participantsUUID, parsedUUID)
 			}
 
-			_, err = c.DBpool.Exec(context.TODO(), c.Pstatements.CreateChat, uuid.MustParse(keyExRes.ChatId), chat.Name, uuid.MustParse(keyExRes.ResponderUserId), participantsUUID, chat.State.String(), sharedSecret)
+			_, err := c.DBpool.Exec(context.TODO(), c.Pstatements.CreateChat, uuid.MustParse(keyExRes.ChatId), chat.Name, uuid.MustParse(keyExRes.ResponderUserId), participantsUUID, chat.State.String())
 			if err != nil {
 				log.Fatal("Failed to save Chat")
 			}
@@ -343,19 +343,19 @@ func ProcessKeyExchangeConfirmations(c *ClientInfo, ch <-chan *pb.KeyExchangeCon
 				return
 			}
 
-      if chat.State != pb.Chat_ENCRYPTED {
-        _, err := c.DBpool.Exec(context.TODO(), c.Pstatements.UpdateChatState, pb.Chat_ENCRYPTED.String(), uuid.MustParse(keyExCon.ChatId))
-        if err != nil {
-          log.Fatal("Failed to save Chat")
-        }
+			if chat.State != pb.Chat_ENCRYPTED {
+				_, err := c.DBpool.Exec(context.TODO(), c.Pstatements.UpdateChatState, pb.Chat_ENCRYPTED.String(), uuid.MustParse(keyExCon.ChatId))
+				if err != nil {
+					log.Fatal("Failed to save Chat")
+				}
 
-        chat.State = pb.Chat_ENCRYPTED
+				chat.State = pb.Chat_ENCRYPTED
 
-        ConfirmKeyExchange(context.TODO(), c, uuid.MustParse(keyExCon.ConfirmerUserId), true, chat)
+				ConfirmKeyExchange(context.TODO(), c, uuid.MustParse(keyExCon.ConfirmerUserId), true, chat)
 
-      }
+			}
 			if chat.State == pb.Chat_ENCRYPTED {
-       fmt.Println("Chat already encrypted, confirmation skipped")
+				fmt.Println("Chat already encrypted, confirmation skipped")
 			}
 
 			return
