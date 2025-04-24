@@ -10,9 +10,9 @@ import (
 type ServerDB struct {
 	CreateUser       string
 	LoginUser        string
-	GetUserKeys      string
 	GetPublicKeys    string
 	GetUserId        string
+  GetUsername        string
 	CreatePublicKeys string
 	SaltMine         string
 	CreateChat       string
@@ -32,9 +32,9 @@ func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*ServerDB, er
 	statements := &ServerDB{
 		CreateUser:       "createUser",
 		LoginUser:        "loginUser",
-		GetUserKeys:      "getUserKeys",
-		GetPublicKeys:    "getPublicKeys",
+		GetPublicKeys:    "getublicKeys",
 		GetUserId:        "getUserId",
+		GetUsername:      "getUsername",
 		CreatePublicKeys: "createPublicKeys",
 		SaltMine:         "saltMine",
 		CreateChat:       "createChat",
@@ -50,14 +50,20 @@ func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*ServerDB, er
 		return nil, err
 	}
 
-  //
+	//
 	// Get keys from key table
-	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetPublicKeys, "SELECT key.encryption_public_key, key.signing_public_key FROM user_keys key JOIN users u ON key.user_id = u.user_id WHERE u.user_id = $1;"); err != nil {
+  //TODO: Fix DB tables 
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetPublicKeys, "SELECT encryption_public_key, signing_public_key FROM user_keys  WHERE user_id = $1;"); err != nil {
 		return nil, err
 	}
 
 	// Get User Id
 	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetUserId, "SELECT user_id FROM users WHERE username = $1;"); err != nil {
+		return nil, err
+	}
+
+	// Get User Name TODO:Stopgap?
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetUsername, "SELECT username FROM users WHERE user_id = $1;"); err != nil {
 		return nil, err
 	}
 

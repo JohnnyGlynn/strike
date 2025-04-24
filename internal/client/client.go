@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -458,10 +459,17 @@ func shellChat(inputReader *bufio.Reader, c *ClientInfo) {
 
   for k, v := range participants {
     if v == c.UserID.String() {
-        participants = append(participants[:k], participants[k+1:]...)
+        participants = slices.Delete(participants, k, k+1)
         break
     }
   }
+
+  if len(participants) == 0 {
+    log.Print("No other participants in the chat")
+    return
+  }
+
+  fmt.Printf("Participants sans current user: %v \n", participants)
 
   uinfo := &pb.UserInfo{
     UserId: participants[0],

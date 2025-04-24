@@ -175,33 +175,50 @@ func (s *StrikeServer) UserStatus(req *pb.UserInfo, stream pb.Strike_UserStatusS
 func (s *StrikeServer) UserRequest(ctx context.Context, userInfo *pb.UserInfo) (*pb.UserInfo, error) {
 	var encryptionPubKey, signingPubKey []byte
 
-	if userInfo.Username == "" && userInfo.UserId != "" {
-		fmt.Println("uid provided")
-		row := s.DBpool.QueryRow(ctx, s.PStatements.GetUserKeys, userInfo.Username)
-		if err := row.Scan(&encryptionPubKey, &signingPubKey); err != nil {
-			return nil, err
-		}
+  //TODO: Messy
+	// if userInfo.Username == "" && userInfo.UserId != "" {
+  fmt.Println("uid provided")
+  row := s.DBpool.QueryRow(ctx, s.PStatements.GetPublicKeys, userInfo.UserId)
+  if err := row.Scan(&encryptionPubKey, &signingPubKey); err != nil {
+    return nil, err
+  }
 
-	} else if userInfo.Username != "" && userInfo.UserId == "" {
-		fmt.Println("uname provided")
-		err := s.DBpool.QueryRow(ctx, s.PStatements.GetUserId, userInfo.Username).Scan(userInfo.UserId)
-		if err != nil {
-			if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
-				log.Fatalf("Unable mine salt: %v", err)
-				return nil, nil
-			}
-			log.Fatalf("An Error occured while mining salt: %v", err)
-			return nil, nil
-		}
+  var username string
 
-    row := s.DBpool.QueryRow(ctx, s.PStatements.GetUserKeys, userInfo.Username)
-		if err := row.Scan(&encryptionPubKey, &signingPubKey); err != nil {
-			return nil, err
-		}
+  err := s.DBpool.QueryRow(ctx, s.PStatements.GetUsername, userInfo.UserId).Scan(&username)
+  if err != nil {
+    if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
+      log.Fatalf("Unable get username: %v", err)
+      return nil, nil
+    }
+    log.Fatalf("Error acquiring username: %v", err)
+    return nil, nil
+  }
 
-	}
+  
 
-	return &pb.UserInfo{UserId: userInfo.UserId, Username: userInfo.Username, EncryptionPublicKey: encryptionPubKey, SigningPublicKey: signingPubKey}, nil
+  // }
+
+	// } else if userInfo.Username != "" && userInfo.UserId == "" {
+	// 	fmt.Println("uname provided")
+	// 	err := s.DBpool.QueryRow(ctx, s.PStatements.GetUserId, userInfo.Username).Scan(userInfo.UserId)
+	// 	if err != nil {
+	// 		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
+	// 			log.Fatalf("Unable mine salt: %v", err)
+	// 			return nil, nil
+	// 		}
+	// 		log.Fatalf("An Error occured while mining salt: %v", err)
+	// 		return nil, nil
+	// 	}
+
+ //    row := s.DBpool.QueryRow(ctx, s.PStatements.GetPublicKeys, userInfo.UserId)
+	// 	if err := row.Scan(&encryptionPubKey, &signingPubKey); err != nil {
+	// 		return nil, err
+	// 	}
+
+	// }
+
+	return &pb.UserInfo{UserId: userInfo.UserId, Username: username, EncryptionPublicKey: encryptionPubKey, SigningPublicKey: signingPubKey}, nil
 }
 
 func (s *StrikeServer) PayloadStream(user *pb.UserInfo, stream pb.Strike_PayloadStreamServer) error {
