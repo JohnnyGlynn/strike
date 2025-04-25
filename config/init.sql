@@ -9,13 +9,18 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE user_keys (
-    user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
-    encryption_public_key BYTEA NOT NULL,
-    signing_public_key BYTEA NOT NULL,
-    PRIMARY KEY (user_id)
-);
+-- CREATE TABLE user_keys (
+--     user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
+--     encryption_public_key BYTEA NOT NULL,
+--     signing_public_key BYTEA NOT NULL,
+--     PRIMARY KEY (user_id)
+-- );
 
+CREATE TABLE user_keys (
+    user_id UUID NOT NULL,
+    encryption_public_key BYTEA NOT NULL,
+    signing_public_key BYTEA NOT NULL
+);
 
 -- CLIENT SPECIFIC TABLES
 CREATE TABLE addressbook (
