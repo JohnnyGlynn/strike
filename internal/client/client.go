@@ -453,7 +453,7 @@ func shellChat(inputReader *bufio.Reader, c *ClientInfo) {
 	}
 
 	c.Cache.ActiveChat.Chat = selectedChat
-	fmt.Printf("Active chat: %s\n", c.Cache.Chats[uuid.MustParse(selectedChat.Id)].Name)
+	fmt.Printf("Active chat: %s\n", c.Cache.ActiveChat.Chat.Name)
 
   participants := c.Cache.ActiveChat.Chat.Participants 
 
@@ -475,7 +475,7 @@ func shellChat(inputReader *bufio.Reader, c *ClientInfo) {
     UserId: participants[0],
   }
 
-  target, err := c.Pbclient.UserRequest(context.TODO() ,uinfo)
+  target, err := c.Pbclient.UserRequest(context.TODO(), uinfo)
   if err != nil {
 		log.Printf("error beginning chat: %v", err)
 	}
