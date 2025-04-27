@@ -173,44 +173,26 @@ func (s *StrikeServer) UserStatus(req *pb.UserInfo, stream pb.Strike_UserStatusS
 }
 
 func (s *StrikeServer) UserRequest(ctx context.Context, userInfo *pb.UserInfo) (*pb.UserInfo, error) {
-	var reqUserId uuid.UUID
-  var username string
+	var username string
 	var encryptionPubKey, signingPubKey []byte
 
-	// TODO: db pool expiring
-  log.Println("B4 Get ID")
-	err := s.DBpool.QueryRow(ctx, s.PStatements.GetUserId, userInfo.UserId).Scan(&reqUserId)
-	if err != nil {
-		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
-			log.Fatalf("Unable mine salt: %v", err)
-			return nil, err
-		}
-		log.Printf("An Error occured while mining salt: %v\n", err)
-    log.Printf("UINFO: %v\n", userInfo)
-
+	//TODO: Messy
+	// if userInfo.Username == "" && userInfo.UserId != "" {
+	row := s.DBpool.QueryRow(ctx, s.PStatements.GetPublicKeys, userInfo.UserId)
+	if err := row.Scan(&encryptionPubKey, &signingPubKey); err != nil {
+		fmt.Println("Failed to get keys")
 		return nil, err
 	}
 
-  //TODO: Messy
-	// if userInfo.Username == "" && userInfo.UserId != "" {
-  fmt.Println("uid provided")
-  row := s.DBpool.QueryRow(ctx, s.PStatements.GetPublicKeys, userInfo.UserId)
-  if err := row.Scan(&encryptionPubKey, &signingPubKey); err != nil {
-    fmt.Println("Failed to get keys")
-    return nil, err
-  }
-
-
-
-  err = s.DBpool.QueryRow(ctx, s.PStatements.GetUsername, userInfo.UserId).Scan(&username)
-  if err != nil {
-    if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
-      log.Fatalf("Unable get username: %v", err)
-      return nil, nil
-    }
-    log.Fatalf("Error acquiring username: %v", err)
-    return nil, nil
-  }
+	err := s.DBpool.QueryRow(ctx, s.PStatements.GetUsername, userInfo.UserId).Scan(&username)
+	if err != nil {
+		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
+			log.Fatalf("Unable get username: %v", err)
+			return nil, nil
+		}
+		log.Fatalf("Error acquiring username: %v", err)
+		return nil, nil
+	}
 
 	return &pb.UserInfo{UserId: userInfo.UserId, Username: username, EncryptionPublicKey: encryptionPubKey, SigningPublicKey: signingPubKey}, nil
 }

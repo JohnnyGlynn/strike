@@ -108,19 +108,19 @@ func SendMessage(c *ClientInfo, target uuid.UUID, message string) {
 	// 	Message:         message,
 	// }
 
-  sealedMessage, err := Encrypt(c, []byte(message))
-  if err != nil {
-    log.Fatal("Couldnt encrypt message")
-  }
+	sealedMessage, err := Encrypt(c, []byte(message))
+	if err != nil {
+		log.Fatal("Couldnt encrypt message")
+	}
 
-  encenv := pb.EncryptedEnvelope{
-    SenderPublicKey: c.Keys["SigningPublicKey"],
-		SentAt:          timestamppb.Now(),
-		FromUser:        c.UserID.String(),
-		ToUser:          target.String(),
-		Chat:            c.Cache.Chats[uuid.MustParse(c.Cache.ActiveChat.Chat.Id)], // TODO: Ensure nothing can be set if ActiveChat == ""
-		EncryptedMessage:         sealedMessage,
-  }
+	encenv := pb.EncryptedEnvelope{
+		SenderPublicKey:  c.Keys["SigningPublicKey"],
+		SentAt:           timestamppb.Now(),
+		FromUser:         c.UserID.String(),
+		ToUser:           target.String(),
+		Chat:             c.Cache.Chats[uuid.MustParse(c.Cache.ActiveChat.Chat.Id)], // TODO: Ensure nothing can be set if ActiveChat == ""
+		EncryptedMessage: sealedMessage,
+	}
 
 	payloadEnvelope := pb.StreamPayload{
 		Target:  target.String(),
@@ -455,45 +455,42 @@ func shellChat(inputReader *bufio.Reader, c *ClientInfo) {
 	c.Cache.ActiveChat.Chat = selectedChat
 	fmt.Printf("Active chat: %s\n", c.Cache.ActiveChat.Chat.Name)
 
-  participants := c.Cache.ActiveChat.Chat.Participants 
+	participants := c.Cache.ActiveChat.Chat.Participants
 
-  for k, v := range participants {
-    if v == c.UserID.String() {
-        participants = slices.Delete(participants, k, k+1)
-        break
-    }
-  }
+	for k, v := range participants {
+		if v == c.UserID.String() {
+			participants = slices.Delete(participants, k, k+1)
+			break
+		}
+	}
 
-  if len(participants) == 0 {
-    log.Print("No other participants in the chat")
-    return
-  }
+	if len(participants) == 0 {
+		log.Print("No other participants in the chat")
+		return
+	}
 
-  fmt.Printf("Participants sans current user: %v \n", participants)
+	uinfo := &pb.UserInfo{
+		UserId: participants[0],
+	}
 
-  uinfo := &pb.UserInfo{
-    UserId: participants[0],
-  }
-
-  target, err := c.Pbclient.UserRequest(context.TODO(), uinfo)
-  if err != nil {
+	target, err := c.Pbclient.UserRequest(context.TODO(), uinfo)
+	if err != nil {
 		log.Printf("error beginning chat: %v", err)
 	}
 
+	sharedSecret, err := ComputeSharedSecret(c.Keys["EncryptionPrivateKey"], target.EncryptionPublicKey)
+	if err != nil {
+		// TODO: Error return
+		log.Print("failed to compute shared secret")
+		return
+	}
 
-  sharedSecret, err := ComputeSharedSecret(c.Keys["EncryptionPrivateKey"], target.EncryptionPublicKey)
-  if err != nil {
-    // TODO: Error return
-    log.Print("failed to compute shared secret")
-    return
-  }
+	c.Cache.ActiveChat.SharedSecret = sharedSecret
 
-  c.Cache.ActiveChat.SharedSecret = sharedSecret
-
-  err = DeriveKeys(c, sharedSecret)
-  if err != nil {
-    log.Fatalf("Failed to derive keys")
-  }
+	err = DeriveKeys(c, sharedSecret)
+	if err != nil {
+		log.Fatalf("Failed to derive keys")
+	}
 
 }
 
@@ -582,11 +579,11 @@ func loadChats(c *ClientInfo) error {
 
 	for rows.Next() {
 		var (
-			chat_id       uuid.UUID
-			chat_name     string
-			initiator     uuid.UUID
-			participants  []uuid.UUID
-			stateStr      string
+			chat_id      uuid.UUID
+			chat_name    string
+			initiator    uuid.UUID
+			participants []uuid.UUID
+			stateStr     string
 		)
 
 		if err := rows.Scan(&chat_id, &chat_name, &initiator, &participants, &stateStr); err != nil {
