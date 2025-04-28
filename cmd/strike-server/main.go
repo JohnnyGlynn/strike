@@ -66,12 +66,6 @@ func main() {
 	// +v to print struct fields too
 	log.Printf("Loaded Server Config: %+v", serverCfg)
 
-	// PostgreSQL setup
-	// pgConfig, err := pgxpool.ParseConfig("postgres://strikeadmin:plaintextisbad@strike_db:5432/strike")
-	// if err != nil {
-	// 	log.Fatalf("Config parsing failed: %v", err)
-	// }
-
 	//TODO: Config for connection string
 	pgConfig, err := pgxpool.ParseConfig("postgres://strikeadmin:plaintextisbad@strike-db:5432/strike")
 	if err != nil {

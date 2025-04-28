@@ -248,13 +248,6 @@ func ProcessKeyExchangeRequests(c *ClientInfo, ch <-chan *pb.KeyExchangeRequest,
 				return
 			}
 
-			// sharedSecret, err := ComputeSharedSecret(c.Keys["EncryptionPrivateKey"], keyExReq.CurvePublicKey)
-			// if err != nil {
-			// 	// TODO: Error return
-			// 	log.Print("failed to compute shared secret")
-			// 	return
-			// }
-
 			var participantsUUID []uuid.UUID
 			for _, sUID := range chat.Participants {
 				parsedUUID := uuid.MustParse(sUID)

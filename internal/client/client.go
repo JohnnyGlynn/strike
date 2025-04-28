@@ -70,7 +70,6 @@ func ConnectPayloadStream(ctx context.Context, c *ClientInfo) error {
 	}
 
 	// Start our demultiplexer and baseline processor functions
-	// TODO: Pass more in less
 	demux := NewDemultiplexer(c)
 
 	// Start Monitoring
@@ -99,15 +98,6 @@ func ConnectPayloadStream(ctx context.Context, c *ClientInfo) error {
 }
 
 func SendMessage(c *ClientInfo, target uuid.UUID, message string) {
-	// envelope := pb.Envelope{
-	// 	SenderPublicKey: c.Keys["SigningPublicKey"],
-	// 	SentAt:          timestamppb.Now(),
-	// 	FromUser:        c.UserID.String(),
-	// 	ToUser:          target.String(),
-	// 	Chat:            c.Cache.Chats[uuid.MustParse(c.Cache.ActiveChat.Chat.Id)], // TODO: Ensure nothing can be set if ActiveChat == ""
-	// 	Message:         message,
-	// }
-
 	sealedMessage, err := Encrypt(c, []byte(message))
 	if err != nil {
 		log.Fatal("Couldnt encrypt message")
@@ -118,7 +108,7 @@ func SendMessage(c *ClientInfo, target uuid.UUID, message string) {
 		SentAt:           timestamppb.Now(),
 		FromUser:         c.UserID.String(),
 		ToUser:           target.String(),
-		Chat:             c.Cache.Chats[uuid.MustParse(c.Cache.ActiveChat.Chat.Id)], // TODO: Ensure nothing can be set if ActiveChat == ""
+		Chat:             c.Cache.Chats[uuid.MustParse(c.Cache.ActiveChat.Chat.Id)],
 		EncryptedMessage: sealedMessage,
 	}
 
@@ -126,7 +116,7 @@ func SendMessage(c *ClientInfo, target uuid.UUID, message string) {
 		Target:  target.String(),
 		Sender:  c.UserID.String(),
 		Payload: &pb.StreamPayload_Encenv{Encenv: &encenv},
-		Info:    "Message Payload",
+		Info:    "Encrypted Payload",
 	}
 
 	_, err = c.Pbclient.SendPayload(context.Background(), &payloadEnvelope)
