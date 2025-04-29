@@ -173,9 +173,6 @@ func ComputeSharedSecret(privateCurveKey []byte, inboundKey []byte) ([]byte, err
 	}
 
 	pubblock, _ := pem.Decode(inboundKey)
-	if pubblock == nil {
-		log.Print("failed to decode PEM block")
-	}
 
 	public, err := ecdh.X25519().NewPublicKey(pubblock.Bytes)
 	if err != nil {

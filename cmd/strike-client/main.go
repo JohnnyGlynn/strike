@@ -131,7 +131,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("fail to dial: %v", err)
 	}
-	defer conn.Close()
+
+
+	defer func(){
+    if connectionError := conn.Close(); connectionError != nil{
+      log.Fatalf("Failed to connect to Strike Server: %v\n", connectionError)
+    }
+  }() 
 
 	newClient := pb.NewStrikeClient(conn)
 

@@ -525,12 +525,12 @@ func shellSendMessage(input string, c *ClientInfo) error {
 
 	userAndMessage := strings.SplitN(input, ":", 2) // Check for : then splint into target and message
 	if len(userAndMessage) != 2 {
-		return fmt.Errorf("Invalid format. Use recipient:message")
+		return fmt.Errorf("invalid format. Use recipient:message")
 	}
 
 	// TODO: Stopgap handle this elsewhere
 	if c.Cache.ActiveChat.Chat == nil {
-		return fmt.Errorf("No chat has been selected. Use /chats to enable a chat first")
+		return fmt.Errorf("no chat has been selected. use /chats to enable a chat first")
 	}
 
 	target, message := userAndMessage[0], userAndMessage[1]
