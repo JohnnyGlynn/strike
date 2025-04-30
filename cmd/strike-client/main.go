@@ -85,9 +85,6 @@ func main() {
 		}
 	}
 
-	// +v to print struct fields too
-	log.Printf("Loaded client Config: %+v", clientCfg)
-	// TODO: load keys as their types and not []byte
 	keysMap := map[string]keys.KeyDefinition{
 		"SigningPrivateKey":    {Path: clientCfg.SigningPrivateKeyPath, Type: keys.SigningKey},
 		"SigningPublicKey":     {Path: clientCfg.SigningPublicKeyPath, Type: keys.SigningKey},
@@ -132,12 +129,11 @@ func main() {
 		log.Fatalf("fail to dial: %v", err)
 	}
 
-
-	defer func(){
-    if connectionError := conn.Close(); connectionError != nil{
-      log.Fatalf("Failed to connect to Strike Server: %v\n", connectionError)
-    }
-  }() 
+	defer func() {
+		if connectionError := conn.Close(); connectionError != nil {
+			log.Fatalf("Failed to connect to Strike Server: %v\n", connectionError)
+		}
+	}()
 
 	newClient := pb.NewStrikeClient(conn)
 
@@ -276,29 +272,7 @@ func main() {
 			}
 
 		} else {
-
-			fmt.Print("> ")
-			input, err := inputReader.ReadString('\n')
-			if err != nil {
-				log.Printf("Error reading input: %v\n", err)
-				continue
-			}
-
-			input = strings.TrimSpace(input)
-			if input == "" {
-				continue
-			}
-
-			switch input {
-			case "/msgshell":
-				client.MessagingShell(clientInfo)
-			case "/exit":
-				fmt.Println("Strike Client shutting down")
-				return
-			default:
-				fmt.Printf("Unknown command: %s\n", input)
-			}
-
+			client.MessagingShell(clientInfo)
 		}
 	}
 }

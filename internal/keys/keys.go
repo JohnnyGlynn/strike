@@ -204,8 +204,6 @@ func LoadAndValidateKeys(keyMap map[string]KeyDefinition) (map[string][]byte, er
 		}
 
 		loadedKeys[name] = key
-		log.Printf("%s loaded and validated successfully", name)
-
 	}
 
 	return loadedKeys, nil
@@ -217,10 +215,10 @@ func GetKeyFromPath(path string) ([]byte, error) {
 		return nil, fmt.Errorf("error opening key file: %v", err)
 	}
 	defer func() {
-    if fileError := keyFile.Close(); fileError != nil {
-      log.Fatalf("error reading file: %v\n", fileError)
-    }
-  }()
+		if fileError := keyFile.Close(); fileError != nil {
+			log.Fatalf("error reading file: %v\n", fileError)
+		}
+	}()
 	key, err := io.ReadAll(keyFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading key file: %v", err)
