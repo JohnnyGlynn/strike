@@ -87,7 +87,6 @@ func ConnectPayloadStream(ctx context.Context, c *ClientInfo) error {
 				log.Println("Stream closed by server.")
 				return nil
 			} else if err != nil {
-				log.Printf("Message for error case: %v", msg)
 				log.Printf("Error receiving message: %v", err)
 				return err
 			}
@@ -195,7 +194,7 @@ func ClientSignup(c *ClientInfo, password string, curve25519key []byte, ed25519k
 		return fmt.Errorf("failed adding to address book: %v", err)
 	}
 
-	fmt.Printf("Server Response: %+v\n", serverRes)
+	fmt.Printf("Server Response: %v\n", serverRes.Success)
 	return nil
 }
 
@@ -260,8 +259,6 @@ func BeginChat(c *ClientInfo, target uuid.UUID, chatName string) error {
 
 	participants := []string{c.UserID.String(), target.String()}
 
-	fmt.Printf("Target from BeginChat: %s", target.String())
-
 	beginChat := &pb.BeginChatRequest{
 		InviteId:  newInvite,
 		Initiator: c.UserID.String(),
@@ -287,12 +284,11 @@ func BeginChat(c *ClientInfo, target uuid.UUID, chatName string) error {
 		return err
 	}
 
-	fmt.Printf("Chat Request sent: %+v", beginChatResponse)
+	fmt.Printf("Chat Request sent: %v", beginChatResponse)
 
 	return nil
 }
 
-// TODO: No longer fit for purpose - Terminal UI library time
 func MessagingShell(c *ClientInfo) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -307,7 +303,6 @@ func MessagingShell(c *ClientInfo) {
 	}()
 
 	inputReader := bufio.NewReader(os.Stdin)
-	fmt.Println("---MsgShell---")
 	fmt.Println("/help for available commands")
 	fmt.Printf("Enter chatTarget:message to send a message (e.g., '%v:HelloWorld') - Chat selection required\n", c.Username)
 
@@ -583,7 +578,6 @@ func loadChats(c *ClientInfo) error {
 
 		stateEnum, ok := pb.Chat_State_value[stateStr]
 		if !ok {
-			log.Printf("invalid chat state from DB: %s", stateStr)
 			return fmt.Errorf("invalid chat state: %s", stateStr)
 		}
 

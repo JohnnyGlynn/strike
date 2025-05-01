@@ -110,25 +110,25 @@ func (d *Demultiplexer) StartMonitoring(c *ClientInfo) {
 	const ephemeralTimeout = 5 * time.Second
 
 	// Monitor our channels - spawn workers if needed - more for messages obviously
-	go monitorChannel(d.encenvelopeChannel, 20, 5, &d.envelopeWorkerCount, ephemeralTimeout, &d.mu,
+	go monitorChannel(d.encenvelopeChannel, 20, 5, &d.envelopeWorkerCount, &d.mu,
 		func() {
 			ProcessEnvelopes(d.encenvelopeChannel, c, ephemeralTimeout, &d.envelopeWorkerCount, &d.mu)
 		},
 	)
 
-	go monitorChannel(d.chatRequestChannel, 10, 3, &d.chatRequestWorkerCount, ephemeralTimeout, &d.mu,
+	go monitorChannel(d.chatRequestChannel, 10, 3, &d.chatRequestWorkerCount, &d.mu,
 		func() {
 			ProcessChatRequests(d.chatRequestChannel, c, ephemeralTimeout, &d.chatRequestWorkerCount, &d.mu)
 		},
 	)
 
-	go monitorChannel(d.chatConfirmChannel, 10, 3, &d.chatConfirmWorkerCount, ephemeralTimeout, &d.mu,
+	go monitorChannel(d.chatConfirmChannel, 10, 3, &d.chatConfirmWorkerCount, &d.mu,
 		func() {
 			ProcessConfirmChatRequests(c, d.chatConfirmChannel, ephemeralTimeout, &d.chatConfirmWorkerCount, &d.mu)
 		},
 	)
 
-	go monitorChannel(d.keyExchangeChannel, 10, 3, &d.keyExchangeRequestWorkerCount, ephemeralTimeout, &d.mu,
+	go monitorChannel(d.keyExchangeChannel, 10, 3, &d.keyExchangeRequestWorkerCount, &d.mu,
 		func() {
 			ProcessKeyExchangeRequests(c, d.keyExchangeChannel, ephemeralTimeout, &d.keyExchangeRequestWorkerCount, &d.mu) // TODO: This is a mes
 		},
@@ -364,7 +364,7 @@ func ProcessKeyExchangeConfirmations(c *ClientInfo, ch <-chan *pb.KeyExchangeCon
 }
 
 // Generic Channel monitor- Provide it any channel and respective processor function
-func monitorChannel[T any](ch <-chan T, threshold, maxWorkers int, workerCount *int, idleTimeout time.Duration, mu *sync.Mutex, spawnWorker func()) {
+func monitorChannel[T any](ch <-chan T, threshold, maxWorkers int, workerCount *int, mu *sync.Mutex, spawnWorker func()) {
 	ticker := time.NewTicker(5 * time.Second) // Check channel every 5 seconds
 	defer ticker.Stop()
 
