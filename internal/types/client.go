@@ -1,0 +1,43 @@
+package types
+
+import (
+	"github.com/JohnnyGlynn/strike/internal/config"
+	"github.com/JohnnyGlynn/strike/internal/db"
+	pb "github.com/JohnnyGlynn/strike/msgdef/message"
+	"github.com/google/uuid"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+type ClientInfo struct {
+	Config      *config.ClientConfig
+	Pbclient    pb.StrikeClient
+	Keys        map[string][]byte
+	Username    string
+	UserID      uuid.UUID
+	Cache       ClientCache
+	DBpool      *pgxpool.Pool
+	Pstatements *db.ClientDB
+}
+
+type ClientCache struct {
+	Invites    map[uuid.UUID]*pb.BeginChatRequest
+	Chats      map[uuid.UUID]*pb.Chat
+	ActiveChat ChatDetails
+}
+
+// In memory persistence for shared secret and derived keys
+type ChatDetails struct {
+	Chat         *pb.Chat
+	SharedSecret []byte
+	EncKey       []byte
+	HmacKey      []byte
+}
+
+// TODO: CLEAN THIS UP
+type MessageStruct struct {
+	Id      uuid.UUID
+	ChatId  uuid.UUID
+	Sender  uuid.UUID
+	Content []byte
+}

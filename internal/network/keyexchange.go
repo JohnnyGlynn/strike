@@ -1,26 +1,27 @@
-package client
+package network
 
 import (
 	"context"
-  "crypto/aes"
-  "crypto/cipher"
-  "crypto/sha256"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/ecdh"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"log"
-  "io"
 
-  "golang.org/x/crypto/hkdf"
-  
+	"golang.org/x/crypto/hkdf"
+
+	"github.com/JohnnyGlynn/strike/internal/types"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 	"github.com/google/uuid"
 )
 
-func InitiateKeyExchange(ctx context.Context, c *ClientInfo, target uuid.UUID, chat *pb.Chat) {
+func InitiateKeyExchange(ctx context.Context, c *types.ClientInfo, target uuid.UUID, chat *pb.Chat) {
 	// make nonce
 	nonce := make([]byte, 32)
 	_, err := rand.Read(nonce)
@@ -80,7 +81,7 @@ func InitiateKeyExchange(ctx context.Context, c *ClientInfo, target uuid.UUID, c
 	fmt.Printf("Key Exchange initiated: %v", resp.Success)
 }
 
-func ReciprocateKeyExchange(ctx context.Context, c *ClientInfo, target uuid.UUID, chat *pb.Chat) {
+func ReciprocateKeyExchange(ctx context.Context, c *types.ClientInfo, target uuid.UUID, chat *pb.Chat) {
 	// make nonce
 	nonce := make([]byte, 32)
 	_, err := rand.Read(nonce)
@@ -136,7 +137,7 @@ func ReciprocateKeyExchange(ctx context.Context, c *ClientInfo, target uuid.UUID
 	fmt.Printf("Key Exchange reciprocated: %v", resp.Success)
 }
 
-func ConfirmKeyExchange(ctx context.Context, c *ClientInfo, target uuid.UUID, status bool, chat *pb.Chat) {
+func ConfirmKeyExchange(ctx context.Context, c *types.ClientInfo, target uuid.UUID, status bool, chat *pb.Chat) {
 	confirmation := pb.KeyExchangeConfirmation{
 		ChatId:          chat.Id,
 		Status:          status,
@@ -188,28 +189,28 @@ func ComputeSharedSecret(privateCurveKey []byte, inboundKey []byte) ([]byte, err
 	return sharedSecret, nil
 }
 
-func DeriveKeys(c *ClientInfo, sct []byte) error {
+func DeriveKeys(c *types.ClientInfo, sct []byte) error {
 
-  const keyLen = 32 //256 bits
+	const keyLen = 32 //256 bits
 
-  d := hkdf.New(sha256.New, sct, nil, nil)
+	d := hkdf.New(sha256.New, sct, nil, nil)
 
-  encKey := make([]byte, keyLen)
-  hmacKey := make([]byte, keyLen)
+	encKey := make([]byte, keyLen)
+	hmacKey := make([]byte, keyLen)
 
-  if _, err := io.ReadFull(d, encKey); err != nil {
+	if _, err := io.ReadFull(d, encKey); err != nil {
 		return err
 	}
 
-  c.Cache.ActiveChat.EncKey = encKey
+	c.Cache.ActiveChat.EncKey = encKey
 
 	if _, err := io.ReadFull(d, hmacKey); err != nil {
 		return err
 	}
 
-  c.Cache.ActiveChat.HmacKey = hmacKey
+	c.Cache.ActiveChat.HmacKey = hmacKey
 
-  return nil
+	return nil
 }
 
 func VerifyEdSignatures(pubKey ed25519.PublicKey, nonce, CurvePublicKey []byte, sigs [][]byte) bool {
@@ -224,54 +225,53 @@ func VerifyEdSignatures(pubKey ed25519.PublicKey, nonce, CurvePublicKey []byte, 
 	return ed25519.Verify(pubKey, CurvePublicKey, sigs[1])
 }
 
-func Encrypt(c *ClientInfo, plaintext []byte) ([]byte, error) {
-    block, err := aes.NewCipher(c.Cache.ActiveChat.EncKey)
-    if err != nil {
-        return nil, err
-    }
+func Encrypt(c *types.ClientInfo, plaintext []byte) ([]byte, error) {
+	block, err := aes.NewCipher(c.Cache.ActiveChat.EncKey)
+	if err != nil {
+		return nil, err
+	}
 
-    //Galois/Counter Mode - https://en.wikipedia.org/wiki/Galois/Counter_Mode
-    gcm, err := cipher.NewGCM(block)
-    if err != nil {
-        return nil, err
-    }
+	//Galois/Counter Mode - https://en.wikipedia.org/wiki/Galois/Counter_Mode
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
 
-    nonce := make([]byte, gcm.NonceSize())
-    if _, err := rand.Read(nonce); err != nil {
-        return nil, err
-    }
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return nil, err
+	}
 
-    ciphertext := gcm.Seal(nil, nonce, plaintext, nil)
+	ciphertext := gcm.Seal(nil, nonce, plaintext, nil)
 
-    sealedMessage := append(nonce, ciphertext...)
+	sealedMessage := append(nonce, ciphertext...)
 
-    return sealedMessage, nil
+	return sealedMessage, nil
 }
 
-func Decrypt(c *ClientInfo, sealedMessage []byte) ([]byte, error) {
-    block, err := aes.NewCipher(c.Cache.ActiveChat.EncKey)
-    if err != nil {
-        return nil, err
-    }
+func Decrypt(c *types.ClientInfo, sealedMessage []byte) ([]byte, error) {
+	block, err := aes.NewCipher(c.Cache.ActiveChat.EncKey)
+	if err != nil {
+		return nil, err
+	}
 
-    gcm, err := cipher.NewGCM(block)
-    if err != nil {
-        return nil, err
-    }
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
 
-    nonceSize := gcm.NonceSize()
-    if len(sealedMessage) < nonceSize {
-        return nil, fmt.Errorf("data too short")
-    }
+	nonceSize := gcm.NonceSize()
+	if len(sealedMessage) < nonceSize {
+		return nil, fmt.Errorf("data too short")
+	}
 
-    nonce := sealedMessage[:nonceSize]
-    ciphertext := sealedMessage[nonceSize:]
+	nonce := sealedMessage[:nonceSize]
+	ciphertext := sealedMessage[nonceSize:]
 
-    plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
-    if err != nil {
-        return nil, err
-    }
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, err
+	}
 
-    return plaintext, nil
+	return plaintext, nil
 }
-

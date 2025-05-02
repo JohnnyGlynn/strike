@@ -13,50 +13,16 @@ import (
 	"strings"
 
 	"github.com/JohnnyGlynn/strike/internal/auth"
-	"github.com/JohnnyGlynn/strike/internal/config"
-	"github.com/JohnnyGlynn/strike/internal/db"
+	"github.com/JohnnyGlynn/strike/internal/network"
+	"github.com/JohnnyGlynn/strike/internal/types"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 	"github.com/google/uuid"
 
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-type ClientInfo struct {
-	Config      *config.ClientConfig
-	Pbclient    pb.StrikeClient
-	Keys        map[string][]byte
-	Username    string
-	UserID      uuid.UUID
-	Cache       ClientCache
-	DBpool      *pgxpool.Pool
-	Pstatements *db.ClientDB
-}
-
-type ClientCache struct {
-	Invites    map[uuid.UUID]*pb.BeginChatRequest
-	Chats      map[uuid.UUID]*pb.Chat
-	ActiveChat ChatDetails
-}
-
-// In memory persistence for shared secret and derived keys
-type ChatDetails struct {
-	Chat         *pb.Chat
-	SharedSecret []byte
-	EncKey       []byte
-	HmacKey      []byte
-}
-
-// TODO: CLEAN THIS UP
-type MessageStruct struct {
-	Id      uuid.UUID
-	ChatId  uuid.UUID
-	Sender  uuid.UUID
-	Content []byte
-}
-
-func ConnectPayloadStream(ctx context.Context, c *ClientInfo) error {
+func ConnectPayloadStream(ctx context.Context, c *types.ClientInfo) error {
 	// Pass your own username to register your stream
 	stream, err := c.Pbclient.PayloadStream(ctx, &pb.UserInfo{
 		Username:            c.Username,
@@ -70,7 +36,7 @@ func ConnectPayloadStream(ctx context.Context, c *ClientInfo) error {
 	}
 
 	// Start our demultiplexer and baseline processor functions
-	demux := NewDemultiplexer(c)
+	demux := network.NewDemultiplexer(c)
 
 	// Start Monitoring
 	demux.StartMonitoring(c)
@@ -96,8 +62,8 @@ func ConnectPayloadStream(ctx context.Context, c *ClientInfo) error {
 	}
 }
 
-func SendMessage(c *ClientInfo, target uuid.UUID, message string) {
-	sealedMessage, err := Encrypt(c, []byte(message))
+func SendMessage(c *types.ClientInfo, target uuid.UUID, message string) {
+	sealedMessage, err := network.Encrypt(c, []byte(message))
 	if err != nil {
 		log.Fatal("Couldnt encrypt message")
 	}
@@ -124,7 +90,7 @@ func SendMessage(c *ClientInfo, target uuid.UUID, message string) {
 	}
 }
 
-func ConfirmChat(ctx context.Context, c *ClientInfo, chatRequest *pb.BeginChatRequest, inviteState bool) error {
+func ConfirmChat(ctx context.Context, c *types.ClientInfo, chatRequest *pb.BeginChatRequest, inviteState bool) error {
 	confirmation := pb.ConfirmChatRequest{
 		InviteId:  chatRequest.InviteId,
 		Initiator: chatRequest.Initiator,
@@ -157,7 +123,7 @@ func ConfirmChat(ctx context.Context, c *ClientInfo, chatRequest *pb.BeginChatRe
 	return nil
 }
 
-func ClientSignup(c *ClientInfo, password string, curve25519key []byte, ed25519key []byte) error {
+func ClientSignup(c *types.ClientInfo, password string, curve25519key []byte, ed25519key []byte) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -198,7 +164,7 @@ func ClientSignup(c *ClientInfo, password string, curve25519key []byte, ed25519k
 	return nil
 }
 
-func Login(c *ClientInfo, password string) error {
+func Login(c *types.ClientInfo, password string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -251,7 +217,7 @@ func Login(c *ClientInfo, password string) error {
 	}
 }
 
-func BeginChat(c *ClientInfo, target uuid.UUID, chatName string) error {
+func BeginChat(c *types.ClientInfo, target uuid.UUID, chatName string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -289,7 +255,7 @@ func BeginChat(c *ClientInfo, target uuid.UUID, chatName string) error {
 	return nil
 }
 
-func MessagingShell(c *ClientInfo) {
+func MessagingShell(c *types.ClientInfo) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -360,7 +326,7 @@ func LoginInput(prompt string, reader *bufio.Reader) (string, error) {
 	return strings.TrimSpace(input), nil
 }
 
-func shellInvites(ctx context.Context, c *ClientInfo) {
+func shellInvites(ctx context.Context, c *types.ClientInfo) {
 	if len(c.Cache.Invites) == 0 {
 		fmt.Println("No pending invites :^[")
 		return
@@ -388,7 +354,7 @@ func shellInvites(ctx context.Context, c *ClientInfo) {
 	}
 }
 
-func shellChat(inputReader *bufio.Reader, c *ClientInfo) {
+func shellChat(inputReader *bufio.Reader, c *types.ClientInfo) {
 	if len(c.Cache.Chats) == 0 {
 		if err := loadChats(c); err != nil {
 			log.Printf("Error loading chats: %v", err)
@@ -463,7 +429,7 @@ func shellChat(inputReader *bufio.Reader, c *ClientInfo) {
 		log.Printf("error beginning chat: %v", err)
 	}
 
-	sharedSecret, err := ComputeSharedSecret(c.Keys["EncryptionPrivateKey"], target.EncryptionPublicKey)
+	sharedSecret, err := network.ComputeSharedSecret(c.Keys["EncryptionPrivateKey"], target.EncryptionPublicKey)
 	if err != nil {
 		// TODO: Error return
 		log.Print("failed to compute shared secret")
@@ -472,14 +438,14 @@ func shellChat(inputReader *bufio.Reader, c *ClientInfo) {
 
 	c.Cache.ActiveChat.SharedSecret = sharedSecret
 
-	err = DeriveKeys(c, sharedSecret)
+	err = network.DeriveKeys(c, sharedSecret)
 	if err != nil {
 		log.Fatalf("Failed to derive keys")
 	}
 
 }
 
-func shellBeginChat(c *ClientInfo, inputReader *bufio.Reader) {
+func shellBeginChat(c *types.ClientInfo, inputReader *bufio.Reader) {
 	fmt.Print("Invite User> ")
 	inviteUser, err := inputReader.ReadString('\n')
 	if err != nil {
@@ -513,7 +479,7 @@ func shellBeginChat(c *ClientInfo, inputReader *bufio.Reader) {
 	}
 }
 
-func shellSendMessage(input string, c *ClientInfo) error {
+func shellSendMessage(input string, c *types.ClientInfo) error {
 	if input == "" {
 		return nil
 	}
@@ -555,7 +521,7 @@ func printHelp() {
 	)
 }
 
-func loadChats(c *ClientInfo) error {
+func loadChats(c *types.ClientInfo) error {
 	rows, err := c.DBpool.Query(context.TODO(), c.Pstatements.GetChats)
 	if err != nil {
 		return fmt.Errorf("error querying chats: %v", err)
@@ -599,17 +565,17 @@ func loadChats(c *ClientInfo) error {
 	return nil
 }
 
-func loadMessages(c *ClientInfo) ([]MessageStruct, error) {
+func loadMessages(c *types.ClientInfo) ([]types.MessageStruct, error) {
 	rows, err := c.DBpool.Query(context.TODO(), c.Pstatements.GetMessages, c.Cache.ActiveChat)
 	if err != nil {
 		return nil, fmt.Errorf("error querying messages: %v", err)
 	}
 	defer rows.Close()
 
-	var messages []MessageStruct
+	var messages []types.MessageStruct
 
 	for rows.Next() {
-		var msg MessageStruct
+		var msg types.MessageStruct
 		if err := rows.Scan(&msg.Id, &msg.ChatId, &msg.Sender, &msg.Content); err != nil {
 			log.Printf("error scanning row: %v", err)
 			return nil, err
