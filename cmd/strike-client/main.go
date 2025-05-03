@@ -13,6 +13,7 @@ import (
 	"github.com/JohnnyGlynn/strike/internal/config"
 	"github.com/JohnnyGlynn/strike/internal/db"
 	"github.com/JohnnyGlynn/strike/internal/keys"
+	"github.com/JohnnyGlynn/strike/internal/types"
 	"github.com/google/uuid"
 
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
@@ -137,10 +138,10 @@ func main() {
 
 	newClient := pb.NewStrikeClient(conn)
 
-	clientInfo := &client.ClientInfo{
+	clientInfo := &types.ClientInfo{
 		Config: &clientCfg,
 		Keys:   loadedKeys,
-		Cache: client.ClientCache{
+		Cache: types.ClientCache{
 			Invites: make(map[uuid.UUID]*pb.BeginChatRequest),
 			Chats:   make(map[uuid.UUID]*pb.Chat),
 		},
