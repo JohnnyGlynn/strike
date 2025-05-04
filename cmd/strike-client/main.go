@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"context"
+	"database/sql"
+	"embed"
 	"flag"
 	"fmt"
 	"log"
@@ -22,7 +24,39 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"modernc.org/sqlite"
 )
+
+//go:embed client.sql
+var schemaFS embed.FS
+var clientDB *sql.DB
+
+func init() {
+	firstRun := false
+
+	if _, err := os.Stat("./client.db"); os.IsNotExist(err) {
+		firstRun = true
+	}
+
+	dbOpen, err := sql.Open("sqlite", "./client.db")
+	if err != nil {
+		log.Fatal("failed to open db")
+	}
+
+	if firstRun {
+		init, err := schemaFS.ReadFile("client.sql")
+		if err != nil {
+			log.Fatal("db not found")
+		}
+
+		if _, err = dbOpen.Exec(string(init)); err != nil {
+			log.Fatal("failed to init db")
+		}
+	}
+
+	clientDB = dbOpen
+
+}
 
 func main() {
 	fmt.Println("Strike client")
