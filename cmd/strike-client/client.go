@@ -24,39 +24,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"modernc.org/sqlite"
+	_ "modernc.org/sqlite"
 )
 
 //go:embed client.sql
 var schemaFS embed.FS
 var clientDB *sql.DB
-
-func init() {
-	firstRun := false
-
-	if _, err := os.Stat("./client.db"); os.IsNotExist(err) {
-		firstRun = true
-	}
-
-	dbOpen, err := sql.Open("sqlite", "./client.db")
-	if err != nil {
-		log.Fatal("failed to open db")
-	}
-
-	if firstRun {
-		init, err := schemaFS.ReadFile("client.sql")
-		if err != nil {
-			log.Fatal("db not found")
-		}
-
-		if _, err = dbOpen.Exec(string(init)); err != nil {
-			log.Fatal("failed to init db")
-		}
-	}
-
-	clientDB = dbOpen
-
-}
 
 func main() {
 	fmt.Println("Strike client")
@@ -64,6 +37,14 @@ func main() {
 	// Avoid shadowing
 	var clientCfg config.ClientConfig
 	var err error
+
+  idb, err := initDB("./client.db")
+  if err != nil {
+    log.Fatalf("Error initializing db: %v", err)
+  }
+  defer idb.Close()
+
+  clientDB = idb
 
 	configFilePath := flag.String("config", "", "Path to configuration JSON file")
 	keygen := flag.Bool("keygen", false, "Launch Strike Key generation, creating keypair for user not bringing existing PKI")
@@ -310,4 +291,31 @@ func main() {
 			client.MessagingShell(clientInfo)
 		}
 	}
+}
+
+func initDB(path string) (*sql.DB, error){
+	firstRun := false
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		firstRun = true
+	}
+
+	dbOpen, err := sql.Open("sqlite", path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open db")
+	}
+
+	if firstRun {
+		init, err := schemaFS.ReadFile("client.sql")
+		if err != nil {
+			return nil, fmt.Errorf("schema not found")
+		}
+
+		_, err = dbOpen.Exec(string(init))
+     if err != nil {
+			return nil, fmt.Errorf("failed to init db")
+		}
+	}
+
+  return dbOpen, nil
 }

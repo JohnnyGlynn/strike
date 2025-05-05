@@ -22,6 +22,7 @@ go.work
 
 vendor
 cmd/strike-client/client
+cmd/strike-client/client.db
 cmd/strike-server/main
 build/
 cfg/

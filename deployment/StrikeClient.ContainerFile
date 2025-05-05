@@ -19,7 +19,7 @@ COPY ./ ./
 # rm -rf rather than implementing multipel .dockerignores
 RUN rm -rf ./internal/server ./deployment ./config ./cmd/strike-server
 
-RUN go build -o /go/strike-client cmd/strike-client/main.go 
+RUN go build -o /go/strike-client cmd/strike-client/client.go 
 
 # minimal base image
 FROM alpine:latest
