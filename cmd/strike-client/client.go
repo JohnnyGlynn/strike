@@ -13,7 +13,6 @@ import (
 
 	"github.com/JohnnyGlynn/strike/internal/client"
 	"github.com/JohnnyGlynn/strike/internal/config"
-	"github.com/JohnnyGlynn/strike/internal/db"
 	"github.com/JohnnyGlynn/strike/internal/keys"
 	"github.com/JohnnyGlynn/strike/internal/types"
 	"github.com/google/uuid"
@@ -21,7 +20,6 @@ import (
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	_ "modernc.org/sqlite"
@@ -29,7 +27,7 @@ import (
 
 //go:embed client.sql
 var schemaFS embed.FS
-var clientDB *sql.DB
+var cDB *sql.DB
 
 func main() {
 	fmt.Println("Strike client")
@@ -38,13 +36,13 @@ func main() {
 	var clientCfg config.ClientConfig
 	var err error
 
-  idb, err := initDB("./client.db")
-  if err != nil {
-    log.Fatalf("Error initializing db: %v", err)
-  }
-  defer idb.Close()
+	idb, err := initDB("./client.db")
+	if err != nil {
+		log.Fatalf("Error initializing db: %v", err)
+	}
+	defer idb.Close()
 
-  clientDB = idb
+	cDB = idb
 
 	configFilePath := flag.String("config", "", "Path to configuration JSON file")
 	keygen := flag.Bool("keygen", false, "Launch Strike Key generation, creating keypair for user not bringing existing PKI")
@@ -113,23 +111,11 @@ func main() {
 		log.Fatalf("error loading and validating keys: %v", err)
 	}
 
-	// TODO: Seperate client db
-	pgConfig, err := pgxpool.ParseConfig("postgres://strikeadmin:plaintextisbad@localhost:5432/strike")
+	statements, err := client.PrepareStatements(context.TODO(), cDB)
 	if err != nil {
-		log.Fatalf("Config parsing failed: %v", err)
+		log.Fatalf("Failed to prepare statements: %v", err)
 	}
-
-	pool, err := pgxpool.NewWithConfig(context.TODO(), pgConfig)
-	if err != nil {
-		log.Fatalf("DB pool connection failed: %v", err)
-	}
-
-	defer pool.Close()
-
-	statements, err := db.PreparedClientStatements(context.TODO(), pool)
-	if err != nil {
-		log.Fatalf("Failed to prepare client statements: %v", err)
-	}
+	defer client.CloseStatements(statements)
 
 	// Begin GRPC setup
 	creds, err := credentials.NewClientTLSFromFile(clientCfg.ServerCertificatePath, "")
@@ -164,7 +150,6 @@ func main() {
 		UserID:      uuid.Nil,
 		Pbclient:    newClient,
 		Pstatements: statements,
-		DBpool:      pool,
 	}
 
 	inputReader := bufio.NewReader(os.Stdin)
@@ -215,7 +200,7 @@ func main() {
 
 				// Retrieve UUID
 				var userID uuid.UUID
-				err = clientInfo.DBpool.QueryRow(context.TODO(), clientInfo.Pstatements.GetUserId, clientInfo.Username).Scan(&userID)
+				err = clientInfo.DBpool.QueryRow(context.TODO(), clientInfo.Pstatements.GetUserd, clientInfo.Username).Scan(&userID)
 				if err != nil {
 					if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
 						log.Fatalf("DB error: %v", err)
@@ -293,7 +278,7 @@ func main() {
 	}
 }
 
-func initDB(path string) (*sql.DB, error){
+func initDB(path string) (*sql.DB, error) {
 	firstRun := false
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -312,10 +297,10 @@ func initDB(path string) (*sql.DB, error){
 		}
 
 		_, err = dbOpen.Exec(string(init))
-     if err != nil {
+		if err != nil {
 			return nil, fmt.Errorf("failed to init db")
 		}
 	}
 
-  return dbOpen, nil
+	return dbOpen, nil
 }

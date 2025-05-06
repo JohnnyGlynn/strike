@@ -1,8 +1,9 @@
 package types
 
 import (
+  "database/sql"
+
 	"github.com/JohnnyGlynn/strike/internal/config"
-	"github.com/JohnnyGlynn/strike/internal/db"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 	"github.com/google/uuid"
 
@@ -17,7 +18,7 @@ type ClientInfo struct {
 	UserID      uuid.UUID
 	Cache       ClientCache
 	DBpool      *pgxpool.Pool
-	Pstatements *db.ClientDB
+	Pstatements *ClientDB
 }
 
 type ClientCache struct {
@@ -40,4 +41,15 @@ type MessageStruct struct {
 	ChatId  uuid.UUID
 	Sender  uuid.UUID
 	Content []byte
+}
+
+type ClientDB struct {
+	SaveUserDetails *sql.Stmt
+	GetUserId       *sql.Stmt
+	CreateChat      *sql.Stmt
+	GetChat         *sql.Stmt
+	GetChats        *sql.Stmt
+	UpdateChatState *sql.Stmt
+	SaveMessage     *sql.Stmt
+	GetMessages     *sql.Stmt
 }
