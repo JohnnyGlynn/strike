@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"context"
 	"crypto/rand"
+	"database/sql"
+  "errors"
 	"fmt"
 	"io"
 	"log"
@@ -18,7 +20,6 @@ import (
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 	"github.com/google/uuid"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -155,7 +156,7 @@ func ClientSignup(c *types.ClientInfo, password string, curve25519key []byte, ed
 	}
 
 	// Save users own details to local client db
-	_, err = c.DBpool.Exec(ctx, c.Pstatements.SaveUserDetails, c.UserID, c.Username, curve25519key, ed25519key)
+	_, err = c.Pstatements.SaveUserDetails.ExecContext(ctx, c.UserID, c.Username, curve25519key, ed25519key)
 	if err != nil {
 		return fmt.Errorf("failed adding to address book: %v", err)
 	}
@@ -457,12 +458,13 @@ func shellBeginChat(c *types.ClientInfo, inputReader *bufio.Reader) {
 	var targetID uuid.UUID
 
 	// TODO: New RPC needed to query active users from server, then save them to addressbook
-	err = c.DBpool.QueryRow(context.TODO(), c.Pstatements.GetUserId, inviteUser).Scan(&targetID)
+  row := c.Pstatements.GetUserId.QueryRowContext(context.TODO(), inviteUser)
+  err = row.Scan(&targetID)
 	if err != nil {
-		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
+    if errors.Is(err, sql.ErrNoRows) {
 			log.Fatalf("DB error: %v", err)
 		}
-		log.Fatalf("An Error occured while logging in: %v", err)
+		log.Fatalf("an error occured: %v", err)
 	}
 
 	fmt.Print("Chat Name> ")
@@ -498,12 +500,13 @@ func shellSendMessage(input string, c *types.ClientInfo) error {
 
 	// TODO: Migrate messaging shell to active chat only, stop having to query uuid on every message
 	var targetID uuid.UUID
-	err := c.DBpool.QueryRow(context.TODO(), c.Pstatements.GetUserId, target).Scan(&targetID)
+	row := c.Pstatements.GetUserId.QueryRowContext(context.TODO(), target)
+  err := row.Scan(&targetID)
 	if err != nil {
-		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
+    if errors.Is(err, sql.ErrNoRows) {
 			log.Fatalf("DB error: %v", err)
 		}
-		log.Fatalf("An Error occured while logging in: %v", err)
+		log.Fatalf("an error occured: %v", err)
 	}
 
 	SendMessage(c, targetID, message)
@@ -522,7 +525,7 @@ func printHelp() {
 }
 
 func loadChats(c *types.ClientInfo) error {
-	rows, err := c.DBpool.Query(context.TODO(), c.Pstatements.GetChats)
+	rows, err := c.Pstatements.GetChats.QueryContext(context.TODO())
 	if err != nil {
 		return fmt.Errorf("error querying chats: %v", err)
 	}
@@ -566,7 +569,7 @@ func loadChats(c *types.ClientInfo) error {
 }
 
 func loadMessages(c *types.ClientInfo) ([]types.MessageStruct, error) {
-	rows, err := c.DBpool.Query(context.TODO(), c.Pstatements.GetMessages, c.Cache.ActiveChat)
+	rows, err := c.Pstatements.GetMessages.QueryContext(context.TODO(), c.Cache.ActiveChat)
 	if err != nil {
 		return nil, fmt.Errorf("error querying messages: %v", err)
 	}

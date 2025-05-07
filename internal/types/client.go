@@ -1,13 +1,11 @@
 package types
 
 import (
-  "database/sql"
+	"database/sql"
 
 	"github.com/JohnnyGlynn/strike/internal/config"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 	"github.com/google/uuid"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type ClientInfo struct {
@@ -17,7 +15,6 @@ type ClientInfo struct {
 	Username    string
 	UserID      uuid.UUID
 	Cache       ClientCache
-	DBpool      *pgxpool.Pool
 	Pstatements *ClientDB
 }
 

@@ -155,7 +155,7 @@ func ProcessEnvelopes(ch <-chan *pb.EncryptedEnvelope, c *types.ClientInfo, idle
 
 			fmt.Printf("[%s] [%s] [From:%s] : %s\n", envelope.SentAt.AsTime(), envelope.Chat.Name, envelope.FromUser, msg)
 			// TODO: Batch insert messages?
-			_, err = c.DBpool.Exec(context.TODO(), c.Pstatements.SaveMessage, uuid.New(), envelope.Chat.Id, envelope.FromUser, msg)
+			_, err = c.Pstatements.SaveMessage.ExecContext(context.TODO(), uuid.New(), envelope.Chat.Id, envelope.FromUser, msg)
 			if err != nil {
 				log.Fatalf("Failed to save message")
 			}
@@ -255,7 +255,7 @@ func ProcessKeyExchangeRequests(c *types.ClientInfo, ch <-chan *pb.KeyExchangeRe
 				participantsUUID = append(participantsUUID, parsedUUID)
 			}
 
-			_, err := c.DBpool.Exec(context.TODO(), c.Pstatements.CreateChat, chatId, chat.Name, uuid.MustParse(keyExReq.SenderUserId), participantsUUID, chat.State.String())
+			_, err := c.Pstatements.CreateChat.ExecContext(context.TODO(), chatId, chat.Name, uuid.MustParse(keyExReq.SenderUserId), participantsUUID, chat.State.String())
 			if err != nil {
 				log.Fatal("Failed to save Chat")
 			}
@@ -302,7 +302,7 @@ func ProcessKeyExchangeResponses(c *types.ClientInfo, ch <-chan *pb.KeyExchangeR
 				participantsUUID = append(participantsUUID, parsedUUID)
 			}
 
-			_, err := c.DBpool.Exec(context.TODO(), c.Pstatements.CreateChat, uuid.MustParse(keyExRes.ChatId), chat.Name, uuid.MustParse(keyExRes.ResponderUserId), participantsUUID, chat.State.String())
+			_, err := c.Pstatements.CreateChat.ExecContext(context.TODO(), uuid.MustParse(keyExRes.ChatId), chat.Name, uuid.MustParse(keyExRes.ResponderUserId), participantsUUID, chat.State.String())
 			if err != nil {
 				log.Fatal("Failed to save Chat")
 			}
@@ -338,7 +338,7 @@ func ProcessKeyExchangeConfirmations(c *types.ClientInfo, ch <-chan *pb.KeyExcha
 			}
 
 			if chat.State != pb.Chat_ENCRYPTED {
-				_, err := c.DBpool.Exec(context.TODO(), c.Pstatements.UpdateChatState, pb.Chat_ENCRYPTED.String(), uuid.MustParse(keyExCon.ChatId))
+				_, err := c.Pstatements.UpdateChatState.ExecContext(context.TODO(), pb.Chat_ENCRYPTED.String(), uuid.MustParse(keyExCon.ChatId))
 				if err != nil {
 					log.Fatal("Failed to save Chat")
 				}

@@ -8,7 +8,6 @@ import (
 	"github.com/JohnnyGlynn/strike/internal/types"
 )
 
-
 func PrepareStatements(ctx context.Context, db *sql.DB) (*types.ClientDB, error) {
 	var err error
 	statements := &types.ClientDB{}

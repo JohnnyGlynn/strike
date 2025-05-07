@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -19,7 +20,6 @@ import (
 
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	_ "modernc.org/sqlite"
@@ -200,12 +200,13 @@ func main() {
 
 				// Retrieve UUID
 				var userID uuid.UUID
-				err = clientInfo.DBpool.QueryRow(context.TODO(), clientInfo.Pstatements.GetUserd, clientInfo.Username).Scan(&userID)
+				row := clientInfo.Pstatements.GetUserId.QueryRowContext(context.TODO(), clientInfo.Username)
+				err = row.Scan(&userID)
 				if err != nil {
-					if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
-						log.Fatalf("DB error: %v", err)
+					if errors.Is(err, sql.ErrNoRows) {
+						log.Fatalf("an error occured while logging in: %v", err)
 					}
-					log.Fatalf("An Error occured while logging in: %v", err)
+					log.Fatalf("an error occured while loggin in: %v", err)
 				}
 
 				clientInfo.UserID = userID
