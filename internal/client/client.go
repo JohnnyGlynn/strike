@@ -156,7 +156,7 @@ func ClientSignup(c *types.ClientInfo, password string, curve25519key []byte, ed
 	}
 
 	// Save users own details to local client db
-	_, err = c.Pstatements.SaveUserDetails.ExecContext(ctx, c.UserID, c.Username, curve25519key, ed25519key)
+	_, err = c.Pstatements.SaveUserDetails.ExecContext(ctx, c.UserID.String(), c.Username, curve25519key, ed25519key)
 	if err != nil {
 		return fmt.Errorf("failed adding to address book: %v", err)
 	}

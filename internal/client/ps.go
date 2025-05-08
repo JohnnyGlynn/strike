@@ -13,7 +13,7 @@ func PrepareStatements(ctx context.Context, db *sql.DB) (*types.ClientDB, error)
 	statements := &types.ClientDB{}
 
 	// Insert into address book
-	if statements.SaveUserDetails, err = db.PrepareContext(ctx, `INSERT INTO addressbook (user_id, username, encryption_public_key, signing_public_key) VALUES (?, ?, ?, ?)`); err != nil {
+	if statements.SaveUserDetails, err = db.PrepareContext(ctx, `INSERT INTO addressbook (user_id, username, enc_pkey, sig_pkey) VALUES (?, ?, ?, ?)`); err != nil {
 		return nil, err
 	}
 
@@ -23,32 +23,32 @@ func PrepareStatements(ctx context.Context, db *sql.DB) (*types.ClientDB, error)
 	}
 
 	// Insert Chat
-	if statements.CreateChat, err = db.PrepareContext(ctx, `INSERT INTO chats2 (chat_id, chat_name, initiator, participants, state) VALUES (?, ?, ?, ?, ?)`); err != nil {
+	if statements.CreateChat, err = db.PrepareContext(ctx, `INSERT INTO chats (chat_id, chat_name, initiator, participants, state) VALUES (?, ?, ?, ?, ?)`); err != nil {
 		return nil, err
 	}
 
 	// get chat
-	if statements.GetChat, err = db.PrepareContext(ctx, `SELECT * FROM chats2 WHERE chat_id = ?`); err != nil {
+	if statements.GetChat, err = db.PrepareContext(ctx, `SELECT * FROM chats WHERE chat_id = ?`); err != nil {
 		return nil, err
 	}
 
 	// get chats
-	if statements.GetChats, err = db.PrepareContext(ctx, `SELECT * FROM chats2`); err != nil {
+	if statements.GetChats, err = db.PrepareContext(ctx, `SELECT * FROM chats`); err != nil {
 		return nil, err
 	}
 
 	// Updated Chat state
-	if statements.UpdateChatState, err = db.PrepareContext(ctx, `UPDATE chats2 SET state = ? WHERE chat_id = ?`); err != nil {
+	if statements.UpdateChatState, err = db.PrepareContext(ctx, `UPDATE chats SET state = ? WHERE chat_id = ?`); err != nil {
 		return nil, err
 	}
 
 	// Insert Message - Insert message bound by chat
-	if statements.SaveMessage, err = db.PrepareContext(ctx, `INSERT INTO messages2 (id, chat_id, sender, content) VALUES (?, ?, ?, ?)`); err != nil {
+	if statements.SaveMessage, err = db.PrepareContext(ctx, `INSERT INTO messages (id, chat_id, sender, content) VALUES (?, ?, ?, ?)`); err != nil {
 		return nil, err
 	}
 
 	// get all messages
-	if statements.GetMessages, err = db.PrepareContext(ctx, `SELECT * FROM messages2 WHERE chat_id = ? ORDER BY sent_at ASC, id ASC;`); err != nil {
+	if statements.GetMessages, err = db.PrepareContext(ctx, `SELECT * FROM messages WHERE chat_id = ? ORDER BY sent_at ASC, id ASC;`); err != nil {
 		return nil, err
 	}
 

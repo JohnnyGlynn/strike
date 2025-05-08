@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+  "strings"
 	"time"
 
 	"github.com/JohnnyGlynn/strike/internal/types"
@@ -249,13 +250,14 @@ func ProcessKeyExchangeRequests(c *types.ClientInfo, ch <-chan *pb.KeyExchangeRe
 				return
 			}
 
-			var participantsUUID []uuid.UUID
+			var participants []string
 			for _, sUID := range chat.Participants {
-				parsedUUID := uuid.MustParse(sUID)
-				participantsUUID = append(participantsUUID, parsedUUID)
+				participants = append(participants, sUID)
 			}
 
-			_, err := c.Pstatements.CreateChat.ExecContext(context.TODO(), chatId, chat.Name, uuid.MustParse(keyExReq.SenderUserId), participantsUUID, chat.State.String())
+      participantsSerialized := strings.Join(participants, ",")
+
+			_, err := c.Pstatements.CreateChat.ExecContext(context.TODO(), chatId, chat.Name, uuid.MustParse(keyExReq.SenderUserId), participantsSerialized, chat.State.String())
 			if err != nil {
 				log.Fatal("Failed to save Chat")
 			}
@@ -296,13 +298,14 @@ func ProcessKeyExchangeResponses(c *types.ClientInfo, ch <-chan *pb.KeyExchangeR
 			// As the map is *pb.chat it should update directly.
 			// TODO: More robust cache rather than maps (Redis?)
 
-			var participantsUUID []uuid.UUID
+			var participants []string
 			for _, sUID := range chat.Participants {
-				parsedUUID := uuid.MustParse(sUID)
-				participantsUUID = append(participantsUUID, parsedUUID)
+				participants = append(participants, sUID)
 			}
 
-			_, err := c.Pstatements.CreateChat.ExecContext(context.TODO(), uuid.MustParse(keyExRes.ChatId), chat.Name, uuid.MustParse(keyExRes.ResponderUserId), participantsUUID, chat.State.String())
+      participantsSerialized := strings.Join(participants, ",")
+
+			_, err := c.Pstatements.CreateChat.ExecContext(context.TODO(), uuid.MustParse(keyExRes.ChatId), chat.Name, uuid.MustParse(keyExRes.ResponderUserId), participantsSerialized, chat.State.String())
 			if err != nil {
 				log.Fatal("Failed to save Chat")
 			}
