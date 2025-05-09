@@ -43,21 +43,21 @@ all: build
 # ===== STRIKE DB =====
 
 # ===== STRIKE CLIENT =====
-.PHONY: client-build
-client-build:
-	docker build -t localhost/strike_client -f deployment/StrikeClient.ContainerFile .
+# .PHONY: client-build
+# client-build:
+# 	docker build -t localhost/strike_client -f deployment/StrikeClient.ContainerFile .
 
-.PHONY: client-run
-client-run: 
-	docker run -it --env-file=./config/env.client -v ~/.strike-keys/:/home/strike-client/ -v ~/.strike-server/strike_server.crt:/home/strike-client/strike_server.crt --name strike_client --rm --network=host localhost/strike_client:latest
+# .PHONY: client-run
+# client-run: 
+# 	docker run -it --env-file=./config/env.client -v ~/.strike-keys/:/home/strike-client/ -v ~/.strike-server/strike_server.crt:/home/strike-client/strike_server.crt --name strike_client --rm --network=host localhost/strike_client:latest
 
-.PHONY: another-client-run
-another-client-run:
-	docker run -it --env-file=./config/env.client -v ~/.strike-keys/:/home/strike-client/ -v ~/.strike-server/strike_server.crt:/home/strike-client/strike_server.crt --name anotherstrikeclient --rm --network=host localhost/strike_client:latest
+# .PHONY: another-client-run
+# another-client-run:
+# 	docker run -it --env-file=./config/env.client -v ~/.strike-keys/:/home/strike-client/ -v ~/.strike-server/strike_server.crt:/home/strike-client/strike_server.crt --name anotherstrikeclient --rm --network=host localhost/strike_client:latest
 
-.PHONY: client--start
-client-start:/
-	docker start -a strike_client 
+# .PHONY: client--start
+# client-start:/
+# 	docker start -a strike_client 
 
 # ===== STRIKE CLIENT =====
 
@@ -79,6 +79,29 @@ keygen-server:
 
 # === keygen ===
 
+
+.PHONY: bingen
+bingen:
+	mkdir -p $(BUILD_DIR)/client1
+	mkdir -p $(BUILD_DIR)/client2
+	go build -o $(BUILD_DIR)/client1/$(APP_NAME)-client cmd/strike-client/client.go
+	go build -o $(BUILD_DIR)/client2/$(APP_NAME)-client cmd/strike-client/client.go
+	# spshell
+	cp ./config/clientConfig.json ./$(BUILD_DIR)/client1/
+	$(MAKE) run-client1	
+	
+.PHONY: 2bin
+2bin:
+	cp ./config/clientConfig.json ./$(BUILD_DIR)/client2/
+	$(MAKE) run-client2
+
+.PHONY: run-client1
+run-client1:
+	cd $(BUILD_DIR)/client1/ && ./$(APP_NAME)-client --config=./clientConfig.json 
+
+.PHONY: run-client2
+run-client2:
+	cd $(BUILD_DIR)/client2/ && ./$(APP_NAME)-client --config=./clientConfig.json
 
 
 # === strike cluster ===
