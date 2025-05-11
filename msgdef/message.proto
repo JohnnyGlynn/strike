@@ -21,6 +21,8 @@ service Strike {
 
   rpc UserStatus(UserInfo) returns (stream StatusUpdate) {}
 
+  rpc OnlineUsers(UserInfo) returns (UsersInfo) {}
+
   rpc PayloadStream(UserInfo) returns (stream StreamPayload) {}
 }
 
@@ -31,6 +33,10 @@ message UserInfo {
     string user_id = 2;
     bytes encryption_public_key = 3;
     bytes signing_public_key = 4;
+}
+
+message UsersInfo {
+  repeated UserInfo users = 1;
 }
 
 //TODO: Getting very verbose here, prune

@@ -26,6 +26,7 @@ const (
 	Strike_SendPayload_FullMethodName   = "/message.Strike/SendPayload"
 	Strike_UserRequest_FullMethodName   = "/message.Strike/UserRequest"
 	Strike_UserStatus_FullMethodName    = "/message.Strike/UserStatus"
+	Strike_OnlineUsers_FullMethodName   = "/message.Strike/OnlineUsers"
 	Strike_PayloadStream_FullMethodName = "/message.Strike/PayloadStream"
 )
 
@@ -40,6 +41,7 @@ type StrikeClient interface {
 	SendPayload(ctx context.Context, in *StreamPayload, opts ...grpc.CallOption) (*ServerResponse, error)
 	UserRequest(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (*UserInfo, error)
 	UserStatus(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (Strike_UserStatusClient, error)
+	OnlineUsers(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (*UsersInfo, error)
 	PayloadStream(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (Strike_PayloadStreamClient, error)
 }
 
@@ -144,6 +146,16 @@ func (x *strikeUserStatusClient) Recv() (*StatusUpdate, error) {
 	return m, nil
 }
 
+func (c *strikeClient) OnlineUsers(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (*UsersInfo, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UsersInfo)
+	err := c.cc.Invoke(ctx, Strike_OnlineUsers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *strikeClient) PayloadStream(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (Strike_PayloadStreamClient, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &Strike_ServiceDesc.Streams[1], Strike_PayloadStream_FullMethodName, cOpts...)
@@ -188,6 +200,7 @@ type StrikeServer interface {
 	SendPayload(context.Context, *StreamPayload) (*ServerResponse, error)
 	UserRequest(context.Context, *UserInfo) (*UserInfo, error)
 	UserStatus(*UserInfo, Strike_UserStatusServer) error
+	OnlineUsers(context.Context, *UserInfo) (*UsersInfo, error)
 	PayloadStream(*UserInfo, Strike_PayloadStreamServer) error
 	mustEmbedUnimplementedStrikeServer()
 }
@@ -216,6 +229,9 @@ func (UnimplementedStrikeServer) UserRequest(context.Context, *UserInfo) (*UserI
 }
 func (UnimplementedStrikeServer) UserStatus(*UserInfo, Strike_UserStatusServer) error {
 	return status.Errorf(codes.Unimplemented, "method UserStatus not implemented")
+}
+func (UnimplementedStrikeServer) OnlineUsers(context.Context, *UserInfo) (*UsersInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method OnlineUsers not implemented")
 }
 func (UnimplementedStrikeServer) PayloadStream(*UserInfo, Strike_PayloadStreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method PayloadStream not implemented")
@@ -362,6 +378,24 @@ func (x *strikeUserStatusServer) Send(m *StatusUpdate) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _Strike_OnlineUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UserInfo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StrikeServer).OnlineUsers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Strike_OnlineUsers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StrikeServer).OnlineUsers(ctx, req.(*UserInfo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Strike_PayloadStream_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(UserInfo)
 	if err := stream.RecvMsg(m); err != nil {
@@ -413,6 +447,10 @@ var Strike_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UserRequest",
 			Handler:    _Strike_UserRequest_Handler,
+		},
+		{
+			MethodName: "OnlineUsers",
+			Handler:    _Strike_OnlineUsers_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
