@@ -24,7 +24,7 @@ type StrikeServer struct {
 	PStatements *db.ServerDB
 
 	// TODO: Package the stream better
-	OnlineUsers     map[uuid.UUID]pb.Strike_UserStatusServer
+	Connected       map[uuid.UUID]*pb.UserInfo
 	PayloadStreams  map[uuid.UUID]pb.Strike_PayloadStreamServer
 	PayloadChannels map[uuid.UUID]chan *pb.StreamPayload
 	mu              sync.Mutex
@@ -129,8 +129,8 @@ func (s *StrikeServer) Signup(ctx context.Context, userInit *pb.InitUser) (*pb.S
 
 func (s *StrikeServer) UserStatus(req *pb.UserInfo, stream pb.Strike_UserStatusServer) error {
 	// TODO: cleaner map initilization
-	if s.OnlineUsers == nil {
-		s.OnlineUsers = make(map[uuid.UUID]pb.Strike_UserStatusServer)
+	if s.Connected == nil {
+		s.Connected = make(map[uuid.UUID]*pb.UserInfo)
 	}
 
 	// TODO: Parse function
@@ -140,13 +140,18 @@ func (s *StrikeServer) UserStatus(req *pb.UserInfo, stream pb.Strike_UserStatusS
 	}
 	// Register the user as online
 	s.mu.Lock()
-	s.OnlineUsers[parsedId] = stream
+	s.Connected[parsedId] = &pb.UserInfo{
+		Username:            req.Username,
+		UserId:              req.UserId,
+		EncryptionPublicKey: req.EncryptionPublicKey,
+		SigningPublicKey:    req.SigningPublicKey,
+	}
 	s.mu.Unlock()
 
 	// Defer so regardless of how we exit (gracefully or an error), the user is removed from OnlineUsers
 	defer func() {
 		s.mu.Lock()
-		delete(s.OnlineUsers, parsedId)
+		delete(s.Connected, parsedId)
 		s.mu.Unlock()
 		fmt.Printf("%s is now offline.\n", req.Username)
 	}()
@@ -195,6 +200,26 @@ func (s *StrikeServer) UserRequest(ctx context.Context, userInfo *pb.UserInfo) (
 	}
 
 	return &pb.UserInfo{UserId: userInfo.UserId, Username: username, EncryptionPublicKey: encryptionPubKey, SigningPublicKey: signingPubKey}, nil
+}
+
+func (s *StrikeServer) OnlineUsers(ctx context.Context, userInfo *pb.UserInfo) (*pb.UsersInfo, error) {
+	//TODO: Log user making request userInfo
+	log.Printf("%s (%s) requested active user list\n", userInfo.Username, userInfo.UserId)
+
+	s.mu.Lock()
+	users := make([]*pb.UserInfo, 0, len(s.Connected))
+	for _, v := range s.Connected {
+		users = append(users, &pb.UserInfo{
+			UserId:              v.UserId,
+			Username:            v.Username,
+			EncryptionPublicKey: v.EncryptionPublicKey,
+			SigningPublicKey:    v.SigningPublicKey,
+		})
+
+	}
+	s.mu.Unlock()
+
+	return &pb.UsersInfo{Users: users}, nil
 }
 
 func (s *StrikeServer) PayloadStream(user *pb.UserInfo, stream pb.Strike_PayloadStreamServer) error {
