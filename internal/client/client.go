@@ -5,7 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
-  "errors"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -355,6 +355,15 @@ func shellInvites(ctx context.Context, c *types.ClientInfo) {
 	}
 }
 
+func GetActiveUsers(c *types.ClientInfo, uinfo *pb.UserInfo) *pb.UsersInfo {
+	activeUsers, err := c.Pbclient.OnlineUsers(context.TODO(), uinfo)
+	if err != nil {
+		log.Printf("error beginning chat: %v", err)
+	}
+
+	return activeUsers
+}
+
 func shellChat(inputReader *bufio.Reader, c *types.ClientInfo) {
 	if len(c.Cache.Chats) == 0 {
 		if err := loadChats(c); err != nil {
@@ -457,11 +466,29 @@ func shellBeginChat(c *types.ClientInfo, inputReader *bufio.Reader) {
 
 	var targetID uuid.UUID
 
+	au := GetActiveUsers(c, &pb.UserInfo{
+		Username:            c.Username,
+		UserId:              c.UserID.String(),
+		EncryptionPublicKey: c.Keys["EncryptionPublicKey"],
+		SigningPublicKey:    c.Keys["SigningPublicKey"],
+	})
+
+	//TODO Add user function directly
+	for _, value := range au.Users {
+		if value.Username == inviteUser {
+			_, err = c.Pstatements.SaveUserDetails.ExecContext(context.TODO(), value.UserId, value.Username, value.EncryptionPublicKey, value.SigningPublicKey)
+			if err != nil {
+				log.Fatalf("failed adding to address book: %v", err)
+			}
+		}
+
+	}
+
 	// TODO: New RPC needed to query active users from server, then save them to addressbook
-  row := c.Pstatements.GetUserId.QueryRowContext(context.TODO(), inviteUser)
-  err = row.Scan(&targetID)
+	row := c.Pstatements.GetUserId.QueryRowContext(context.TODO(), inviteUser)
+	err = row.Scan(&targetID)
 	if err != nil {
-    if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) {
 			log.Fatalf("DB error: %v", err)
 		}
 		log.Fatalf("an error occured: %v", err)
@@ -501,9 +528,9 @@ func shellSendMessage(input string, c *types.ClientInfo) error {
 	// TODO: Migrate messaging shell to active chat only, stop having to query uuid on every message
 	var targetID uuid.UUID
 	row := c.Pstatements.GetUserId.QueryRowContext(context.TODO(), target)
-  err := row.Scan(&targetID)
+	err := row.Scan(&targetID)
 	if err != nil {
-    if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) {
 			log.Fatalf("DB error: %v", err)
 		}
 		log.Fatalf("an error occured: %v", err)
