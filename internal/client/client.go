@@ -455,6 +455,55 @@ func shellChat(inputReader *bufio.Reader, c *types.ClientInfo) {
 
 }
 
+func shellAddFriend(inputReader *bufio.Reader, c *types.ClientInfo){
+  fmt.Println("Online Users:")
+  
+  au := GetActiveUsers(c, &pb.UserInfo{
+		Username:            c.Username,
+		UserId:              c.UserID.String(),
+		EncryptionPublicKey: c.Keys["EncryptionPublicKey"],
+		SigningPublicKey:    c.Keys["SigningPublicKey"],
+	})
+
+	userList := make([]*pb.UserInfo, 0, len(au.Users))
+	index := 1
+
+	for _, user := range au.Users {
+		fmt.Printf("%d: %s\n", index, user.Username)
+		userList = append(userList, user)
+		index++
+	}
+
+	fmt.Print("Enter the number of the user you want to invite (Enter to cancel): ")
+	selectedIndexString, err := inputReader.ReadString('\n')
+	if err != nil {
+		log.Printf("Error reading input: %v\n", err)
+		return
+	}
+
+	selectedIndexString = strings.TrimSpace(selectedIndexString)
+	if selectedIndexString == "" {
+		fmt.Println("No user selected.")
+		return
+	}
+
+	selectedIndex, err := strconv.Atoi(selectedIndexString)
+	if err != nil || selectedIndex < 1 || selectedIndex > len(userList) {
+		fmt.Println("Invalid selection. Please enter a valid user number.")
+		return
+	}
+
+	selectedUser := userList[selectedIndex-1]
+
+  _, err = c.Pstatements.SaveUserDetails.ExecContext(context.TODO(), selectedUser.UserId, selectedUser.Username, selectedUser.EncryptionPublicKey, selectedUser.SigningPublicKey)
+  if err != nil {
+    fmt.Printf("User to be saved: %v\n", selectedUser)
+    log.Fatalf("failed adding to address book: %v", err)
+  }
+
+
+}
+
 func shellBeginChat(c *types.ClientInfo, inputReader *bufio.Reader) {
 	fmt.Print("Invite User> ")
 	inviteUser, err := inputReader.ReadString('\n')
@@ -478,6 +527,7 @@ func shellBeginChat(c *types.ClientInfo, inputReader *bufio.Reader) {
 		if value.Username == inviteUser {
 			_, err = c.Pstatements.SaveUserDetails.ExecContext(context.TODO(), value.UserId, value.Username, value.EncryptionPublicKey, value.SigningPublicKey)
 			if err != nil {
+        fmt.Printf("Value: %v\n", value)
 				log.Fatalf("failed adding to address book: %v", err)
 			}
 		}
