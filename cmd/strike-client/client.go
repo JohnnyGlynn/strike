@@ -265,7 +265,7 @@ func main() {
 				isLoggedIn = true
 				fmt.Println("Logged In!")
 				// Logged in
-				fmt.Printf("Welcome back %s!\n", username)
+				fmt.Printf("Welcome %s!\n", username)
 			case "/exit":
 				fmt.Println("Strike Client shutting down")
 				return

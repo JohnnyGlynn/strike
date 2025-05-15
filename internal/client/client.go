@@ -274,6 +274,7 @@ func MessagingShell(c *types.ClientInfo) {
 	fmt.Printf("Enter chatTarget:message to send a message (e.g., '%v:HelloWorld') - Chat selection required\n", c.Username)
 
 	commands := map[string]func(){
+		"/addfriend": func() { shellAddFriend(inputReader, c) },
 		"/beginchat": func() { shellBeginChat(c, inputReader) },
 		"/chats":     func() { shellChat(inputReader, c) },
 		"/invites":   func() { shellInvites(ctx, c) },
@@ -455,10 +456,10 @@ func shellChat(inputReader *bufio.Reader, c *types.ClientInfo) {
 
 }
 
-func shellAddFriend(inputReader *bufio.Reader, c *types.ClientInfo){
-  fmt.Println("Online Users:")
-  
-  au := GetActiveUsers(c, &pb.UserInfo{
+func shellAddFriend(inputReader *bufio.Reader, c *types.ClientInfo) {
+	fmt.Println("Online Users:")
+
+	au := GetActiveUsers(c, &pb.UserInfo{
 		Username:            c.Username,
 		UserId:              c.UserID.String(),
 		EncryptionPublicKey: c.Keys["EncryptionPublicKey"],
@@ -495,12 +496,11 @@ func shellAddFriend(inputReader *bufio.Reader, c *types.ClientInfo){
 
 	selectedUser := userList[selectedIndex-1]
 
-  _, err = c.Pstatements.SaveUserDetails.ExecContext(context.TODO(), selectedUser.UserId, selectedUser.Username, selectedUser.EncryptionPublicKey, selectedUser.SigningPublicKey)
-  if err != nil {
-    fmt.Printf("User to be saved: %v\n", selectedUser)
-    log.Fatalf("failed adding to address book: %v", err)
-  }
-
+	_, err = c.Pstatements.SaveUserDetails.ExecContext(context.TODO(), selectedUser.UserId, selectedUser.Username, selectedUser.EncryptionPublicKey, selectedUser.SigningPublicKey)
+	if err != nil {
+		fmt.Printf("User to be saved: %v\n", selectedUser)
+		log.Fatalf("failed adding to address book: %v", err)
+	}
 
 }
 
@@ -513,7 +513,7 @@ func shellBeginChat(c *types.ClientInfo, inputReader *bufio.Reader) {
 	}
 	inviteUser = strings.TrimSpace(inviteUser)
 
-	var targetID uuid.UUID
+  var targetUser *pb.UserInfo
 
 	au := GetActiveUsers(c, &pb.UserInfo{
 		Username:            c.Username,
@@ -525,23 +525,9 @@ func shellBeginChat(c *types.ClientInfo, inputReader *bufio.Reader) {
 	//TODO Add user function directly
 	for _, value := range au.Users {
 		if value.Username == inviteUser {
-			_, err = c.Pstatements.SaveUserDetails.ExecContext(context.TODO(), value.UserId, value.Username, value.EncryptionPublicKey, value.SigningPublicKey)
-			if err != nil {
-        fmt.Printf("Value: %v\n", value)
-				log.Fatalf("failed adding to address book: %v", err)
-			}
+      targetUser = value
 		}
 
-	}
-
-	// TODO: New RPC needed to query active users from server, then save them to addressbook
-	row := c.Pstatements.GetUserId.QueryRowContext(context.TODO(), inviteUser)
-	err = row.Scan(&targetID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			log.Fatalf("DB error: %v", err)
-		}
-		log.Fatalf("an error occured: %v", err)
 	}
 
 	fmt.Print("Chat Name> ")
@@ -552,7 +538,7 @@ func shellBeginChat(c *types.ClientInfo, inputReader *bufio.Reader) {
 	}
 	chatName = strings.TrimSpace(chatName)
 
-	err = BeginChat(c, targetID, chatName)
+	err = BeginChat(c, uuid.MustParse(targetUser.UserId), chatName)
 	if err != nil {
 		log.Printf("error beginning chat: %v", err)
 	}
