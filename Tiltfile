@@ -31,7 +31,7 @@ k8s_yaml([
   './deployment/k8s/server-svc.yaml',
 ])
 
-docker_build('strike_db', './', dockerfile='deployment/StrikeDatabase.ContainerFile', ignore=['`build'])
+docker_build('strike_db', './', dockerfile='deployment/StrikeDatabase.ContainerFile', ignore=['build'])
 docker_build('strike_server', './', dockerfile='deployment/StrikeServer.ContainerFile', ignore=['build'])
 
 k8s_resource('strike-db', port_forwards=5432, resource_deps=['strike-db-env'])
