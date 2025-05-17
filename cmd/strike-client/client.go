@@ -206,7 +206,7 @@ func main() {
 					if errors.Is(err, sql.ErrNoRows) {
 						log.Fatalf("an error occured while logging in: %v", err)
 					}
-					log.Fatalf("an error occured while loggin in: %v", err)
+					log.Fatalf("an error occured while logging in: %v", err)
 				}
 
 				clientInfo.UserID = userID
@@ -246,8 +246,7 @@ func main() {
 				}
 
 				// Create a new UUID
-				newUserID := uuid.New()
-				clientInfo.UserID = newUserID
+				clientInfo.UserID = uuid.New()
 				clientInfo.Username = username
 
 				err = client.ClientSignup(clientInfo, password, loadedKeys["EncryptionPublicKey"], loadedKeys["SigningPublicKey"])

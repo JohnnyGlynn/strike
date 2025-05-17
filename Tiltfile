@@ -21,7 +21,7 @@ local_resource(
 local_resource(
   'strike-server-identity',
   'kubectl delete secret strike-server-identity -n strike --ignore-not-found && kubectl create secret generic strike-server-identity --from-file=$HOME/.strike-server -n strike',
-  deps=['$HOME/.strike-server/', 'strike-namespace']
+  deps=[os.path.expanduser('~/.strike-server/'), 'strike-namespace']
 )
 
 k8s_yaml([
@@ -31,7 +31,7 @@ k8s_yaml([
   './deployment/k8s/server-svc.yaml',
 ])
 
-docker_build('strike_db', './', dockerfile='deployment/StrikeDatabase.ContainerFile', ignore=['`build'])
+docker_build('strike_db', './', dockerfile='deployment/StrikeDatabase.ContainerFile', ignore=['build'])
 docker_build('strike_server', './', dockerfile='deployment/StrikeServer.ContainerFile', ignore=['build'])
 
 k8s_resource('strike-db', port_forwards=5432, resource_deps=['strike-db-env'])
