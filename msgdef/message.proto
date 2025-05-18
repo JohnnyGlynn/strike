@@ -9,19 +9,17 @@ option go_package="./message";
 service Strike {
   rpc Signup(InitUser) returns (ServerResponse) {}
 
-  rpc ConfirmChat(ConfirmChatRequest) returns (ServerResponse) {}
-
-  rpc Login(LoginRequest) returns (ServerResponse) {}
+  rpc Login(LoginVerify) returns (ServerResponse) {}
 
   rpc SaltMine(UserInfo) returns (Salt) {}
 
-  rpc SendPayload(StreamPayload) returns (ServerResponse) {}
-
   rpc UserRequest(UserInfo) returns (UserInfo) {}
 
-  rpc UserStatus(UserInfo) returns (stream StatusUpdate) {}
-
   rpc OnlineUsers(UserInfo) returns (UsersInfo) {}
+
+  rpc StatusStream(UserInfo) returns (stream StatusUpdate) {}
+
+  rpc SendPayload(StreamPayload) returns (ServerResponse) {}
 
   rpc PayloadStream(UserInfo) returns (stream StreamPayload) {}
 }
@@ -69,8 +67,8 @@ message ConfirmChatRequest {
   Chat chat = 5;
 }
 
-message LoginRequest {
-  string user_id = 1;
+message LoginVerify {
+  string username = 1;
   string password_hash = 2;
 }
 
