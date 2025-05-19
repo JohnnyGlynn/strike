@@ -12,7 +12,7 @@ type ServerDB struct {
 	LoginUser        string
 	GetPublicKeys    string
 	GetUserId        string
-  GetUsername        string
+	GetUsername      string
 	CreatePublicKeys string
 	SaltMine         string
 	CreateChat       string
@@ -41,7 +41,7 @@ func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*ServerDB, er
 	}
 
 	// LoginUser
-	if _, err := poolConnection.Conn().Prepare(ctx, statements.LoginUser, "SELECT password_hash FROM users WHERE user_id = $1"); err != nil {
+	if _, err := poolConnection.Conn().Prepare(ctx, statements.LoginUser, "SELECT password_hash FROM users WHERE username = $1"); err != nil {
 		return nil, err
 	}
 
@@ -52,7 +52,7 @@ func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*ServerDB, er
 
 	//
 	// Get keys from key table
-  //TODO: Fix DB tables 
+	//TODO: Fix DB tables
 	if _, err := poolConnection.Conn().Prepare(ctx, statements.GetPublicKeys, "SELECT encryption_public_key, signing_public_key FROM user_keys  WHERE user_id = $1;"); err != nil {
 		return nil, err
 	}

@@ -187,8 +187,8 @@ func Login(c *types.ClientInfo, password string) error {
 		return fmt.Errorf("password input error: %v", err)
 	}
 
-	loginUP := pb.LoginRequest{
-		UserId:       c.UserID.String(),
+	loginUP := pb.LoginVerify{
+		Username:     c.Username,
 		PasswordHash: passwordHash,
 	}
 
@@ -199,9 +199,21 @@ func Login(c *types.ClientInfo, password string) error {
 	}
 
 	fmt.Printf("%v:%s\n", loginReq.Success, loginReq.Message)
+	return nil
 
-	// TODO: handle this elsewhere?
-	stream, err := c.Pbclient.UserStatus(ctx, &userInfo)
+}
+
+func RegisterStatus(c *types.ClientInfo) error {
+
+	//TODO:Messy
+	userInfo := pb.UserInfo{
+		Username:            c.Username,
+		UserId:              c.UserID.String(),
+		EncryptionPublicKey: c.Keys["EncryptionPublicKey"],
+		SigningPublicKey:    c.Keys["SigningPublicKey"],
+	}
+
+	stream, err := c.Pbclient.StatusStream(context.TODO(), &userInfo)
 	if err != nil {
 		log.Fatalf("status failure: %v", err)
 		return err
@@ -216,6 +228,7 @@ func Login(c *types.ClientInfo, password string) error {
 
 		fmt.Printf("%s Status: %s\n", c.Username, connectionStream.Message)
 	}
+
 }
 
 func BeginChat(c *types.ClientInfo, target uuid.UUID, chatName string) error {
@@ -513,7 +526,7 @@ func shellBeginChat(c *types.ClientInfo, inputReader *bufio.Reader) {
 	}
 	inviteUser = strings.TrimSpace(inviteUser)
 
-  var targetUser *pb.UserInfo
+	var targetUser *pb.UserInfo
 
 	au := GetActiveUsers(c, &pb.UserInfo{
 		Username:            c.Username,
@@ -525,7 +538,7 @@ func shellBeginChat(c *types.ClientInfo, inputReader *bufio.Reader) {
 	//TODO Add user function directly
 	for _, value := range au.Users {
 		if value.Username == inviteUser {
-      targetUser = value
+			targetUser = value
 		}
 
 	}

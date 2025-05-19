@@ -74,16 +74,16 @@ func (s *StrikeServer) SaltMine(ctx context.Context, userInfo *pb.UserInfo) (*pb
 	return &pb.Salt{Salt: salt}, nil
 }
 
-func (s *StrikeServer) Login(ctx context.Context, clientLogin *pb.LoginRequest) (*pb.ServerResponse, error) {
+func (s *StrikeServer) Login(ctx context.Context, clientLogin *pb.LoginVerify) (*pb.ServerResponse, error) {
 	var storedHash string
 
-	err := s.DBpool.QueryRow(ctx, s.PStatements.LoginUser, clientLogin.UserId).Scan(&storedHash)
+	err := s.DBpool.QueryRow(ctx, s.PStatements.LoginUser, clientLogin.Username).Scan(&storedHash)
 	if err != nil {
 		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
-			log.Fatalf("Unable to login: %v", err)
+			log.Fatalf("Unable to verify user: %v", err)
 			return nil, nil
 		}
-		log.Fatalf("An Error occured while logging in: %v", err)
+		log.Fatalf("An Error occured while verifying user: %v", err)
 		return nil, nil
 	}
 
@@ -95,15 +95,10 @@ func (s *StrikeServer) Login(ctx context.Context, clientLogin *pb.LoginRequest) 
 	}
 
 	if passMatch {
-		fmt.Printf("%s login successful\n", clientLogin.UserId)
-		return &pb.ServerResponse{Success: passMatch, Message: "login successful"}, nil
-	} else if !passMatch {
-		fmt.Printf("failed login attempt for: %s\n", clientLogin.UserId)
-		return &pb.ServerResponse{Success: passMatch, Message: "login unsuccessful"}, nil
+		return &pb.ServerResponse{Success: passMatch, Message: "User verification successful"}, nil
+	} else {
+		return &pb.ServerResponse{Success: passMatch, Message: "Unable to verify user"}, nil
 	}
-
-	// TODO: Make this unreachable?
-	return &pb.ServerResponse{Success: false, Message: "How is this not unreachable???"}, nil
 }
 
 func (s *StrikeServer) Signup(ctx context.Context, userInit *pb.InitUser) (*pb.ServerResponse, error) {
@@ -127,7 +122,7 @@ func (s *StrikeServer) Signup(ctx context.Context, userInit *pb.InitUser) (*pb.S
 	}, nil
 }
 
-func (s *StrikeServer) UserStatus(req *pb.UserInfo, stream pb.Strike_UserStatusServer) error {
+func (s *StrikeServer) UserStatus(req *pb.UserInfo, stream pb.Strike_StatusStreamServer) error {
 	// TODO: cleaner map initilization
 	if s.Connected == nil {
 		s.Connected = make(map[uuid.UUID]*pb.UserInfo)
