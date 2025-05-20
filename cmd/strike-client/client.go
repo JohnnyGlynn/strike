@@ -256,13 +256,19 @@ func main() {
 					log.Fatalf("error connecting: %v", err)
 				}
 
+				err = client.Login(clientInfo, password)
+				if err != nil {
+					log.Fatalf("error during login: %v", err)
+				}
+				isLoggedIn = true
+
 				go func() {
-					// Login now connects to UserStatus stream to show wheter user is online
-					err = client.Login(clientInfo, password)
+					err = client.RegisterStatus(clientInfo)
 					if err != nil {
-						log.Fatalf("error connecting: %v", err)
+						log.Fatalf("error connecting stream: %v", err)
 					}
 				}()
+
 				isLoggedIn = true
 				fmt.Println("Logged In!")
 				// Logged in

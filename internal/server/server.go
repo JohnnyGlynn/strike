@@ -122,7 +122,7 @@ func (s *StrikeServer) Signup(ctx context.Context, userInit *pb.InitUser) (*pb.S
 	}, nil
 }
 
-func (s *StrikeServer) UserStatus(req *pb.UserInfo, stream pb.Strike_StatusStreamServer) error {
+func (s *StrikeServer) StatusStream(req *pb.UserInfo, stream pb.Strike_StatusStreamServer) error {
 	// TODO: cleaner map initilization
 	if s.Connected == nil {
 		s.Connected = make(map[uuid.UUID]*pb.UserInfo)
