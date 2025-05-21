@@ -86,7 +86,6 @@ bingen:
 	mkdir -p $(BUILD_DIR)/client2
 	go build -o $(BUILD_DIR)/client1/$(APP_NAME)-client cmd/strike-client/client.go
 	go build -o $(BUILD_DIR)/client2/$(APP_NAME)-client cmd/strike-client/client.go
-	# spshell
 	cp ./config/clientConfig.json ./$(BUILD_DIR)/client1/
 	$(MAKE) run-client1	
 	

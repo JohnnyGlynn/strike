@@ -13,7 +13,7 @@ func PrepareStatements(ctx context.Context, db *sql.DB) (*types.ClientDB, error)
 	statements := &types.ClientDB{}
 
 	// Insert into address book
-	if statements.SaveUserDetails, err = db.PrepareContext(ctx, `INSERT INTO addressbook (user_id, username, enc_pkey, sig_pkey) VALUES (?, ?, ?, ?)`); err != nil {
+	if statements.SaveUserDetails, err = db.PrepareContext(ctx, `INSERT INTO addressbook (user_id, username, enc_pkey, sig_pkey) VALUES (?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET username=excluded.username, enc_pkey=excluded.enc_pkey, sig_pkey=excluded.sig_pkey;`); err != nil {
 		return nil, err
 	}
 
