@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"embed"
-	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -197,19 +196,6 @@ func main() {
 				}
 
 				clientInfo.Username = username
-
-				// Retrieve UUID
-				var userID uuid.UUID
-				row := clientInfo.Pstatements.GetUserId.QueryRowContext(context.TODO(), clientInfo.Username)
-				err = row.Scan(&userID)
-				if err != nil {
-					if errors.Is(err, sql.ErrNoRows) {
-						log.Fatalf("an error occured while logging in: %v", err)
-					}
-					log.Fatalf("an error occured while logging in: %v", err)
-				}
-
-				clientInfo.UserID = userID
 
 				err = client.Login(clientInfo, password)
 				if err != nil {

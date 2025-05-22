@@ -61,7 +61,7 @@ func (s *StrikeServer) SaltMine(ctx context.Context, userInfo *pb.UserInfo) (*pb
 	var salt []byte
 
 	// TODO: ERROR this fails after server has been running long
-	err := s.DBpool.QueryRow(ctx, s.PStatements.SaltMine, userInfo.UserId).Scan(&salt)
+	err := s.DBpool.QueryRow(ctx, s.PStatements.SaltMine, userInfo.Username).Scan(&salt)
 	if err != nil {
 		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
 			log.Fatalf("Unable mine salt: %v", err)
@@ -173,18 +173,10 @@ func (s *StrikeServer) StatusStream(req *pb.UserInfo, stream pb.Strike_StatusStr
 }
 
 func (s *StrikeServer) UserRequest(ctx context.Context, userInfo *pb.UserInfo) (*pb.UserInfo, error) {
-	var username string
+	var userid uuid.UUID
 	var encryptionPubKey, signingPubKey []byte
 
-	//TODO: Messy
-	// if userInfo.Username == "" && userInfo.UserId != "" {
-	row := s.DBpool.QueryRow(ctx, s.PStatements.GetPublicKeys, userInfo.UserId)
-	if err := row.Scan(&encryptionPubKey, &signingPubKey); err != nil {
-		fmt.Println("Failed to get keys")
-		return nil, err
-	}
-
-	err := s.DBpool.QueryRow(ctx, s.PStatements.GetUsername, userInfo.UserId).Scan(&username)
+	err := s.DBpool.QueryRow(ctx, s.PStatements.GetUser, userInfo.Username).Scan(&userid)
 	if err != nil {
 		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
 			log.Fatalf("Unable get username: %v", err)
@@ -194,7 +186,13 @@ func (s *StrikeServer) UserRequest(ctx context.Context, userInfo *pb.UserInfo) (
 		return nil, nil
 	}
 
-	return &pb.UserInfo{UserId: userInfo.UserId, Username: username, EncryptionPublicKey: encryptionPubKey, SigningPublicKey: signingPubKey}, nil
+	row := s.DBpool.QueryRow(ctx, s.PStatements.GetPublicKeys, userid)
+	if err := row.Scan(&encryptionPubKey, &signingPubKey); err != nil {
+		fmt.Println("Failed to get keys")
+		return nil, err
+	}
+
+	return &pb.UserInfo{UserId: userid.String(), Username: userInfo.Username, EncryptionPublicKey: encryptionPubKey, SigningPublicKey: signingPubKey}, nil
 }
 
 func (s *StrikeServer) OnlineUsers(ctx context.Context, userInfo *pb.UserInfo) (*pb.UsersInfo, error) {

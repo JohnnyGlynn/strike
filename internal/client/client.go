@@ -169,6 +169,30 @@ func Login(c *types.ClientInfo, password string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Retrieve UUID
+	var userID uuid.UUID
+	row := c.Pstatements.GetUserId.QueryRowContext(context.TODO(), c.Username)
+	err := row.Scan(&userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			dbsync, err := c.Pbclient.UserRequest(context.TODO(), &pb.UserInfo{Username: c.Username})
+			if err != nil {
+				log.Printf("error syncing: %v", err)
+			}
+
+			_, err = c.Pstatements.SaveUserDetails.ExecContext(ctx, c.UserID.String(), c.Username, c.Keys["EncryptionPublicKey"], c.Keys["SigningPublicKey"])
+			if err != nil {
+				return fmt.Errorf("failed adding to address book: %v", err)
+			}
+
+			userID = uuid.MustParse(dbsync.UserId)
+		} else {
+			log.Fatalf("an error occured while logging in: %v", err)
+		}
+	}
+
+	c.UserID = userID
+
 	userInfo := pb.UserInfo{
 		Username:            c.Username,
 		UserId:              c.UserID.String(),
