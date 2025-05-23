@@ -102,8 +102,6 @@ func (s *StrikeServer) Login(ctx context.Context, clientLogin *pb.LoginVerify) (
 }
 
 func (s *StrikeServer) Signup(ctx context.Context, userInit *pb.InitUser) (*pb.ServerResponse, error) {
-	fmt.Printf("New User signup: %s\n", userInit.Username)
-
 	// user: uuid, username, password_hash, salt
 	_, err := s.DBpool.Exec(ctx, s.PStatements.CreateUser, uuid.MustParse(userInit.UserId), userInit.Username, userInit.PasswordHash, userInit.Salt.Salt)
 	if err != nil {

@@ -39,7 +39,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error initializing db: %v", err)
 	}
-	defer idb.Close()
+
+	defer func() {
+		if dbInitErr := idb.Close(); dbInitErr != nil {
+			log.Fatalf("error initializing db: %v\n", dbInitErr)
+		}
+	}()
 
 	cDB = idb
 
@@ -50,9 +55,6 @@ func main() {
 	/*
 		Flag check:
 		-config: Provide a config file, otherwise look for env vars
-		Average user who just wants to connect to a server can run binary+json file,
-		meanwhile running a server you can have a client contianer present with env vars provided to pod
-
 		-keygen: Generate user keys
 	*/
 
@@ -114,7 +116,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to prepare statements: %v", err)
 	}
-	defer client.CloseStatements(statements)
+
+	defer func() {
+		if psErr := client.CloseStatements(statements); psErr != nil {
+			log.Fatalf("error preparing statements: %v\n", psErr)
+		}
+	}()
 
 	// Begin GRPC setup
 	creds, err := credentials.NewClientTLSFromFile(clientCfg.ServerCertificatePath, "")
@@ -242,10 +249,6 @@ func main() {
 					log.Fatalf("error connecting: %v", err)
 				}
 
-				err = client.Login(clientInfo, password)
-				if err != nil {
-					log.Fatalf("error during login: %v", err)
-				}
 				isLoggedIn = true
 
 				go func() {
@@ -255,7 +258,6 @@ func main() {
 					}
 				}()
 
-				isLoggedIn = true
 				fmt.Println("Logged In!")
 				// Logged in
 				fmt.Printf("Welcome %s!\n", username)

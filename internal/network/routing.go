@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"slices"
+	"strings"
 	"sync"
-  "strings"
 	"time"
 
 	"github.com/JohnnyGlynn/strike/internal/types"
@@ -250,12 +251,9 @@ func ProcessKeyExchangeRequests(c *types.ClientInfo, ch <-chan *pb.KeyExchangeRe
 				return
 			}
 
-			var participants []string
-			for _, sUID := range chat.Participants {
-				participants = append(participants, sUID)
-			}
+			participants := slices.Clone(chat.Participants)
 
-      participantsSerialized := strings.Join(participants, ",")
+			participantsSerialized := strings.Join(participants, ",")
 
 			_, err := c.Pstatements.CreateChat.ExecContext(context.TODO(), chatId, chat.Name, uuid.MustParse(keyExReq.SenderUserId), participantsSerialized, chat.State.String())
 			if err != nil {
@@ -295,15 +293,9 @@ func ProcessKeyExchangeResponses(c *types.ClientInfo, ch <-chan *pb.KeyExchangeR
 
 			chat.State = pb.Chat_ENCRYPTED
 
-			// As the map is *pb.chat it should update directly.
-			// TODO: More robust cache rather than maps (Redis?)
+			participants := slices.Clone(chat.Participants)
 
-			var participants []string
-			for _, sUID := range chat.Participants {
-				participants = append(participants, sUID)
-			}
-
-      participantsSerialized := strings.Join(participants, ",")
+			participantsSerialized := strings.Join(participants, ",")
 
 			_, err := c.Pstatements.CreateChat.ExecContext(context.TODO(), uuid.MustParse(keyExRes.ChatId), chat.Name, uuid.MustParse(keyExRes.ResponderUserId), participantsSerialized, chat.State.String())
 			if err != nil {

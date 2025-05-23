@@ -629,7 +629,12 @@ func loadChats(c *types.ClientInfo) error {
 	if err != nil {
 		return fmt.Errorf("error querying chats: %v", err)
 	}
-	defer rows.Close()
+
+	defer func() {
+		if rowErr := rows.Close(); rowErr != nil {
+			log.Fatalf("error getting rows: %v\n", rowErr)
+		}
+	}()
 
 	for rows.Next() {
 		var (
@@ -673,7 +678,12 @@ func loadMessages(c *types.ClientInfo) ([]types.MessageStruct, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error querying messages: %v", err)
 	}
-	defer rows.Close()
+
+	defer func() {
+		if rowErr := rows.Close(); rowErr != nil {
+			log.Fatalf("error getting rows: %v\n", rowErr)
+		}
+	}()
 
 	var messages []types.MessageStruct
 
