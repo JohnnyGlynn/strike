@@ -1,0 +1,406 @@
+package client
+
+import (
+	"bufio"
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"log"
+	"os"
+	"slices"
+	"strconv"
+	"strings"
+
+	"github.com/JohnnyGlynn/strike/internal/network"
+	"github.com/JohnnyGlynn/strike/internal/types"
+	pb "github.com/JohnnyGlynn/strike/msgdef/message"
+	"github.com/google/uuid"
+)
+
+func MessagingShell(c *types.ClientInfo) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Get messages
+	// TODO: Pass a single client with everything we need
+	go func() {
+		err := ConnectPayloadStream(ctx, c)
+		if err != nil {
+			log.Fatalf("failed to connect message stream: %v\n", err)
+		}
+	}()
+
+	inputReader := bufio.NewReader(os.Stdin)
+	fmt.Println("/help for available commands")
+	fmt.Printf("Enter chatTarget:message to send a message (e.g., '%v:HelloWorld') - Chat selection required\n", c.Username)
+
+	commands := map[string]func(){
+		"/addfriend": func() { shellAddFriend(inputReader, c) },
+		"/beginchat": func() { shellBeginChat(c, inputReader) },
+		"/chats":     func() { shellChat(inputReader, c) },
+		"/invites":   func() { shellInvites(ctx, c) },
+		"/help":      printHelp,
+		"/exit": func() {
+			cancel()
+			fmt.Println("Exiting msgshell...")
+			os.Exit(0) // Ensures we exit cleanly
+		},
+	}
+
+	for {
+		// Prompt for input
+		if c.Cache.ActiveChat.Chat == nil {
+			fmt.Print("[NO-CHAT]msgshell> ")
+		} else {
+			fmt.Printf("[CHAT:%s]\n[%s]>", c.Cache.ActiveChat.Chat.Name[:20], c.Username)
+		}
+
+		input, err := inputReader.ReadString('\n')
+		if err != nil {
+			log.Printf("Error reading input: %v\n", err)
+			continue
+		}
+
+		input = strings.TrimSpace(input)
+
+		if strings.HasPrefix(input, "/") {
+			if cmd, ok := commands[input]; ok {
+				cmd()
+			} else {
+				fmt.Printf("Unknown command: %s\n", input)
+			}
+			continue
+		}
+
+		if err := shellSendMessage(input, c); err != nil {
+			fmt.Println(err)
+			continue
+		}
+	}
+}
+
+func shellInvites(ctx context.Context, c *types.ClientInfo) {
+	if len(c.Cache.Invites) == 0 {
+		fmt.Println("No pending invites :^[")
+		return
+	}
+
+	fmt.Println("Pending Invites")
+	inputReader := bufio.NewReader(os.Stdin)
+
+	for inviteID, chatRequest := range c.Cache.Invites {
+		fmt.Printf("%v: %s [FROM: %s]\n", inviteID, chatRequest.Chat.Name, chatRequest.Initiator)
+		fmt.Printf("y[Accept]/n[Decline]")
+
+		input, err := inputReader.ReadString('\n')
+		if err != nil {
+			log.Printf("Error reading input: %v\n", err)
+			continue
+		}
+
+		input = strings.TrimSpace(strings.ToLower(input))
+		accepted := input == "y"
+
+		if err := ConfirmChat(ctx, c, chatRequest, accepted); err != nil {
+			log.Printf("Failed to decline invite: %v", err)
+		}
+	}
+}
+
+func shellChat(inputReader *bufio.Reader, c *types.ClientInfo) {
+	if len(c.Cache.Chats) == 0 {
+		if err := loadChats(c); err != nil {
+			log.Printf("Error loading chats: %v", err)
+			return
+		}
+		if len(c.Cache.Chats) == 0 {
+			fmt.Println("No chats available")
+			return
+		}
+	}
+
+	fmt.Println("Available Chats:")
+
+	chatList := make([]*pb.Chat, 0, len(c.Cache.Chats))
+	index := 1
+
+	for _, chat := range c.Cache.Chats {
+		fmt.Printf("%d: %s [STATE: %v]\n", index, chat.Name, chat.State.String())
+		chatList = append(chatList, chat)
+		index++
+	}
+
+	fmt.Print("Enter the chat number to set active (Enter to cancel): ")
+	selectedIndexString, err := inputReader.ReadString('\n')
+	if err != nil {
+		log.Printf("Error reading input: %v\n", err)
+		return
+	}
+
+	selectedIndexString = strings.TrimSpace(selectedIndexString)
+	if selectedIndexString == "" {
+		fmt.Println("No chat selected.")
+		return
+	}
+
+	selectedIndex, err := strconv.Atoi(selectedIndexString)
+	if err != nil || selectedIndex < 1 || selectedIndex > len(chatList) {
+		fmt.Println("Invalid selection. Please enter a valid chat number.")
+		return
+	}
+
+	selectedChat := chatList[selectedIndex-1]
+
+	if c.Cache.ActiveChat.Chat == selectedChat {
+		fmt.Printf("%s already active", selectedChat.Name)
+		return
+	}
+
+	c.Cache.ActiveChat.Chat = selectedChat
+	fmt.Printf("Active chat: %s\n", c.Cache.ActiveChat.Chat.Name)
+
+	participants := c.Cache.ActiveChat.Chat.Participants
+
+	for k, v := range participants {
+		if v == c.UserID.String() {
+			participants = slices.Delete(participants, k, k+1)
+			break
+		}
+	}
+
+	if len(participants) == 0 {
+		log.Print("No other participants in the chat")
+		return
+	}
+
+	uinfo := &pb.UserInfo{
+		UserId: participants[0],
+	}
+
+	target, err := c.Pbclient.UserRequest(context.TODO(), uinfo)
+	if err != nil {
+		log.Printf("error beginning chat: %v", err)
+	}
+
+	sharedSecret, err := network.ComputeSharedSecret(c.Keys["EncryptionPrivateKey"], target.EncryptionPublicKey)
+	if err != nil {
+		// TODO: Error return
+		log.Print("failed to compute shared secret")
+		return
+	}
+
+	c.Cache.ActiveChat.SharedSecret = sharedSecret
+
+	err = network.DeriveKeys(c, sharedSecret)
+	if err != nil {
+		log.Fatalf("Failed to derive keys")
+	}
+
+}
+
+func shellAddFriend(inputReader *bufio.Reader, c *types.ClientInfo) {
+	fmt.Println("Online Users:")
+
+	au := GetActiveUsers(c, &pb.UserInfo{
+		Username:            c.Username,
+		UserId:              c.UserID.String(),
+		EncryptionPublicKey: c.Keys["EncryptionPublicKey"],
+		SigningPublicKey:    c.Keys["SigningPublicKey"],
+	})
+
+	userList := make([]*pb.UserInfo, 0, len(au.Users))
+	index := 1
+
+	for _, user := range au.Users {
+		fmt.Printf("%d: %s\n", index, user.Username)
+		userList = append(userList, user)
+		index++
+	}
+
+	fmt.Print("Enter the number of the user you want to invite (Enter to cancel): ")
+	selectedIndexString, err := inputReader.ReadString('\n')
+	if err != nil {
+		log.Printf("Error reading input: %v\n", err)
+		return
+	}
+
+	selectedIndexString = strings.TrimSpace(selectedIndexString)
+	if selectedIndexString == "" {
+		fmt.Println("No user selected.")
+		return
+	}
+
+	selectedIndex, err := strconv.Atoi(selectedIndexString)
+	if err != nil || selectedIndex < 1 || selectedIndex > len(userList) {
+		fmt.Println("Invalid selection. Please enter a valid user number.")
+		return
+	}
+
+	selectedUser := userList[selectedIndex-1]
+
+	_, err = c.Pstatements.SaveUserDetails.ExecContext(context.TODO(), selectedUser.UserId, selectedUser.Username, selectedUser.EncryptionPublicKey, selectedUser.SigningPublicKey)
+	if err != nil {
+		fmt.Printf("User to be saved: %v\n", selectedUser)
+		log.Fatalf("failed adding to address book: %v", err)
+	}
+
+}
+
+func shellBeginChat(c *types.ClientInfo, inputReader *bufio.Reader) {
+	fmt.Print("Invite User> ")
+	inviteUser, err := inputReader.ReadString('\n')
+	if err != nil {
+		log.Printf("Error reading invite input user: %v\n", err)
+		return
+	}
+	inviteUser = strings.TrimSpace(inviteUser)
+
+	var targetUser *pb.UserInfo
+
+	au := GetActiveUsers(c, &pb.UserInfo{
+		Username:            c.Username,
+		UserId:              c.UserID.String(),
+		EncryptionPublicKey: c.Keys["EncryptionPublicKey"],
+		SigningPublicKey:    c.Keys["SigningPublicKey"],
+	})
+
+	//TODO Add user function directly
+	for _, value := range au.Users {
+		if value.Username == inviteUser {
+			targetUser = value
+		}
+
+	}
+
+	fmt.Print("Chat Name> ")
+	chatName, err := inputReader.ReadString('\n')
+	if err != nil {
+		log.Printf("Error reading invite input chat name: %v\n", err)
+		return
+	}
+	chatName = strings.TrimSpace(chatName)
+
+	err = BeginChat(c, uuid.MustParse(targetUser.UserId), chatName)
+	if err != nil {
+		log.Printf("error beginning chat: %v", err)
+	}
+}
+
+func shellSendMessage(input string, c *types.ClientInfo) error {
+	if input == "" {
+		return nil
+	}
+
+	userAndMessage := strings.SplitN(input, ":", 2) // Check for : then splint into target and message
+	if len(userAndMessage) != 2 {
+		return fmt.Errorf("invalid format. Use recipient:message")
+	}
+
+	// TODO: Stopgap handle this elsewhere
+	if c.Cache.ActiveChat.Chat == nil {
+		return fmt.Errorf("no chat has been selected. use /chats to enable a chat first")
+	}
+
+	target, message := userAndMessage[0], userAndMessage[1]
+
+	// TODO: Migrate messaging shell to active chat only, stop having to query uuid on every message
+	var targetID uuid.UUID
+	row := c.Pstatements.GetUserId.QueryRowContext(context.TODO(), target)
+	err := row.Scan(&targetID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			log.Fatalf("DB error: %v", err)
+		}
+		log.Fatalf("an error occured: %v", err)
+	}
+
+	SendMessage(c, targetID, message)
+
+	return nil
+}
+
+func printHelp() {
+	// Is multiple println better?
+	fmt.Print("---Available Commands---\n,",
+		"/beginchat: Invite a User to a Chat\n",
+		"/chats: List joined chats and set one to active\n",
+		"/invites: See and respond to Chat Invites\n",
+		"/exit: ...\n",
+	)
+}
+
+func loadChats(c *types.ClientInfo) error {
+	rows, err := c.Pstatements.GetChats.QueryContext(context.TODO())
+	if err != nil {
+		return fmt.Errorf("error querying chats: %v", err)
+	}
+
+	defer func() {
+		if rowErr := rows.Close(); rowErr != nil {
+			log.Fatalf("error getting rows: %v\n", rowErr)
+		}
+	}()
+
+	for rows.Next() {
+		var (
+			chat_id      uuid.UUID
+			chat_name    string
+			initiator    uuid.UUID
+			participants []uuid.UUID
+			stateStr     string
+		)
+
+		if err := rows.Scan(&chat_id, &chat_name, &initiator, &participants, &stateStr); err != nil {
+			log.Printf("error scanning row: %v", err)
+			return err
+		}
+
+		stateEnum, ok := pb.Chat_State_value[stateStr]
+		if !ok {
+			return fmt.Errorf("invalid chat state: %s", stateStr)
+		}
+
+		var participantsStrung []string
+		for _, uID := range participants {
+			participantsStrung = append(participantsStrung, uID.String())
+		}
+
+		chat := &pb.Chat{
+			Id:           chat_id.String(),
+			Name:         chat_name,
+			State:        pb.Chat_State(stateEnum),
+			Participants: participantsStrung,
+		}
+
+		c.Cache.Chats[chat_id] = chat
+	}
+
+	return nil
+}
+
+func loadMessages(c *types.ClientInfo) ([]types.MessageStruct, error) {
+	rows, err := c.Pstatements.GetMessages.QueryContext(context.TODO(), c.Cache.ActiveChat)
+	if err != nil {
+		return nil, fmt.Errorf("error querying messages: %v", err)
+	}
+
+	defer func() {
+		if rowErr := rows.Close(); rowErr != nil {
+			log.Fatalf("error getting rows: %v\n", rowErr)
+		}
+	}()
+
+	var messages []types.MessageStruct
+
+	for rows.Next() {
+		var msg types.MessageStruct
+		if err := rows.Scan(&msg.Id, &msg.ChatId, &msg.Sender, &msg.Content); err != nil {
+			log.Printf("error scanning row: %v", err)
+			return nil, err
+		}
+		messages = append(messages, msg)
+	}
+
+	return messages, nil
+}
