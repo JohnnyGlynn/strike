@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/JohnnyGlynn/strike/internal/auth"
+	"github.com/JohnnyGlynn/strike/internal/crypto"
 	"github.com/JohnnyGlynn/strike/internal/network"
 	"github.com/JohnnyGlynn/strike/internal/types"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
@@ -61,7 +62,7 @@ func ConnectPayloadStream(ctx context.Context, c *types.ClientInfo) error {
 }
 
 func SendMessage(c *types.ClientInfo, target uuid.UUID, message string) {
-	sealedMessage, err := network.Encrypt(c, []byte(message))
+	sealedMessage, err := crypto.Encrypt(c, []byte(message))
 	if err != nil {
 		log.Fatal("Couldnt encrypt message")
 	}

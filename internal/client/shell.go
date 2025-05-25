@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/JohnnyGlynn/strike/internal/crypto"
 	"github.com/JohnnyGlynn/strike/internal/network"
 	"github.com/JohnnyGlynn/strike/internal/types"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
@@ -192,7 +193,7 @@ func shellChat(inputReader *bufio.Reader, c *types.ClientInfo) {
 
 	c.Cache.ActiveChat.SharedSecret = sharedSecret
 
-	err = network.DeriveKeys(c, sharedSecret)
+	err = crypto.DeriveKeys(c, sharedSecret)
 	if err != nil {
 		log.Fatalf("Failed to derive keys")
 	}

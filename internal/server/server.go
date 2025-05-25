@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/JohnnyGlynn/strike/internal/auth"
-	"github.com/JohnnyGlynn/strike/internal/db"
+	// "github.com/JohnnyGlynn/strike/internal/db"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 )
 
@@ -21,7 +21,7 @@ type StrikeServer struct {
 	pb.UnimplementedStrikeServer
 	Env         []*pb.EncryptedEnvelope
 	DBpool      *pgxpool.Pool
-	PStatements *db.ServerDB
+	PStatements *ServerDB
 
 	// TODO: Package the stream better
 	Connected       map[uuid.UUID]*pb.UserInfo

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/JohnnyGlynn/strike/internal/crypto"
 	"github.com/JohnnyGlynn/strike/internal/types"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 	"github.com/google/uuid"
@@ -150,7 +151,7 @@ func ProcessEnvelopes(ch <-chan *pb.EncryptedEnvelope, c *types.ClientInfo, idle
 				return
 			}
 
-			msg, err := Decrypt(c, envelope.EncryptedMessage)
+			msg, err := crypto.Decrypt(c, envelope.EncryptedMessage)
 			if err != nil {
 				log.Fatal("Failed to decrypt sealed message")
 			}
