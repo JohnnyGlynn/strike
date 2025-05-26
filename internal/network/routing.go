@@ -158,7 +158,7 @@ func ProcessEnvelopes(ch <-chan *pb.EncryptedEnvelope, c *types.ClientInfo, idle
 
 			fmt.Printf("[%s] [%s] [From:%s] : %s\n", envelope.SentAt.AsTime(), envelope.Chat.Name, envelope.FromUser, msg)
 			// TODO: Batch insert messages?
-			_, err = c.Pstatements.SaveMessage.ExecContext(context.TODO(), uuid.New(), envelope.Chat.Id, envelope.FromUser, msg)
+			_, err = c.Pstatements.SaveMessage.ExecContext(context.TODO(), uuid.New().String(), envelope.Chat.Id, envelope.FromUser, msg)
 			if err != nil {
 				log.Fatalf("Failed to save message")
 			}

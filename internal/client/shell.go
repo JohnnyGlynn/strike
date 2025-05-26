@@ -54,6 +54,15 @@ func MessagingShell(c *types.ClientInfo) {
 		if c.Cache.ActiveChat.Chat == nil {
 			fmt.Print("[NO-CHAT]msgshell> ")
 		} else {
+      messages, err := loadMessages(c)
+      if err != nil {
+        log.Fatal("failed to load messages")
+      }
+
+      for _, msg := range messages {
+        fmt.Printf("From: %s:  %s",msg.Sender.String(), msg.Content)
+      }
+
 			fmt.Printf("[CHAT:%s]\n[%s]>", c.Cache.ActiveChat.Chat.Name[:20], c.Username)
 		}
 
