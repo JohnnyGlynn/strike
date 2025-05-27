@@ -24,9 +24,14 @@ CREATE TABLE iF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
     chat_id TEXT NOT NULL,
     sender TEXT NOT NULL,
-    content TEXT NOT NULL, 
-    sent_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    receiver TEXT NOT NULL,
+    direction TEXT NOT NULL,
+    content BLOB NOT NULL, 
+    timestamp INTEGER NOT NULL,--Unix milli
     FOREIGN KEY (chat_id) REFERENCES chats(chat_id),
     FOREIGN KEY (sender) REFERENCES addressbook(user_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_messages_chat_timestamp 
+ON messages(chat_id, timestamp ASC);
 
