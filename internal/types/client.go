@@ -34,10 +34,13 @@ type ChatDetails struct {
 
 // TODO: CLEAN THIS UP
 type MessageStruct struct {
-	Id      uuid.UUID
-	ChatId  uuid.UUID
-	Sender  uuid.UUID
-	Content []byte
+	Id        uuid.UUID
+	ChatId    uuid.UUID
+	Sender    uuid.UUID
+	Receiver  uuid.UUID
+	Direction string
+	Content   []byte
+	Timestamp int64
 }
 
 type ClientDB struct {

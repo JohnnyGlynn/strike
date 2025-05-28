@@ -51,17 +51,25 @@ func MessagingShell(c *types.ClientInfo) {
 
 	for {
 		// Prompt for input
+		//TODO: Retrieve the messages one time and cache
 		if c.Cache.ActiveChat.Chat == nil {
 			fmt.Print("[NO-CHAT]msgshell> ")
 		} else {
-      messages, err := loadMessages(c)
-      if err != nil {
-        log.Fatal("failed to load messages")
-      }
+			messages, err := loadMessages(c)
+			if err != nil {
+				log.Fatal("failed to load messages")
+			}
 
-      for _, msg := range messages {
-        fmt.Printf("From: %s:  %s",msg.Sender.String(), msg.Content)
-      }
+			for _, msg := range messages {
+				switch msg.Direction {
+				case "outbound":
+					fmt.Printf("You: %s\n", msg.Content)
+				case "inbound":
+					fmt.Printf("%s: %s\n", msg.Sender, msg.Content)
+				default:
+					fmt.Printf("Unknown: %s\n", msg.Content)
+				}
+			}
 
 			fmt.Printf("[CHAT:%s]\n[%s]>", c.Cache.ActiveChat.Chat.Name[:20], c.Username)
 		}
@@ -405,7 +413,7 @@ func loadMessages(c *types.ClientInfo) ([]types.MessageStruct, error) {
 
 	for rows.Next() {
 		var msg types.MessageStruct
-		if err := rows.Scan(&msg.Id, &msg.ChatId, &msg.Sender, &msg.Content); err != nil {
+		if err := rows.Scan(&msg.Id, &msg.ChatId, &msg.Sender, &msg.Receiver, &msg.Direction, &msg.Content, &msg.Timestamp); err != nil {
 			log.Printf("error scanning row: %v", err)
 			return nil, err
 		}

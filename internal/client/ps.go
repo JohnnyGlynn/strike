@@ -43,12 +43,12 @@ func PrepareStatements(ctx context.Context, db *sql.DB) (*types.ClientDB, error)
 	}
 
 	// Insert Message - Insert message bound by chat
-	if statements.SaveMessage, err = db.PrepareContext(ctx, `INSERT INTO messages (id, chat_id, sender, content) VALUES (?, ?, ?, ?)`); err != nil {
+	if statements.SaveMessage, err = db.PrepareContext(ctx, `INSERT INTO messages (id, chat_id, sender, receiver, direction, content, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)`); err != nil {
 		return nil, err
 	}
 
 	// get all messages
-	if statements.GetMessages, err = db.PrepareContext(ctx, `SELECT * FROM messages WHERE chat_id = ? ORDER BY sent_at ASC, id ASC;`); err != nil {
+	if statements.GetMessages, err = db.PrepareContext(ctx, `SELECT * FROM messages WHERE chat_id = ? ORDER BY timestamp ASC, id ASC;`); err != nil {
 		return nil, err
 	}
 

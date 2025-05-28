@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/JohnnyGlynn/strike/internal/auth"
 	"github.com/JohnnyGlynn/strike/internal/crypto"
@@ -87,6 +88,12 @@ func SendMessage(c *types.ClientInfo, target uuid.UUID, message string) {
 	if err != nil {
 		log.Fatalf("Error sending message: %v", err)
 	}
+
+	_, err = c.Pstatements.SaveMessage.ExecContext(context.TODO(), uuid.New().String(), c.Cache.Chats[uuid.MustParse(c.Cache.ActiveChat.Chat.Id)], c.UserID.String(), target.String(), "outbound", sealedMessage, time.Now().UnixMilli())
+	if err != nil {
+		log.Fatalf("Failed to save message")
+	}
+
 }
 
 func ConfirmChat(ctx context.Context, c *types.ClientInfo, chatRequest *pb.BeginChatRequest, inviteState bool) error {
