@@ -1,14 +1,14 @@
-k8s_yaml('./deployment/k8s/ns.yaml')
+k8s_yaml('./deploy/k8s/ns.yaml')
 
 local_resource(
   'strike-namespace',
-  'kubectl apply -f ./deployment/k8s/ns.yaml',
-  deps=['./deployment/k8s/ns.yaml']
+  'kubectl apply -f ./deploy/k8s/ns.yaml',
+  deps=['./deploy/k8s/ns.yaml']
 )
 
 local_resource(
   'strike-db-env',
-  'kubectl delete secret strike-db-env -n strike --ignore-not-found && kubectl create secret generic strike-db-env --from-env-file=./config/env.db --namespace=strike',
+  'kubectl delete secret strike-db-env -n strike --ignore-not-found && kubectl create secret generic strike-db-env --from-env-file=./config/db/env.db --namespace=strike',
   deps=['./config/env.db', 'strike-namespace']
 )
 
@@ -25,14 +25,14 @@ local_resource(
 )
 
 k8s_yaml([
-  './deployment/k8s/db.yaml',
-  './deployment/k8s/db-svc.yaml',
-  './deployment/k8s/server.yaml',
-  './deployment/k8s/server-svc.yaml',
+  './deploy/k8s/db.yaml',
+  './deploy/k8s/db-svc.yaml',
+  './deploy/k8s/server.yaml',
+  './deploy/k8s/server-svc.yaml',
 ])
 
-docker_build('strike_db', './', dockerfile='deployment/StrikeDatabase.ContainerFile', ignore=['build'])
-docker_build('strike_server', './', dockerfile='deployment/StrikeServer.ContainerFile', ignore=['build'])
+docker_build('strike_db', './', dockerfile='deploy/db.Dockerfile', ignore=['build'])
+docker_build('strike_server', './', dockerfile='deploy/server.Dockerfile', ignore=['build'])
 
 k8s_resource('strike-db', port_forwards=5432, resource_deps=['strike-db-env'])
 k8s_resource('strike-server', port_forwards=8080, resource_deps=['strike-server-env'])

@@ -22,8 +22,8 @@ RUN go mod download
 
 COPY ./ ./
 
-RUN rm -rf ./internal/client ./deployment ./config ./cmd/strike-client
+RUN rm -rf ./internal/client ./deploy ./config ./cmd/strike-client
 
-RUN CGO_ENABLED=0 go build -o /go/strike.bin cmd/strike-server/main.go 
+RUN CGO_ENABLED=0 go build -o /go/strike.bin ./cmd/strike-server/main.go 
 
 CMD ["/go/strike.bin"]

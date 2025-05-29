@@ -9,7 +9,6 @@ import (
 	"os"
 
 	"github.com/JohnnyGlynn/strike/internal/config"
-	"github.com/JohnnyGlynn/strike/internal/db"
 	"github.com/JohnnyGlynn/strike/internal/keys"
 	"github.com/JohnnyGlynn/strike/internal/server"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
@@ -78,7 +77,7 @@ func main() {
 	}
 	defer pool.Close()
 
-	statements, err := db.PrepareStatements(ctx, pool)
+	statements, err := server.PrepareStatements(ctx, pool)
 	if err != nil {
 		log.Fatalf("Failed to prepare statements: %v", err)
 	}

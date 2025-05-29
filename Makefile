@@ -29,14 +29,14 @@ keygen-server:
 bingen:
 	mkdir -p $(BUILD_DIR)/client1
 	mkdir -p $(BUILD_DIR)/client2
-	go build -o $(BUILD_DIR)/client1/$(APP_NAME)-client cmd/strike-client/client.go
-	go build -o $(BUILD_DIR)/client2/$(APP_NAME)-client cmd/strike-client/client.go
-	cp ./config/clientConfig.json ./$(BUILD_DIR)/client1/
+	go build -o $(BUILD_DIR)/client1/$(APP_NAME)-client cmd/strike-client/main.go
+	go build -o $(BUILD_DIR)/client2/$(APP_NAME)-client cmd/strike-client/main.go
+	cp ./config/client/clientConfig.json ./$(BUILD_DIR)/client1/
 	$(MAKE) run-client1	
 	
 .PHONY: 2bin
 2bin:
-	cp ./config/clientConfig.json ./$(BUILD_DIR)/client2/
+	cp ./config/client/clientConfig.json ./$(BUILD_DIR)/client2/
 	$(MAKE) run-client2
 
 .PHONY: run-client1
