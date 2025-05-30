@@ -46,6 +46,7 @@ type MessageStruct struct {
 type ClientDB struct {
 	SaveUserDetails *sql.Stmt
 	GetUserId       *sql.Stmt
+	GetUsername     *sql.Stmt
 	CreateChat      *sql.Stmt
 	GetChat         *sql.Stmt
 	GetChats        *sql.Stmt

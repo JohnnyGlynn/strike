@@ -33,9 +33,6 @@ type StrikeServer struct {
 func (s *StrikeServer) SendPayload(ctx context.Context, payload *pb.StreamPayload) (*pb.ServerResponse, error) {
 	// TODO: Work out the most effecient Syncing for mutexs, this is a lot of locking and unlocking
 
-	fmt.Printf("payload from SendPayload: %v", payload.Payload)
-	fmt.Printf("uuid from SendPayload: %v", payload.Target)
-
 	parsedId := uuid.MustParse(payload.Target)
 
 	s.mu.Lock()

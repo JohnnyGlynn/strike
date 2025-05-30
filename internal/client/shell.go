@@ -192,8 +192,18 @@ func shellChat(inputReader *bufio.Reader, c *types.ClientInfo) {
 		return
 	}
 
+	var targetUser string
+	row := c.Pstatements.GetUsername.QueryRowContext(context.TODO(), participants[0])
+	err = row.Scan(&targetUser)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			log.Fatalf("DB error: %v", err)
+		}
+		log.Fatalf("an error occured: %v", err)
+	}
+
 	uinfo := &pb.UserInfo{
-		UserId: participants[0],
+		Username: targetUser,
 	}
 
 	target, err := c.Pbclient.UserRequest(context.TODO(), uinfo)
@@ -400,6 +410,7 @@ func loadChats(c *types.ClientInfo) error {
 func loadMessages(c *types.ClientInfo) ([]types.MessageStruct, error) {
 	rows, err := c.Pstatements.GetMessages.QueryContext(context.TODO(), c.Cache.ActiveChat)
 	if err != nil {
+    
 		return nil, fmt.Errorf("error querying messages: %v", err)
 	}
 
