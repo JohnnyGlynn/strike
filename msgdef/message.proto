@@ -42,6 +42,19 @@ message Salt {
     bytes salt = 1;
 }
 
+message FriendRequest {
+  string invite_id = 1;
+  string target = 2;
+  UserInfo user_info = 4;
+}
+
+message FriendResponse {
+  string invite_id = 1;
+  string target = 2;
+  UserInfo user_info = 4;
+  bool state = 5;
+}
+
 message InitUser {
   string username = 1;
   string user_id = 2;
@@ -113,8 +126,10 @@ message StreamPayload {
     KeyExchangeRequest key_exch_request = 7;
     KeyExchangeResponse key_exch_response = 8;
     KeyExchangeConfirmation key_exch_confirm = 9;
+    FriendRequest friend_request = 10;
+    FriendResponse friend_response = 11;
   }
-  string info = 10;
+  string info = 12;
 }
 
 // -----------------------------------Messages---------------------------------------------
