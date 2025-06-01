@@ -18,6 +18,7 @@ import (
 type Demultiplexer struct {
 	chatRequestChannel             chan *pb.BeginChatRequest
 	chatConfirmChannel             chan *pb.ConfirmChatRequest
+	friendRequestChannel           chan *pb.FriendRequest
 	encenvelopeChannel             chan *pb.EncryptedEnvelope
 	keyExchangeChannel             chan *pb.KeyExchangeRequest
 	keyExchangeResponseChannel     chan *pb.KeyExchangeResponse
@@ -36,9 +37,10 @@ type Demultiplexer struct {
 
 func NewDemultiplexer(c *types.ClientInfo) *Demultiplexer {
 	d := &Demultiplexer{
-		chatRequestChannel: make(chan *pb.BeginChatRequest, 20),
-		chatConfirmChannel: make(chan *pb.ConfirmChatRequest, 20),
-		encenvelopeChannel: make(chan *pb.EncryptedEnvelope, 200),
+		chatRequestChannel:   make(chan *pb.BeginChatRequest, 20),
+		chatConfirmChannel:   make(chan *pb.ConfirmChatRequest, 20),
+		friendRequestChannel: make(chan *pb.FriendRequest, 200),
+		encenvelopeChannel:   make(chan *pb.EncryptedEnvelope, 200),
 		// TODO: There has to be a better way
 		keyExchangeChannel:             make(chan *pb.KeyExchangeRequest, 20),
 		keyExchangeResponseChannel:     make(chan *pb.KeyExchangeResponse, 20),
@@ -56,6 +58,8 @@ func NewDemultiplexer(c *types.ClientInfo) *Demultiplexer {
 	// Run demultiplexer channel processors - Permanent processors
 	go ProcessEnvelopes(d.encenvelopeChannel, c, 0, &d.envelopeWorkerCount, &d.mu)
 	go ProcessChatRequests(d.chatRequestChannel, c, 0, &d.chatRequestWorkerCount, &d.mu)
+  //TODO: This is a mess
+	go ProcessFriendRequests(d.friendRequestChannel, c, 0, &d.keyExchangeRequestWorkerCount, &d.mu)
 	go ProcessConfirmChatRequests(c, d.chatConfirmChannel, 0, &d.chatConfirmWorkerCount, &d.mu)
 	go ProcessKeyExchangeRequests(c, d.keyExchangeChannel, 0, &d.keyExchangeRequestWorkerCount, &d.mu)
 	go ProcessKeyExchangeResponses(c, d.keyExchangeResponseChannel, 0, &d.keyExchangeRequestWorkerCount, &d.mu)
@@ -188,6 +192,29 @@ func ProcessChatRequests(ch <-chan *pb.BeginChatRequest, c *types.ClientInfo, id
 			c.Cache.Invites[uuid.MustParse(chatRequest.InviteId)] = chatRequest
 		case <-timeoutCh:
 			fmt.Printf("ChatRequest worker idle for %v, exiting.\n", idleTimeout) // shutdown ephemeral workers
+			mu.Lock()
+			*workerCount--
+			mu.Unlock()
+			return
+		}
+	}
+}
+
+func ProcessFriendRequests(ch <-chan *pb.FriendRequest, c *types.ClientInfo, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
+	for {
+		var timeoutCh <-chan time.Time // channel for timer
+		if idleTimeout > 0 {
+			timeoutCh = time.After(idleTimeout) // if timeout non-0 create timout channel
+		}
+		select {
+		case friendRequest, ok := <-ch:
+			if !ok {
+				return
+			}
+			fmt.Printf("Friend Request from: %v\n", friendRequest.UserInfo.Username)
+			// Recieve an invite, cache it
+			c.Cache.FriendRequests[uuid.MustParse(friendRequest.InviteId)] = friendRequest.UserInfo
+		case <-timeoutCh:
 			mu.Lock()
 			*workerCount--
 			mu.Unlock()
