@@ -20,7 +20,7 @@ type ClientInfo struct {
 
 type ClientCache struct {
 	Invites    map[uuid.UUID]*pb.BeginChatRequest
-  FriendRequests map[uuid.UUID]*pb.UserInfo
+  FriendRequests map[uuid.UUID]*pb.FriendRequest
 	Chats      map[uuid.UUID]*pb.Chat
 	ActiveChat ChatDetails
 }

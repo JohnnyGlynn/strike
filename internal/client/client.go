@@ -129,6 +129,79 @@ func ConfirmChat(ctx context.Context, c *types.ClientInfo, chatRequest *pb.Begin
 	return nil
 }
 
+func FriendRequest(ctx context.Context, c *types.ClientInfo, target string) error {
+
+	req := pb.FriendRequest{
+		InviteId: uuid.New().String(),
+		Target:   target,
+		UserInfo: &pb.UserInfo{
+			Username:            c.Username,
+			UserId:              c.UserID.String(),
+			EncryptionPublicKey: c.Keys["EncryptionPublicKey"],
+			SigningPublicKey:    c.Keys["SigningPublicKey"],
+		},
+	}
+
+	payload := pb.StreamPayload{
+		Target:  target,
+		Sender:  c.UserID.String(),
+		Payload: &pb.StreamPayload_FriendRequest{FriendRequest: &req},
+		Info:    "Friend Request payload",
+	}
+
+	resp, err := c.Pbclient.SendPayload(ctx, &payload)
+	if err != nil {
+		return fmt.Errorf("failed to confirm chat: %v", err)
+	}
+
+	//Add to cache on send for placeholder?
+	c.Cache.FriendRequests[uuid.MustParse(req.InviteId)] = &pb.FriendRequest{Target: target}
+
+	fmt.Printf("Friend request sent: %+v\n", resp)
+
+	return nil
+}
+
+func FriendResponse(ctx context.Context, c *types.ClientInfo, friendReq *pb.FriendRequest, state bool) error {
+
+	res := pb.FriendResponse{
+		InviteId: friendReq.InviteId,
+		Target:   friendReq.UserInfo.UserId,
+		UserInfo: &pb.UserInfo{
+			Username:            c.Username,
+			UserId:              c.UserID.String(),
+			EncryptionPublicKey: c.Keys["EncryptionPublicKey"],
+			SigningPublicKey:    c.Keys["SigningPublicKey"],
+		},
+		State: state,
+	}
+
+	payload := pb.StreamPayload{
+		Target:  friendReq.UserInfo.UserId,
+		Sender:  c.UserID.String(),
+		Payload: &pb.StreamPayload_FriendResponse{FriendResponse: &res},
+		Info:    "Friend Response payload",
+	}
+
+	resp, err := c.Pbclient.SendPayload(ctx, &payload)
+	if err != nil {
+		return fmt.Errorf("failed to confirm chat: %v", err)
+	}
+
+	delete(c.Cache.FriendRequests, uuid.MustParse(friendReq.InviteId))
+
+	if state {
+		_, err = c.Pstatements.SaveUserDetails.ExecContext(ctx, friendReq.UserInfo.UserId, friendReq.UserInfo.Username, friendReq.UserInfo.EncryptionPublicKey, friendReq.UserInfo.SigningPublicKey)
+		if err != nil {
+			return fmt.Errorf("failed adding to address book: %v", err)
+		}
+	}
+
+	fmt.Printf("Friend request acknowledged: %+v\n", resp)
+
+	return nil
+}
+
 func ClientSignup(c *types.ClientInfo, password string, curve25519key []byte, ed25519key []byte) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

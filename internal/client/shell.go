@@ -126,6 +126,35 @@ func shellInvites(ctx context.Context, c *types.ClientInfo) {
 	}
 }
 
+func shellFriendRequests(ctx context.Context, c *types.ClientInfo) {
+	if len(c.Cache.FriendRequests) == 0 {
+		fmt.Println("No pending Friend requests :^[")
+		return
+	}
+
+	fmt.Println("Pending Friend requests")
+	inputReader := bufio.NewReader(os.Stdin)
+
+	for k, fr := range c.Cache.FriendRequests {
+		fmt.Printf("[%s] %s\n", fr.UserInfo.SigningPublicKey[:6], fr.UserInfo.Username)
+		fmt.Printf(" y[Accept] / n[Decline] :")
+
+		input, err := inputReader.ReadString('\n')
+		if err != nil {
+			log.Printf("Error reading input: %v\n", err)
+			continue
+		}
+
+		input = strings.TrimSpace(strings.ToLower(input))
+		accepted := input == "y"
+
+		if err := FriendResponse(ctx, c, c.Cache.FriendRequests[k], accepted); err != nil {
+			log.Printf("Failed to decline invite: %v", err)
+		}
+
+	}
+}
+
 func shellChat(inputReader *bufio.Reader, c *types.ClientInfo) {
 	if len(c.Cache.Chats) == 0 {
 		if err := loadChats(c); err != nil {
@@ -267,10 +296,9 @@ func shellAddFriend(inputReader *bufio.Reader, c *types.ClientInfo) {
 
 	selectedUser := userList[selectedIndex-1]
 
-	_, err = c.Pstatements.SaveUserDetails.ExecContext(context.TODO(), selectedUser.UserId, selectedUser.Username, selectedUser.EncryptionPublicKey, selectedUser.SigningPublicKey)
+	err = FriendRequest(context.TODO(), c, selectedUser.UserId)
 	if err != nil {
-		fmt.Printf("User to be saved: %v\n", selectedUser)
-		log.Fatalf("failed adding to address book: %v", err)
+		log.Printf("error beginning chat: %v", err)
 	}
 
 }
@@ -410,7 +438,7 @@ func loadChats(c *types.ClientInfo) error {
 func loadMessages(c *types.ClientInfo) ([]types.MessageStruct, error) {
 	rows, err := c.Pstatements.GetMessages.QueryContext(context.TODO(), c.Cache.ActiveChat)
 	if err != nil {
-    
+
 		return nil, fmt.Errorf("error querying messages: %v", err)
 	}
 

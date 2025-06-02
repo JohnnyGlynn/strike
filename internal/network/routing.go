@@ -58,7 +58,7 @@ func NewDemultiplexer(c *types.ClientInfo) *Demultiplexer {
 	// Run demultiplexer channel processors - Permanent processors
 	go ProcessEnvelopes(d.encenvelopeChannel, c, 0, &d.envelopeWorkerCount, &d.mu)
 	go ProcessChatRequests(d.chatRequestChannel, c, 0, &d.chatRequestWorkerCount, &d.mu)
-  //TODO: This is a mess
+	//TODO: This is a mess
 	go ProcessFriendRequests(d.friendRequestChannel, c, 0, &d.keyExchangeRequestWorkerCount, &d.mu)
 	go ProcessConfirmChatRequests(c, d.chatConfirmChannel, 0, &d.chatConfirmWorkerCount, &d.mu)
 	go ProcessKeyExchangeRequests(c, d.keyExchangeChannel, 0, &d.keyExchangeRequestWorkerCount, &d.mu)
@@ -213,7 +213,7 @@ func ProcessFriendRequests(ch <-chan *pb.FriendRequest, c *types.ClientInfo, idl
 			}
 			fmt.Printf("Friend Request from: %v\n", friendRequest.UserInfo.Username)
 			// Recieve an invite, cache it
-			c.Cache.FriendRequests[uuid.MustParse(friendRequest.InviteId)] = friendRequest.UserInfo
+			c.Cache.FriendRequests[uuid.MustParse(friendRequest.InviteId)] = friendRequest
 		case <-timeoutCh:
 			mu.Lock()
 			*workerCount--
