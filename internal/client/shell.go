@@ -37,11 +37,13 @@ func MessagingShell(c *types.ClientInfo) {
 	fmt.Printf("Enter chatTarget:message to send a message (e.g., '%v:HelloWorld') - Chat selection required\n", c.Username)
 
 	commands := map[string]func(){
-		"/addfriend": func() { shellAddFriend(inputReader, c) },
-		"/beginchat": func() { shellBeginChat(c, inputReader) },
-		"/chats":     func() { shellChat(inputReader, c) },
-		"/invites":   func() { shellInvites(ctx, c) },
-		"/help":      printHelp,
+		"/addfriend":      func() { shellAddFriend(inputReader, c) },
+    //TODO: manage context
+		"/friendRequests": func() { shellFriendRequests(context.TODO(), c) },
+		"/beginchat":      func() { shellBeginChat(c, inputReader) },
+		"/chats":          func() { shellChat(inputReader, c) },
+		"/invites":        func() { shellInvites(ctx, c) },
+		"/help":           printHelp,
 		"/exit": func() {
 			cancel()
 			fmt.Println("Exiting msgshell...")

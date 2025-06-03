@@ -19,6 +19,7 @@ type Demultiplexer struct {
 	chatRequestChannel             chan *pb.BeginChatRequest
 	chatConfirmChannel             chan *pb.ConfirmChatRequest
 	friendRequestChannel           chan *pb.FriendRequest
+	friendResponseChannel          chan *pb.FriendResponse
 	encenvelopeChannel             chan *pb.EncryptedEnvelope
 	keyExchangeChannel             chan *pb.KeyExchangeRequest
 	keyExchangeResponseChannel     chan *pb.KeyExchangeResponse
@@ -37,10 +38,11 @@ type Demultiplexer struct {
 
 func NewDemultiplexer(c *types.ClientInfo) *Demultiplexer {
 	d := &Demultiplexer{
-		chatRequestChannel:   make(chan *pb.BeginChatRequest, 20),
-		chatConfirmChannel:   make(chan *pb.ConfirmChatRequest, 20),
-		friendRequestChannel: make(chan *pb.FriendRequest, 200),
-		encenvelopeChannel:   make(chan *pb.EncryptedEnvelope, 200),
+		chatRequestChannel:    make(chan *pb.BeginChatRequest, 20),
+		chatConfirmChannel:    make(chan *pb.ConfirmChatRequest, 20),
+		friendRequestChannel:  make(chan *pb.FriendRequest, 200),
+		friendResponseChannel: make(chan *pb.FriendResponse, 200),
+		encenvelopeChannel:    make(chan *pb.EncryptedEnvelope, 200),
 		// TODO: There has to be a better way
 		keyExchangeChannel:             make(chan *pb.KeyExchangeRequest, 20),
 		keyExchangeResponseChannel:     make(chan *pb.KeyExchangeResponse, 20),
@@ -60,6 +62,7 @@ func NewDemultiplexer(c *types.ClientInfo) *Demultiplexer {
 	go ProcessChatRequests(d.chatRequestChannel, c, 0, &d.chatRequestWorkerCount, &d.mu)
 	//TODO: This is a mess
 	go ProcessFriendRequests(d.friendRequestChannel, c, 0, &d.keyExchangeRequestWorkerCount, &d.mu)
+	go ProcessFriendResponse(d.friendResponseChannel, c, 0, &d.keyExchangeRequestWorkerCount, &d.mu)
 	go ProcessConfirmChatRequests(c, d.chatConfirmChannel, 0, &d.chatConfirmWorkerCount, &d.mu)
 	go ProcessKeyExchangeRequests(c, d.keyExchangeChannel, 0, &d.keyExchangeRequestWorkerCount, &d.mu)
 	go ProcessKeyExchangeResponses(c, d.keyExchangeResponseChannel, 0, &d.keyExchangeRequestWorkerCount, &d.mu)
@@ -75,6 +78,18 @@ func (d *Demultiplexer) Dispatcher(msg *pb.StreamPayload) {
 		case d.encenvelopeChannel <- payload.Encenv:
 		default:
 			log.Printf("WARNING: Channel full - Envelope dropped - Sender: %v\n", payload.Encenv.FromUser)
+		}
+	case *pb.StreamPayload_FriendRequest:
+		select {
+		case d.friendRequestChannel <- payload.FriendRequest:
+		default:
+			log.Printf("WARNING: Channel full - Friend Request dropped - Sender: %v\n", payload.FriendRequest.UserInfo.Username)
+		}
+	case *pb.StreamPayload_FriendResponse:
+		select {
+		case d.friendResponseChannel <- payload.FriendResponse:
+		default:
+			log.Printf("WARNING: Channel full - Friend Response dropped - Sender: %v\n", payload.FriendResponse.UserInfo.Username)
 		}
 	case *pb.StreamPayload_ChatRequest:
 		select {
@@ -214,6 +229,38 @@ func ProcessFriendRequests(ch <-chan *pb.FriendRequest, c *types.ClientInfo, idl
 			fmt.Printf("Friend Request from: %v\n", friendRequest.UserInfo.Username)
 			// Recieve an invite, cache it
 			c.Cache.FriendRequests[uuid.MustParse(friendRequest.InviteId)] = friendRequest
+		case <-timeoutCh:
+			mu.Lock()
+			*workerCount--
+			mu.Unlock()
+			return
+		}
+	}
+}
+
+func ProcessFriendResponse(ch <-chan *pb.FriendResponse, c *types.ClientInfo, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
+	for {
+		var timeoutCh <-chan time.Time // channel for timer
+		if idleTimeout > 0 {
+			timeoutCh = time.After(idleTimeout) // if timeout non-0 create timout channel
+		}
+		select {
+		case friendRes, ok := <-ch:
+			if !ok {
+				return
+			}
+			fmt.Printf("Friend Response from: %v\n", friendRes.UserInfo.Username)
+
+			delete(c.Cache.FriendRequests, uuid.MustParse(friendRes.InviteId))
+
+			if friendRes.State {
+				_, err := c.Pstatements.SaveUserDetails.ExecContext(context.TODO(), friendRes.UserInfo.UserId, friendRes.UserInfo.Username, friendRes.UserInfo.EncryptionPublicKey, friendRes.UserInfo.SigningPublicKey)
+				if err != nil {
+					fmt.Printf("failed adding to address book: %v", err)
+					return
+				}
+			}
+
 		case <-timeoutCh:
 			mu.Lock()
 			*workerCount--
