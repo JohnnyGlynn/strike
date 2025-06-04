@@ -269,12 +269,17 @@ func shellAddFriend(inputReader *bufio.Reader, c *types.ClientInfo) {
 	})
 
 	userList := make([]*pb.UserInfo, 0, len(au.Users))
-	index := 1
+	index := 0
 
 	for _, user := range au.Users {
-		fmt.Printf("%d: %s\n", index, user.Username)
-		userList = append(userList, user)
-		index++
+    if user.UserId == c.UserID.String(){
+      index++
+      continue
+    } else {
+      fmt.Printf("%d: %s\n", index+1, user.Username)
+      userList = append(userList, user)
+      index++
+    }
 	}
 
 	fmt.Print("Enter the number of the user you want to invite (Enter to cancel): ")
