@@ -26,6 +26,10 @@ func PrepareStatements(ctx context.Context, db *sql.DB) (*types.ClientDB, error)
 		return nil, err
 	}
 
+	if statements.GetFriends, err = db.PrepareContext(ctx, `SELECT * FROM addressbook`); err != nil {
+		return nil, err
+	}
+
 	// Insert Chat
 	if statements.CreateChat, err = db.PrepareContext(ctx, `INSERT INTO chats (chat_id, chat_name, initiator, participants, state) VALUES (?, ?, ?, ?, ?)`); err != nil {
 		return nil, err
@@ -73,6 +77,7 @@ func CloseStatements(c *types.ClientDB) error {
 	closeStmt(c.SaveUserDetails)
 	closeStmt(c.GetUserId)
 	closeStmt(c.GetUsername)
+	closeStmt(c.GetFriends)
 	closeStmt(c.CreateChat)
 	closeStmt(c.GetChat)
 	closeStmt(c.GetChats)

@@ -19,10 +19,10 @@ type ClientInfo struct {
 }
 
 type ClientCache struct {
-	Invites    map[uuid.UUID]*pb.BeginChatRequest
-  FriendRequests map[uuid.UUID]*pb.FriendRequest
-	Chats      map[uuid.UUID]*pb.Chat
-	ActiveChat ChatDetails
+	Invites        map[uuid.UUID]*pb.BeginChatRequest
+	FriendRequests map[uuid.UUID]*pb.FriendRequest
+	Chats          map[uuid.UUID]*pb.Chat
+	ActiveChat     ChatDetails
 }
 
 // In memory persistence for shared secret and derived keys
@@ -48,6 +48,7 @@ type ClientDB struct {
 	SaveUserDetails *sql.Stmt
 	GetUserId       *sql.Stmt
 	GetUsername     *sql.Stmt
+	GetFriends      *sql.Stmt
 	CreateChat      *sql.Stmt
 	GetChat         *sql.Stmt
 	GetChats        *sql.Stmt
