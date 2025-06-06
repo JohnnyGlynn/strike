@@ -37,14 +37,15 @@ func MessagingShell(c *types.ClientInfo) {
 	fmt.Printf("Enter chatTarget:message to send a message (e.g., '%v:HelloWorld') - Chat selection required\n", c.Username)
 
 	commands := map[string]func(){
-		"/addf":      func() { shellAddFriend(inputReader, c) },
-    //TODO: manage context
+		"/addf": func() { shellAddFriend(inputReader, c) },
+		//TODO: manage context
 		"/fr": func() { shellFriendRequests(context.TODO(), c) },
-    //"chat"
-		"/beginchat":      func() { shellBeginChat(c, inputReader) },
-		"/chats":          func() { shellChat(inputReader, c) },
-		"/invites":        func() { shellInvites(ctx, c) },
-		"/help":           printHelp,
+		"/fl": func() { shellFriendList(c) },
+		//"chat"
+		"/beginchat": func() { shellBeginChat(c, inputReader) },
+		"/chats":     func() { shellChat(inputReader, c) },
+		"/invites":   func() { shellInvites(ctx, c) },
+		"/help":      printHelp,
 		"/exit": func() {
 			cancel()
 			fmt.Println("Exiting msgshell...")
@@ -155,6 +156,19 @@ func shellFriendRequests(ctx context.Context, c *types.ClientInfo) {
 			log.Printf("Failed to decline invite: %v", err)
 		}
 
+	}
+}
+
+func shellFriendList(c *types.ClientInfo) {
+	fmt.Println("Friends")
+	friends, err := loadFriends(c)
+	if err != nil {
+		log.Fatal("Failed to load friends")
+	}
+
+	//TODO: add active status
+	for _, f := range friends {
+		fmt.Printf("[%s] %s\n", f.UserId, f.Username)
 	}
 }
 
@@ -273,13 +287,13 @@ func shellAddFriend(inputReader *bufio.Reader, c *types.ClientInfo) {
 	index := 0
 
 	for _, user := range au.Users {
-    if user.UserId == c.UserID.String(){
-      continue
-    } else {
-      fmt.Printf("%d: %s\n", index, user.Username)
-      userList = append(userList, user)
-      index++
-    }
+		if user.UserId == c.UserID.String() {
+			continue
+		} else {
+			fmt.Printf("%d: %s\n", index, user.Username)
+			userList = append(userList, user)
+			index++
+		}
 	}
 
 	fmt.Print("Enter the number of the user you want to invite (Enter to cancel): ")
@@ -469,7 +483,7 @@ func loadMessages(c *types.ClientInfo) ([]types.MessageStruct, error) {
 	return messages, nil
 }
 
-//TODO: Generic loading function?
+// TODO: Generic loading function?
 func loadFriends(c *types.ClientInfo) ([]*pb.UserInfo, error) {
 	rows, err := c.Pstatements.GetFriends.QueryContext(context.TODO())
 	if err != nil {
@@ -485,7 +499,7 @@ func loadFriends(c *types.ClientInfo) ([]*pb.UserInfo, error) {
 	var users []*pb.UserInfo
 
 	for rows.Next() {
-    usr := &pb.UserInfo{}
+		usr := &pb.UserInfo{}
 		if err := rows.Scan(&usr.UserId, &usr.Username, &usr.EncryptionPublicKey, &usr.SigningPublicKey); err != nil {
 			log.Printf("error scanning row: %v", err)
 			return nil, err
@@ -495,4 +509,3 @@ func loadFriends(c *types.ClientInfo) ([]*pb.UserInfo, error) {
 
 	return users, nil
 }
-
