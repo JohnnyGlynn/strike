@@ -398,13 +398,16 @@ func shellSendMessage(input string, c *types.ClientInfo) error {
 }
 
 func printHelp() {
-	// Is multiple println better?
-	fmt.Print("---Available Commands---\n,",
-		"/beginchat: Invite a User to a Chat\n",
-		"/chats: List joined chats and set one to active\n",
-		"/invites: See and respond to Chat Invites\n",
-		"/exit: ...\n",
-	)
+	fmt.Println("---Available Commands---")
+	fmt.Println("/addf:       Send friend request by username")
+	fmt.Println("/fr:         View and respond to friend requests")
+	fmt.Println("/fl:         List all friends")
+
+	fmt.Println("/beginchat:  Invite a user to a chat")
+	fmt.Println("/chats:      List joined chats and set one active")
+	fmt.Println("/invites:    See and respond to chat invites")
+	fmt.Println("/help:       ...")
+	fmt.Println("/exit:       ...")
 }
 
 func loadChats(c *types.ClientInfo) error {
