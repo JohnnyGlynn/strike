@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/JohnnyGlynn/strike/internal/crypto"
-	"github.com/JohnnyGlynn/strike/internal/types"
+	"github.com/JohnnyGlynn/strike/internal/client/crypto"
+	"github.com/JohnnyGlynn/strike/internal/client/types"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 	"github.com/google/uuid"
 )

@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/JohnnyGlynn/strike/internal/types"
+	"github.com/JohnnyGlynn/strike/internal/client/types"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 	"github.com/google/uuid"
 )

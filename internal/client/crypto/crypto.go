@@ -11,7 +11,7 @@ import (
 
 	"golang.org/x/crypto/hkdf"
 
-	"github.com/JohnnyGlynn/strike/internal/types"
+	"github.com/JohnnyGlynn/strike/internal/client/types"
 )
 
 func DeriveKeys(c *types.ClientInfo, sct []byte) error {

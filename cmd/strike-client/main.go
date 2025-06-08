@@ -12,9 +12,9 @@ import (
 	"strings"
 
 	"github.com/JohnnyGlynn/strike/internal/client"
+	"github.com/JohnnyGlynn/strike/internal/client/types"
 	"github.com/JohnnyGlynn/strike/internal/config"
 	"github.com/JohnnyGlynn/strike/internal/keys"
-	"github.com/JohnnyGlynn/strike/internal/types"
 	"github.com/google/uuid"
 
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"

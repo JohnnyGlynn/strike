@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/JohnnyGlynn/strike/internal/types"
+	"github.com/JohnnyGlynn/strike/internal/client/types"
 )
 
 func PrepareStatements(ctx context.Context, db *sql.DB) (*types.ClientDB, error) {
