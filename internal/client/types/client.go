@@ -56,3 +56,15 @@ type ClientDB struct {
 	SaveMessage     *sql.Stmt
 	GetMessages     *sql.Stmt
 }
+
+type ShellMode int
+
+const (
+	ModeDefault ShellMode = iota
+	ModeChat
+)
+
+type ShellState struct {
+	Mode         ShellMode
+	ActiveChatId uuid.UUID
+}
