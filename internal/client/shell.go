@@ -19,6 +19,15 @@ import (
 	"github.com/google/uuid"
 )
 
+func printPrompt(state *types.ShellState, client *types.ClientInfo) {
+	switch state.Mode {
+	case types.ModeDefault:
+		fmt.Printf("[shell:%s]> ", client.Username)
+	case types.ModeChat:
+		fmt.Printf("[chat:%s@%s]> ", client.Username, client.Cache.ActiveChat.Chat.Name)
+	}
+}
+
 func MessagingShell(c *types.ClientInfo) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

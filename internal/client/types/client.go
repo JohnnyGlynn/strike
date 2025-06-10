@@ -68,3 +68,10 @@ type ShellState struct {
 	Mode         ShellMode
 	ActiveChatId uuid.UUID
 }
+
+type Command struct {
+	Name  string
+	Desc  string
+	CmdFn func(args []string, state *ShellState, client *ClientInfo)
+	Scope []ShellMode
+}
