@@ -28,6 +28,26 @@ func printPrompt(state *types.ShellState, client *types.ClientInfo) {
 	}
 }
 
+func inputParse(input string) types.ParsedInput {
+	input = strings.TrimSpace(input)
+	if strings.HasPrefix(input, "/") {
+		parts := strings.Fields(input)
+		if len(parts) == 0 {
+			return types.ParsedInput{}
+		}
+		return types.ParsedInput{
+			IsCommand: true,
+			Command:   parts[0],
+			Args:      parts[1:],
+			Raw:       input,
+		}
+	}
+	return types.ParsedInput{
+		IsCommand: false,
+		Raw:       input,
+	}
+}
+
 func MessagingShell(c *types.ClientInfo) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

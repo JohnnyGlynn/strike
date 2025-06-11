@@ -75,3 +75,10 @@ type Command struct {
 	CmdFn func(args []string, state *ShellState, client *ClientInfo)
 	Scope []ShellMode
 }
+
+type ParsedInput struct {
+	IsCommand bool
+	Command   string
+	Args      []string
+	Raw       string
+}
