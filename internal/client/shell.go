@@ -48,6 +48,18 @@ func inputParse(input string) types.ParsedInput {
 	}
 }
 
+func dispatchCommand(cmdMap map[string]types.Command, parsed types.ParsedInput, state *types.ShellState, client *types.ClientInfo) {
+	if cmd, exists := cmdMap[parsed.Command]; exists {
+		if slices.Contains(cmd.Scope, state.Mode) {
+			cmd.CmdFn(parsed.Args, state, client)
+		} else {
+			fmt.Printf("'%s' command not availble in '%v' mode\n", cmd.Name, state.Mode)
+		}
+	} else {
+		fmt.Printf("Unknown command: %s\n", parsed.Command)
+	}
+}
+
 func MessagingShell(c *types.ClientInfo) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
