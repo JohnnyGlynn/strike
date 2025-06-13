@@ -60,6 +60,27 @@ func dispatchCommand(cmdMap map[string]types.Command, parsed types.ParsedInput, 
 	}
 }
 
+func buildCommandMap() map[string]types.Command {
+	cmds := map[string]types.Command{}
+
+	//TODO: Bad idea?
+	register := func(c types.Command) {
+		cmds[c.Name] = c
+	}
+
+	register(types.Command{
+		Name: "/testCmd",
+		Desc: "Test command Map builder",
+		CmdFn: func(args []string, state *types.ShellState, client *types.ClientInfo) {
+			//TODO: Bad idea to put all the command logic in here?
+			fmt.Println("Building the command map")
+		},
+		Scope: []types.ShellMode{types.ModeChat},
+	})
+
+	return cmds
+}
+
 func MessagingShell(c *types.ClientInfo) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
