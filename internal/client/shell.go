@@ -81,12 +81,52 @@ func buildCommandMap() map[string]types.Command {
 	return cmds
 }
 
-func MessagingShell(c *types.ClientInfo) {
-	ctx, cancel := context.WithCancel(context.Background())
+func MShell(client *types.ClientInfo) {
+	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	// Get messages
-	// TODO: Pass a single client with everything we need
+	go func() {
+		err := ConnectPayloadStream(ctx, client)
+		if err != nil {
+			log.Fatalf("failed to connect message stream: %v\n", err)
+		}
+	}()
+
+	reader := bufio.NewReader(os.Stdin)
+	state := &types.ShellState{Mode: types.ModeDefault}
+	commands := buildCommandMap()
+
+	for {
+		printPrompt(state, client)
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Printf("Error reading input: %v\n", err)
+			continue
+		}
+
+		parsed := inputParse(input)
+
+		if parsed.IsCommand {
+			dispatchCommand(commands, parsed, state, client)
+		} else {
+			switch state.Mode {
+			case types.ModeChat:
+				//TODO: active chat
+				if err := shellSendMessage(input, client); err != nil {
+					fmt.Printf("Send failed: %v\n", err)
+					continue
+				}
+			default:
+				fmt.Println("Chat not engaged. Use <CHATCOMMAND> [username] to begin")
+			}
+		}
+	}
+}
+
+func MessagingShell(c *types.ClientInfo) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
 	go func() {
 		err := ConnectPayloadStream(ctx, c)
 		if err != nil {
