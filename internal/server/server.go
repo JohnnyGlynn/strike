@@ -12,8 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/JohnnyGlynn/strike/internal/auth"
-	// "github.com/JohnnyGlynn/strike/internal/db"
+	"github.com/JohnnyGlynn/strike/internal/client/auth"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 )
 
@@ -190,7 +189,7 @@ func (s *StrikeServer) UserRequest(ctx context.Context, userInfo *pb.UserInfo) (
 	return &pb.UserInfo{UserId: userid.String(), Username: userInfo.Username, EncryptionPublicKey: encryptionPubKey, SigningPublicKey: signingPubKey}, nil
 }
 
-func (s *StrikeServer) OnlineUsers(ctx context.Context, userInfo *pb.UserInfo) (*pb.UsersInfo, error) {
+func (s *StrikeServer) OnlineUsers(ctx context.Context, userInfo *pb.UserInfo) (*pb.Users, error) {
 	//TODO: Log user making request userInfo
 	log.Printf("%s (%s) requested active user list\n", userInfo.Username, userInfo.UserId)
 
@@ -207,7 +206,7 @@ func (s *StrikeServer) OnlineUsers(ctx context.Context, userInfo *pb.UserInfo) (
 	}
 	s.mu.Unlock()
 
-	return &pb.UsersInfo{Users: users}, nil
+	return &pb.Users{Users: users}, nil
 }
 
 func (s *StrikeServer) PayloadStream(user *pb.UserInfo, stream pb.Strike_PayloadStreamServer) error {

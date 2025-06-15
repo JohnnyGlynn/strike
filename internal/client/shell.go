@@ -78,6 +78,16 @@ func buildCommandMap() map[string]types.Command {
 		Scope: []types.ShellMode{types.ModeChat},
 	})
 
+	register(types.Command{
+		Name: "/pollServer",
+		Desc: "Get a list of active users on a server",
+		CmdFn: func(args []string, state *types.ShellState, client *types.ClientInfo) {
+      //pollServer()
+		},
+		Scope: []types.ShellMode{types.ModeChat},
+	})
+
+
 	return cmds
 }
 

@@ -371,7 +371,7 @@ func BeginChat(c *types.ClientInfo, target uuid.UUID, chatName string) error {
 	return nil
 }
 
-func GetActiveUsers(c *types.ClientInfo, uinfo *pb.UserInfo) *pb.UsersInfo {
+func GetActiveUsers(c *types.ClientInfo, uinfo *pb.UserInfo) *pb.Users {
 	activeUsers, err := c.Pbclient.OnlineUsers(context.TODO(), uinfo)
 	if err != nil {
 		log.Printf("error beginning chat: %v", err)

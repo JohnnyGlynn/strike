@@ -27,20 +27,23 @@ const (
 	Strike_StatusStream_FullMethodName  = "/message.Strike/StatusStream"
 	Strike_SendPayload_FullMethodName   = "/message.Strike/SendPayload"
 	Strike_PayloadStream_FullMethodName = "/message.Strike/PayloadStream"
+	Strike_PollServer_FullMethodName    = "/message.Strike/PollServer"
 )
 
 // StrikeClient is the client API for Strike service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type StrikeClient interface {
+	// TODO: Just login?
 	Signup(ctx context.Context, in *InitUser, opts ...grpc.CallOption) (*ServerResponse, error)
 	Login(ctx context.Context, in *LoginVerify, opts ...grpc.CallOption) (*ServerResponse, error)
 	SaltMine(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (*Salt, error)
 	UserRequest(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (*UserInfo, error)
-	OnlineUsers(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (*UsersInfo, error)
+	OnlineUsers(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (*Users, error)
 	StatusStream(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (Strike_StatusStreamClient, error)
 	SendPayload(ctx context.Context, in *StreamPayload, opts ...grpc.CallOption) (*ServerResponse, error)
 	PayloadStream(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (Strike_PayloadStreamClient, error)
+	PollServer(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (*ServerInfo, error)
 }
 
 type strikeClient struct {
@@ -91,9 +94,9 @@ func (c *strikeClient) UserRequest(ctx context.Context, in *UserInfo, opts ...gr
 	return out, nil
 }
 
-func (c *strikeClient) OnlineUsers(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (*UsersInfo, error) {
+func (c *strikeClient) OnlineUsers(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (*Users, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(UsersInfo)
+	out := new(Users)
 	err := c.cc.Invoke(ctx, Strike_OnlineUsers_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -177,18 +180,30 @@ func (x *strikePayloadStreamClient) Recv() (*StreamPayload, error) {
 	return m, nil
 }
 
+func (c *strikeClient) PollServer(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (*ServerInfo, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ServerInfo)
+	err := c.cc.Invoke(ctx, Strike_PollServer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // StrikeServer is the server API for Strike service.
 // All implementations must embed UnimplementedStrikeServer
 // for forward compatibility
 type StrikeServer interface {
+	// TODO: Just login?
 	Signup(context.Context, *InitUser) (*ServerResponse, error)
 	Login(context.Context, *LoginVerify) (*ServerResponse, error)
 	SaltMine(context.Context, *UserInfo) (*Salt, error)
 	UserRequest(context.Context, *UserInfo) (*UserInfo, error)
-	OnlineUsers(context.Context, *UserInfo) (*UsersInfo, error)
+	OnlineUsers(context.Context, *UserInfo) (*Users, error)
 	StatusStream(*UserInfo, Strike_StatusStreamServer) error
 	SendPayload(context.Context, *StreamPayload) (*ServerResponse, error)
 	PayloadStream(*UserInfo, Strike_PayloadStreamServer) error
+	PollServer(context.Context, *UserInfo) (*ServerInfo, error)
 	mustEmbedUnimplementedStrikeServer()
 }
 
@@ -208,7 +223,7 @@ func (UnimplementedStrikeServer) SaltMine(context.Context, *UserInfo) (*Salt, er
 func (UnimplementedStrikeServer) UserRequest(context.Context, *UserInfo) (*UserInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UserRequest not implemented")
 }
-func (UnimplementedStrikeServer) OnlineUsers(context.Context, *UserInfo) (*UsersInfo, error) {
+func (UnimplementedStrikeServer) OnlineUsers(context.Context, *UserInfo) (*Users, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OnlineUsers not implemented")
 }
 func (UnimplementedStrikeServer) StatusStream(*UserInfo, Strike_StatusStreamServer) error {
@@ -219,6 +234,9 @@ func (UnimplementedStrikeServer) SendPayload(context.Context, *StreamPayload) (*
 }
 func (UnimplementedStrikeServer) PayloadStream(*UserInfo, Strike_PayloadStreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method PayloadStream not implemented")
+}
+func (UnimplementedStrikeServer) PollServer(context.Context, *UserInfo) (*ServerInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PollServer not implemented")
 }
 func (UnimplementedStrikeServer) mustEmbedUnimplementedStrikeServer() {}
 
@@ -383,6 +401,24 @@ func (x *strikePayloadStreamServer) Send(m *StreamPayload) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _Strike_PollServer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UserInfo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StrikeServer).PollServer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Strike_PollServer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StrikeServer).PollServer(ctx, req.(*UserInfo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Strike_ServiceDesc is the grpc.ServiceDesc for Strike service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -413,6 +449,10 @@ var Strike_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SendPayload",
 			Handler:    _Strike_SendPayload_Handler,
+		},
+		{
+			MethodName: "PollServer",
+			Handler:    _Strike_PollServer_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

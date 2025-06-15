@@ -7,6 +7,7 @@ package message;
 option go_package="./message";
 
 service Strike {
+  //TODO: Just login?
   rpc Signup(InitUser) returns (ServerResponse) {}
 
   rpc Login(LoginVerify) returns (ServerResponse) {}
@@ -15,13 +16,15 @@ service Strike {
 
   rpc UserRequest(UserInfo) returns (UserInfo) {}
 
-  rpc OnlineUsers(UserInfo) returns (UsersInfo) {}
+  rpc OnlineUsers(UserInfo) returns (Users) {}
 
   rpc StatusStream(UserInfo) returns (stream StatusUpdate) {}
 
   rpc SendPayload(StreamPayload) returns (ServerResponse) {}
 
   rpc PayloadStream(UserInfo) returns (stream StreamPayload) {}
+
+  rpc PollServer(UserInfo) returns (ServerInfo) {}
 }
 
 //TODO: Lots of cleaning
@@ -33,7 +36,13 @@ message UserInfo {
     bytes signing_public_key = 4;
 }
 
-message UsersInfo {
+message ServerInfo {
+  string server_id = 1;
+  string server_name = 2;
+  Users users = 3;
+}
+
+message Users {
   repeated UserInfo users = 1;
 }
 
