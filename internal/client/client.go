@@ -374,10 +374,24 @@ func BeginChat(c *types.ClientInfo, target uuid.UUID, chatName string) error {
 func GetActiveUsers(c *types.ClientInfo, uinfo *pb.UserInfo) *pb.Users {
 	activeUsers, err := c.Pbclient.OnlineUsers(context.TODO(), uinfo)
 	if err != nil {
-		log.Printf("error beginning chat: %v", err)
+		log.Printf("error getting active users: %v", err)
 	}
 
 	return activeUsers
+}
+
+func PollServer(c *types.ClientInfo) *pb.ServerInfo {
+	sInfo, err := c.Pbclient.PollServer(context.TODO(), &pb.UserInfo{
+		Username:            c.Username,
+		UserId:              c.UserID.String(),
+		EncryptionPublicKey: c.Keys["EncryptionPublicKey"],
+		SigningPublicKey:    c.Keys["SigningPublicKeyu"],
+	})
+	if err != nil {
+		log.Printf("error polling server: %v", err)
+	}
+
+	return sInfo
 }
 
 // TODO: Handle all input like this?

@@ -39,7 +39,7 @@ message UserInfo {
 message ServerInfo {
   string server_id = 1;
   string server_name = 2;
-  Users users = 3;
+  repeated UserInfo users = 3;
 }
 
 message Users {

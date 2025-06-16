@@ -12,6 +12,7 @@ import (
 	"github.com/JohnnyGlynn/strike/internal/keys"
 	"github.com/JohnnyGlynn/strike/internal/server"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	grpc "google.golang.org/grpc"
@@ -92,6 +93,9 @@ func main() {
 	log.Println("Loaded TLS credentials")
 
 	strikeServerConfig := &server.StrikeServer{
+		Name: serverCfg.ServerName,
+		//TODO: Persistent identity
+		ID:          uuid.New(),
 		DBpool:      pool,
 		PStatements: statements,
 	}

@@ -21,6 +21,8 @@ type StrikeServer struct {
 	Env         []*pb.EncryptedEnvelope
 	DBpool      *pgxpool.Pool
 	PStatements *ServerDB
+	Name        string
+	ID          uuid.UUID
 
 	// TODO: Package the stream better
 	Connected       map[uuid.UUID]*pb.UserInfo
@@ -207,6 +209,28 @@ func (s *StrikeServer) OnlineUsers(ctx context.Context, userInfo *pb.UserInfo) (
 	s.mu.Unlock()
 
 	return &pb.Users{Users: users}, nil
+}
+
+func (s *StrikeServer) PollServer(ctx context.Context, userInfo *pb.UserInfo) (*pb.ServerInfo, error) {
+	//TODO: Wait groups?
+	s.mu.Lock()
+	users := make([]*pb.UserInfo, 0, len(s.Connected))
+	for _, v := range s.Connected {
+		users = append(users, &pb.UserInfo{
+			UserId:              v.UserId,
+			Username:            v.Username,
+			EncryptionPublicKey: v.EncryptionPublicKey,
+			SigningPublicKey:    v.SigningPublicKey,
+		})
+
+	}
+	s.mu.Unlock()
+
+	return &pb.ServerInfo{
+		ServerId:   s.ID.String(),
+		ServerName: s.Name,
+		Users:      users,
+	}, nil
 }
 
 func (s *StrikeServer) PayloadStream(user *pb.UserInfo, stream pb.Strike_PayloadStreamServer) error {

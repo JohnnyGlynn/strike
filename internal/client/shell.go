@@ -82,11 +82,11 @@ func buildCommandMap() map[string]types.Command {
 		Name: "/pollServer",
 		Desc: "Get a list of active users on a server",
 		CmdFn: func(args []string, state *types.ShellState, client *types.ClientInfo) {
-      //pollServer()
+			sInfo := PollServer(client)
+			fmt.Printf("Server Info\n Name: %s\n ID: %s\n Online Users: %v\n", sInfo.ServerName, sInfo.ServerId, sInfo.Users)
 		},
 		Scope: []types.ShellMode{types.ModeChat},
 	})
-
 
 	return cmds
 }
