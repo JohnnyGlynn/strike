@@ -75,7 +75,7 @@ func buildCommandMap() map[string]types.Command {
 			//TODO: Bad idea to put all the command logic in here?
 			fmt.Println("Building the command map")
 		},
-		Scope: []types.ShellMode{types.ModeChat},
+		Scope: []types.ShellMode{types.ModeDefault},
 	})
 
 	register(types.Command{
@@ -85,7 +85,49 @@ func buildCommandMap() map[string]types.Command {
 			sInfo := PollServer(client)
 			fmt.Printf("Server Info\n Name: %s\n ID: %s\n Online Users: %v\n", sInfo.ServerName, sInfo.ServerId, sInfo.Users)
 		},
-		Scope: []types.ShellMode{types.ModeChat},
+		Scope: []types.ShellMode{types.ModeDefault},
+	})
+
+  register(types.Command{
+		Name: "/friends",
+		Desc: "Display friends list",
+		CmdFn: func(args []string, state *types.ShellState, client *types.ClientInfo) {
+      FriendList(client)
+		},
+		Scope: []types.ShellMode{types.ModeDefault},
+	})
+
+  register(types.Command{
+		Name: "/chat",
+		Desc: "Chat with a friend",
+		CmdFn: func(args []string, state *types.ShellState, client *types.ClientInfo) {
+      if len(args) == 0 {
+        fmt.Println("Useage: /chat <friends username>")
+        return
+      }
+
+      state.Mode = types.ModeChat
+      // state.ActiveChatId = ????
+      fmt.Printf("Chatting with %s\n", args[0])
+
+		},
+		Scope: []types.ShellMode{types.ModeDefault},
+	})
+
+  register(types.Command{
+		Name: "/exit",
+		Desc: "Exit mshell",
+		CmdFn: func(args []string, state *types.ShellState, client *types.ClientInfo) {
+      if state.Mode == types.ModeDefault {
+        fmt.Println("Exiting mshell")
+        os.Exit(0)
+      } else if state.Mode == types.ModeChat{
+        fmt.Printf("Exiting chat with: %s\n", state.ActiveChatId)
+        state.Mode = types.ModeDefault
+        state.ActiveChatId = uuid.Nil
+      }
+		},
+		Scope: []types.ShellMode{types.ModeDefault},
 	})
 
 	return cmds
@@ -152,12 +194,11 @@ func MessagingShell(c *types.ClientInfo) {
 		"/addf": func() { shellAddFriend(inputReader, c) },
 		//TODO: manage context
 		"/fr": func() { shellFriendRequests(context.TODO(), c) },
-		"/fl": func() { shellFriendList(c) },
+		"/fl": func() { FriendList(c) },
 		//"chat"
 		"/beginchat": func() { shellBeginChat(c, inputReader) },
 		"/chats":     func() { shellChat(inputReader, c) },
 		"/invites":   func() { shellInvites(ctx, c) },
-		"/help":      printHelp,
 		"/exit": func() {
 			cancel()
 			fmt.Println("Exiting msgshell...")
@@ -271,7 +312,7 @@ func shellFriendRequests(ctx context.Context, c *types.ClientInfo) {
 	}
 }
 
-func shellFriendList(c *types.ClientInfo) {
+func FriendList(c *types.ClientInfo) {
 	fmt.Println("Friends")
 	friends, err := loadFriends(c)
 	if err != nil {
@@ -507,19 +548,6 @@ func shellSendMessage(input string, c *types.ClientInfo) error {
 	SendMessage(c, targetID, message)
 
 	return nil
-}
-
-func printHelp() {
-	fmt.Println("---Available Commands---")
-	fmt.Println("/addf:       Send friend request by username")
-	fmt.Println("/fr:         View and respond to friend requests")
-	fmt.Println("/fl:         List all friends")
-
-	fmt.Println("/beginchat:  Invite a user to a chat")
-	fmt.Println("/chats:      List joined chats and set one active")
-	fmt.Println("/invites:    See and respond to chat invites")
-	fmt.Println("/help:       ...")
-	fmt.Println("/exit:       ...")
 }
 
 func loadChats(c *types.ClientInfo) error {

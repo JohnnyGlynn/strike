@@ -270,7 +270,7 @@ func main() {
 			}
 
 		} else {
-			client.MessagingShell(clientInfo)
+			client.MShell(clientInfo)
 		}
 	}
 }
