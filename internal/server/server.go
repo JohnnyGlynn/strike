@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/JohnnyGlynn/strike/internal/client/auth"
+	"github.com/JohnnyGlynn/strike/internal/shared"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 )
 
@@ -87,7 +87,7 @@ func (s *StrikeServer) Login(ctx context.Context, clientLogin *pb.LoginVerify) (
 
 	// verify our password is right
 	// TODO: Check efficiency here, i.e. argon2 using 128mb ram
-	passMatch, err := auth.VerifyPassword(clientLogin.PasswordHash, storedHash)
+	passMatch, err := shared.VerifyPassword(clientLogin.PasswordHash, storedHash)
 	if err != nil {
 		return &pb.ServerResponse{Success: false, Message: "an error occured"}, err
 	}

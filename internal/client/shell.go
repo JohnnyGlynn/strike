@@ -88,44 +88,45 @@ func buildCommandMap() map[string]types.Command {
 		Scope: []types.ShellMode{types.ModeDefault},
 	})
 
-  register(types.Command{
+	register(types.Command{
 		Name: "/friends",
 		Desc: "Display friends list",
 		CmdFn: func(args []string, state *types.ShellState, client *types.ClientInfo) {
-      FriendList(client)
+			FriendList(client)
 		},
 		Scope: []types.ShellMode{types.ModeDefault},
 	})
 
-  register(types.Command{
+	register(types.Command{
 		Name: "/chat",
 		Desc: "Chat with a friend",
 		CmdFn: func(args []string, state *types.ShellState, client *types.ClientInfo) {
-      if len(args) == 0 {
-        fmt.Println("Useage: /chat <friends username>")
-        return
-      }
+			if len(args) == 0 {
+				fmt.Println("Useage: /chat <friends username>")
+				return
+			}
 
-      state.Mode = types.ModeChat
-      // state.ActiveChatId = ????
-      fmt.Printf("Chatting with %s\n", args[0])
+			state.Mode = types.ModeChat
+			// state.ActiveChatId = ????
+			fmt.Printf("Chatting with %s\n", args[0])
 
 		},
 		Scope: []types.ShellMode{types.ModeDefault},
 	})
 
-  register(types.Command{
+	register(types.Command{
 		Name: "/exit",
 		Desc: "Exit mshell",
 		CmdFn: func(args []string, state *types.ShellState, client *types.ClientInfo) {
-      if state.Mode == types.ModeDefault {
-        fmt.Println("Exiting mshell")
-        os.Exit(0)
-      } else if state.Mode == types.ModeChat{
-        fmt.Printf("Exiting chat with: %s\n", state.ActiveChatId)
-        state.Mode = types.ModeDefault
-        state.ActiveChatId = uuid.Nil
-      }
+			switch state.Mode {
+			case types.ModeChat:
+				fmt.Printf("Exiting chat with: %s\n", state.ActiveChatId)
+				state.Mode = types.ModeDefault
+				state.ActiveChatId = uuid.Nil
+			case types.ModeDefault:
+				fmt.Println("Exiting mshell")
+				os.Exit(0)
+			}
 		},
 		Scope: []types.ShellMode{types.ModeDefault},
 	})

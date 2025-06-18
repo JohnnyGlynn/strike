@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JohnnyGlynn/strike/internal/client/auth"
+	"github.com/JohnnyGlynn/strike/internal/shared"
 	"github.com/JohnnyGlynn/strike/internal/client/crypto"
 	"github.com/JohnnyGlynn/strike/internal/client/network"
 	"github.com/JohnnyGlynn/strike/internal/client/types"
@@ -213,7 +213,7 @@ func ClientSignup(c *types.ClientInfo, password string, curve25519key []byte, ed
 		return fmt.Errorf("failed to generate salt: %w", err)
 	}
 
-	passwordHash, err := auth.HashPassword(password, salt)
+	passwordHash, err := shared.HashPassword(password, salt)
 	if err != nil {
 		return fmt.Errorf("password input error: %v", err)
 	}
@@ -284,7 +284,7 @@ func Login(c *types.ClientInfo, password string) error {
 		return err
 	}
 
-	passwordHash, err := auth.HashPassword(password, salt.Salt)
+	passwordHash, err := shared.HashPassword(password, salt.Salt)
 	if err != nil {
 		return fmt.Errorf("password input error: %v", err)
 	}

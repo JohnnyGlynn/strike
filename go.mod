@@ -8,6 +8,7 @@ require (
 	github.com/jackc/pgx/v5 v5.7.1
 	google.golang.org/grpc v1.67.1
 	google.golang.org/protobuf v1.35.1
+	modernc.org/sqlite v1.37.0
 )
 
 require (
@@ -19,7 +20,6 @@ require (
 	modernc.org/libc v1.62.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.9.1 // indirect
-	modernc.org/sqlite v1.37.0 // indirect
 )
 
 require (
