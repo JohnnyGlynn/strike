@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JohnnyGlynn/strike/internal/shared"
 	"github.com/JohnnyGlynn/strike/internal/client/crypto"
 	"github.com/JohnnyGlynn/strike/internal/client/network"
 	"github.com/JohnnyGlynn/strike/internal/client/types"
+	"github.com/JohnnyGlynn/strike/internal/shared"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 	"github.com/google/uuid"
 

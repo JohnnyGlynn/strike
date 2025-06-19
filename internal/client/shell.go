@@ -83,7 +83,22 @@ func buildCommandMap() map[string]types.Command {
 		Desc: "Get a list of active users on a server",
 		CmdFn: func(args []string, state *types.ShellState, client *types.ClientInfo) {
 			sInfo := PollServer(client)
-			fmt.Printf("Server Info\n Name: %s\n ID: %s\n Online Users: %v\n", sInfo.ServerName, sInfo.ServerId, sInfo.Users)
+			fmt.Printf("Server Info\n Name: %s\n ID: %s\n", sInfo.ServerName, sInfo.ServerId)
+			fmt.Println("Online Users:")
+			for i, u := range sInfo.Users {
+				fmt.Printf("[%v] %s: %s", i, u.UserId[:4], u.Username)
+			}
+		},
+		Scope: []types.ShellMode{types.ModeDefault},
+	})
+
+	register(types.Command{
+		Name: "/addfriend",
+		Desc: "Send a friend request",
+		CmdFn: func(args []string, state *types.ShellState, client *types.ClientInfo) {
+			//TODO: Refactor out the need to pass in a reader
+			todoReader := bufio.NewReader(os.Stdin)
+			shellAddFriend(todoReader, client)
 		},
 		Scope: []types.ShellMode{types.ModeDefault},
 	})
