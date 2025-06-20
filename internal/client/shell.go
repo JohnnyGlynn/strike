@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/JohnnyGlynn/strike/internal/client/crypto"
 	"github.com/JohnnyGlynn/strike/internal/client/network"
@@ -335,6 +336,11 @@ func FriendList(c *types.ClientInfo) {
 		log.Fatal("Failed to load friends")
 	}
 
+	if len(friends) == 0 {
+		//TODO: Handle query loop here?
+		return
+	}
+
 	//TODO: add active status
 	for _, f := range friends {
 		fmt.Printf("[%s] %s\n", f.UserId, f.Username)
@@ -656,14 +662,31 @@ func loadFriends(c *types.ClientInfo) ([]*pb.UserInfo, error) {
 	}()
 
 	var users []*pb.UserInfo
+	found := false
+
+	//TODO: Clean this up
+	friendsStr := struct {
+		uInfo pb.UserInfo
+		crAt  time.Time
+	}{}
 
 	for rows.Next() {
-		usr := &pb.UserInfo{}
-		if err := rows.Scan(&usr.UserId, &usr.Username, &usr.EncryptionPublicKey, &usr.SigningPublicKey); err != nil {
+		// usr := &pb.UserInfo{}
+		found = true
+		if err := rows.Scan(&friendsStr.uInfo.UserId, &friendsStr.uInfo.Username, &friendsStr.uInfo.EncryptionPublicKey, &friendsStr.uInfo.SigningPublicKey, &friendsStr.crAt); err != nil {
 			log.Printf("error scanning row: %v", err)
 			return nil, err
 		}
-		users = append(users, usr)
+		users = append(users, &friendsStr.uInfo)
+	}
+
+	if !found {
+		fmt.Println("No friends found.")
+		return []*pb.UserInfo{}, nil
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return users, nil
