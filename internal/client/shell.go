@@ -147,6 +147,18 @@ func buildCommandMap() map[string]types.Command {
 		Scope: []types.ShellMode{types.ModeDefault},
 	})
 
+	register(types.Command{
+		Name: "/help",
+		Desc: "List all available commands",
+		CmdFn: func(args []string, state *types.ShellState, client *types.ClientInfo) {
+			fmt.Println("Available Commands:")
+			for _, cmd := range cmds {
+				fmt.Printf("%s: %s\n", cmd.Name, cmd.Desc)
+			}
+		},
+		Scope: []types.ShellMode{types.ModeDefault, types.ModeChat},
+	})
+
 	return cmds
 }
 
