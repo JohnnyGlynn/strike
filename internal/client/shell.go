@@ -122,8 +122,9 @@ func buildCommandMap() map[string]types.Command {
 				return
 			}
 
+      //TODO: Centralize state?
 			state.Mode = types.ModeChat
-			// state.ActiveChatId = ????
+      client.Cache.ActiveChat
 			fmt.Printf("Chatting with %s\n", args[0])
 
 		},
@@ -136,9 +137,9 @@ func buildCommandMap() map[string]types.Command {
 		CmdFn: func(args []string, state *types.ShellState, client *types.ClientInfo) {
 			switch state.Mode {
 			case types.ModeChat:
-				fmt.Printf("Exiting chat with: %s\n", state.ActiveChatId)
+				fmt.Printf("Exiting chat with: %s\n", client.Cache.ActiveChat.Chat.Id)
 				state.Mode = types.ModeDefault
-				state.ActiveChatId = uuid.Nil
+				client.Cache.ActiveChat.Chat.Id = ""
 			case types.ModeDefault:
 				fmt.Println("Exiting mshell")
 				os.Exit(0)
@@ -342,7 +343,7 @@ func shellFriendRequests(ctx context.Context, c *types.ClientInfo) {
 }
 
 func FriendList(c *types.ClientInfo) {
-	fmt.Println("Friends")
+  fmt.Println("Friend list:")
 	friends, err := loadFriends(c)
 	if err != nil {
 		log.Fatal("Failed to load friends")
@@ -350,6 +351,7 @@ func FriendList(c *types.ClientInfo) {
 
 	if len(friends) == 0 {
 		//TODO: Handle query loop here?
+    fmt.Println("No friends yet.")
 		return
 	}
 
@@ -357,6 +359,10 @@ func FriendList(c *types.ClientInfo) {
 	for _, f := range friends {
 		fmt.Printf("[%s] %s\n", f.UserId, f.Username)
 	}
+}
+
+func EnterChat(c *types.ClientInfo){
+
 }
 
 func shellChat(inputReader *bufio.Reader, c *types.ClientInfo) {

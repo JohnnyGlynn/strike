@@ -14,15 +14,14 @@ type ClientInfo struct {
 	Keys        map[string][]byte
 	Username    string
 	UserID      uuid.UUID
-	Cache       ClientCache
+	Cache       Cache
 	Pstatements *ClientDB
 }
 
-type ClientCache struct {
-	Invites        map[uuid.UUID]*pb.BeginChatRequest
+type Cache struct {
 	FriendRequests map[uuid.UUID]*pb.FriendRequest
 	Chats          map[uuid.UUID]*pb.Chat
-	ActiveChat     ChatDetails
+	CurrentChat    ChatDetails
 }
 
 // In memory persistence for shared secret and derived keys
@@ -65,8 +64,7 @@ const (
 )
 
 type ShellState struct {
-	Mode         ShellMode
-	ActiveChatId uuid.UUID
+	Mode ShellMode
 }
 
 type Command struct {
