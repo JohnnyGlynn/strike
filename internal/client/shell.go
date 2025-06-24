@@ -25,7 +25,7 @@ func printPrompt(state *types.ShellState, client *types.ClientInfo) {
 	case types.ModeDefault:
 		fmt.Printf("[shell:%s]> ", client.Username)
 	case types.ModeChat:
-		fmt.Printf("[chat:%s@%s]> ", client.Username, client.Cache.ActiveChat.Chat.Name)
+		fmt.Printf("[chat:%s@%s]> ", client.Username, client.Cache.CurrentChat.Chat.Name)
 	}
 }
 
@@ -122,9 +122,9 @@ func buildCommandMap() map[string]types.Command {
 				return
 			}
 
-      //TODO: Centralize state?
+			//TODO: Centralize state?
 			state.Mode = types.ModeChat
-      client.Cache.ActiveChat
+			// client.Cache.CurrentChat
 			fmt.Printf("Chatting with %s\n", args[0])
 
 		},
@@ -137,9 +137,9 @@ func buildCommandMap() map[string]types.Command {
 		CmdFn: func(args []string, state *types.ShellState, client *types.ClientInfo) {
 			switch state.Mode {
 			case types.ModeChat:
-				fmt.Printf("Exiting chat with: %s\n", client.Cache.ActiveChat.Chat.Id)
+				fmt.Printf("Exiting chat with: %s\n", client.Cache.CurrentChat.Chat.Id)
 				state.Mode = types.ModeDefault
-				client.Cache.ActiveChat.Chat.Id = ""
+				client.Cache.CurrentChat.Chat.Id = ""
 			case types.ModeDefault:
 				fmt.Println("Exiting mshell")
 				os.Exit(0)
@@ -205,113 +205,113 @@ func MShell(client *types.ClientInfo) {
 	}
 }
 
-func MessagingShell(c *types.ClientInfo) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
+// func MessagingShell(c *types.ClientInfo) {
+// 	ctx, cancel := context.WithCancel(context.TODO())
+// 	defer cancel()
 
-	go func() {
-		err := ConnectPayloadStream(ctx, c)
-		if err != nil {
-			log.Fatalf("failed to connect message stream: %v\n", err)
-		}
-	}()
+// 	go func() {
+// 		err := ConnectPayloadStream(ctx, c)
+// 		if err != nil {
+// 			log.Fatalf("failed to connect message stream: %v\n", err)
+// 		}
+// 	}()
 
-	inputReader := bufio.NewReader(os.Stdin)
-	fmt.Println("/help for available commands")
-	fmt.Printf("Enter chatTarget:message to send a message (e.g., '%v:HelloWorld') - Chat selection required\n", c.Username)
+// 	inputReader := bufio.NewReader(os.Stdin)
+// 	fmt.Println("/help for available commands")
+// 	fmt.Printf("Enter chatTarget:message to send a message (e.g., '%v:HelloWorld') - Chat selection required\n", c.Username)
 
-	commands := map[string]func(){
-		"/addf": func() { shellAddFriend(inputReader, c) },
-		//TODO: manage context
-		"/fr": func() { shellFriendRequests(context.TODO(), c) },
-		"/fl": func() { FriendList(c) },
-		//"chat"
-		"/beginchat": func() { shellBeginChat(c, inputReader) },
-		"/chats":     func() { shellChat(inputReader, c) },
-		"/invites":   func() { shellInvites(ctx, c) },
-		"/exit": func() {
-			cancel()
-			fmt.Println("Exiting msgshell...")
-			os.Exit(0) // Ensures we exit cleanly
-		},
-	}
+// 	commands := map[string]func(){
+// 		"/addf": func() { shellAddFriend(inputReader, c) },
+// 		//TODO: manage context
+// 		"/fr": func() { shellFriendRequests(context.TODO(), c) },
+// 		"/fl": func() { FriendList(c) },
+// 		//"chat"
+// 		"/beginchat": func() { shellBeginChat(c, inputReader) },
+// 		"/chats":     func() { shellChat(inputReader, c) },
+// 		"/invites":   func() { shellInvites(ctx, c) },
+// 		"/exit": func() {
+// 			cancel()
+// 			fmt.Println("Exiting msgshell...")
+// 			os.Exit(0) // Ensures we exit cleanly
+// 		},
+// 	}
 
-	for {
-		// Prompt for input
-		//TODO: Retrieve the messages one time and cache
-		if c.Cache.ActiveChat.Chat == nil {
-			fmt.Print("[NO-CHAT]msgshell> ")
-		} else {
-			messages, err := loadMessages(c)
-			if err != nil {
-				log.Fatal("failed to load messages")
-			}
+// 	for {
+// 		// Prompt for input
+// 		//TODO: Retrieve the messages one time and cache
+// 		if c.Cache.ActiveChat.Chat == nil {
+// 			fmt.Print("[NO-CHAT]msgshell> ")
+// 		} else {
+// 			messages, err := loadMessages(c)
+// 			if err != nil {
+// 				log.Fatal("failed to load messages")
+// 			}
 
-			for _, msg := range messages {
-				switch msg.Direction {
-				case "outbound":
-					fmt.Printf("You: %s\n", msg.Content)
-				case "inbound":
-					fmt.Printf("%s: %s\n", msg.Sender, msg.Content)
-				default:
-					fmt.Printf("Unknown: %s\n", msg.Content)
-				}
-			}
+// 			for _, msg := range messages {
+// 				switch msg.Direction {
+// 				case "outbound":
+// 					fmt.Printf("You: %s\n", msg.Content)
+// 				case "inbound":
+// 					fmt.Printf("%s: %s\n", msg.Sender, msg.Content)
+// 				default:
+// 					fmt.Printf("Unknown: %s\n", msg.Content)
+// 				}
+// 			}
 
-			fmt.Printf("[CHAT:%s]\n[%s]>", c.Cache.ActiveChat.Chat.Name[:20], c.Username)
-		}
+// 			fmt.Printf("[CHAT:%s]\n[%s]>", c.Cache.ActiveChat.Chat.Name[:20], c.Username)
+// 		}
 
-		input, err := inputReader.ReadString('\n')
-		if err != nil {
-			log.Printf("Error reading input: %v\n", err)
-			continue
-		}
+// 		input, err := inputReader.ReadString('\n')
+// 		if err != nil {
+// 			log.Printf("Error reading input: %v\n", err)
+// 			continue
+// 		}
 
-		input = strings.TrimSpace(input)
+// 		input = strings.TrimSpace(input)
 
-		if strings.HasPrefix(input, "/") {
-			if cmd, ok := commands[input]; ok {
-				cmd()
-			} else {
-				fmt.Printf("Unknown command: %s\n", input)
-			}
-			continue
-		}
+// 		if strings.HasPrefix(input, "/") {
+// 			if cmd, ok := commands[input]; ok {
+// 				cmd()
+// 			} else {
+// 				fmt.Printf("Unknown command: %s\n", input)
+// 			}
+// 			continue
+// 		}
 
-		if err := shellSendMessage(input, c); err != nil {
-			fmt.Println(err)
-			continue
-		}
-	}
-}
+// 		if err := shellSendMessage(input, c); err != nil {
+// 			fmt.Println(err)
+// 			continue
+// 		}
+// 	}
+// }
 
-func shellInvites(ctx context.Context, c *types.ClientInfo) {
-	if len(c.Cache.Invites) == 0 {
-		fmt.Println("No pending invites :^[")
-		return
-	}
+// func shellInvites(ctx context.Context, c *types.ClientInfo) {
+// 	if len(c.Cache.Invites) == 0 {
+// 		fmt.Println("No pending invites :^[")
+// 		return
+// 	}
 
-	fmt.Println("Pending Invites")
-	inputReader := bufio.NewReader(os.Stdin)
+// 	fmt.Println("Pending Invites")
+// 	inputReader := bufio.NewReader(os.Stdin)
 
-	for inviteID, chatRequest := range c.Cache.Invites {
-		fmt.Printf("%v: %s [FROM: %s]\n", inviteID, chatRequest.Chat.Name, chatRequest.Initiator)
-		fmt.Printf("y[Accept]/n[Decline]")
+// 	for inviteID, chatRequest := range c.Cache.Invites {
+// 		fmt.Printf("%v: %s [FROM: %s]\n", inviteID, chatRequest.Chat.Name, chatRequest.Initiator)
+// 		fmt.Printf("y[Accept]/n[Decline]")
 
-		input, err := inputReader.ReadString('\n')
-		if err != nil {
-			log.Printf("Error reading input: %v\n", err)
-			continue
-		}
+// 		input, err := inputReader.ReadString('\n')
+// 		if err != nil {
+// 			log.Printf("Error reading input: %v\n", err)
+// 			continue
+// 		}
 
-		input = strings.TrimSpace(strings.ToLower(input))
-		accepted := input == "y"
+// 		input = strings.TrimSpace(strings.ToLower(input))
+// 		accepted := input == "y"
 
-		if err := ConfirmChat(ctx, c, chatRequest, accepted); err != nil {
-			log.Printf("Failed to decline invite: %v", err)
-		}
-	}
-}
+// 		if err := ConfirmChat(ctx, c, chatRequest, accepted); err != nil {
+// 			log.Printf("Failed to decline invite: %v", err)
+// 		}
+// 	}
+// }
 
 func shellFriendRequests(ctx context.Context, c *types.ClientInfo) {
 	if len(c.Cache.FriendRequests) == 0 {
@@ -343,7 +343,7 @@ func shellFriendRequests(ctx context.Context, c *types.ClientInfo) {
 }
 
 func FriendList(c *types.ClientInfo) {
-  fmt.Println("Friend list:")
+	fmt.Println("Friend list:")
 	friends, err := loadFriends(c)
 	if err != nil {
 		log.Fatal("Failed to load friends")
@@ -351,7 +351,7 @@ func FriendList(c *types.ClientInfo) {
 
 	if len(friends) == 0 {
 		//TODO: Handle query loop here?
-    fmt.Println("No friends yet.")
+		fmt.Println("No friends yet.")
 		return
 	}
 
@@ -361,7 +361,7 @@ func FriendList(c *types.ClientInfo) {
 	}
 }
 
-func EnterChat(c *types.ClientInfo){
+func EnterChat(c *types.ClientInfo) {
 
 }
 
@@ -409,15 +409,15 @@ func shellChat(inputReader *bufio.Reader, c *types.ClientInfo) {
 
 	selectedChat := chatList[selectedIndex-1]
 
-	if c.Cache.ActiveChat.Chat == selectedChat {
+	if c.Cache.CurrentChat.Chat == selectedChat {
 		fmt.Printf("%s already active", selectedChat.Name)
 		return
 	}
 
-	c.Cache.ActiveChat.Chat = selectedChat
-	fmt.Printf("Active chat: %s\n", c.Cache.ActiveChat.Chat.Name)
+	c.Cache.CurrentChat.Chat = selectedChat
+	fmt.Printf("Active chat: %s\n", c.Cache.CurrentChat.Chat.Name)
 
-	participants := c.Cache.ActiveChat.Chat.Participants
+	participants := c.Cache.CurrentChat.Chat.Participants
 
 	for k, v := range participants {
 		if v == c.UserID.String() {
@@ -457,7 +457,7 @@ func shellChat(inputReader *bufio.Reader, c *types.ClientInfo) {
 		return
 	}
 
-	c.Cache.ActiveChat.SharedSecret = sharedSecret
+	c.Cache.CurrentChat.SharedSecret = sharedSecret
 
 	err = crypto.DeriveKeys(c, sharedSecret)
 	if err != nil {
@@ -568,7 +568,7 @@ func shellSendMessage(input string, c *types.ClientInfo) error {
 	}
 
 	// TODO: Stopgap handle this elsewhere
-	if c.Cache.ActiveChat.Chat == nil {
+	if c.Cache.CurrentChat.Chat == nil {
 		return fmt.Errorf("no chat has been selected. use /chats to enable a chat first")
 	}
 
@@ -640,7 +640,7 @@ func loadChats(c *types.ClientInfo) error {
 }
 
 func loadMessages(c *types.ClientInfo) ([]types.MessageStruct, error) {
-	rows, err := c.Pstatements.GetMessages.QueryContext(context.TODO(), c.Cache.ActiveChat)
+	rows, err := c.Pstatements.GetMessages.QueryContext(context.TODO(), c.Cache.CurrentChat)
 	if err != nil {
 
 		return nil, fmt.Errorf("error querying messages: %v", err)

@@ -148,8 +148,7 @@ func main() {
 	clientInfo := &types.ClientInfo{
 		Config: &clientCfg,
 		Keys:   loadedKeys,
-		Cache: types.ClientCache{
-			Invites:        make(map[uuid.UUID]*pb.BeginChatRequest),
+		Cache: types.Cache{
 			Chats:          make(map[uuid.UUID]*pb.Chat),
 			FriendRequests: make(map[uuid.UUID]*pb.FriendRequest),
 		},

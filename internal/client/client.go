@@ -73,7 +73,7 @@ func SendMessage(c *types.ClientInfo, target uuid.UUID, message string) {
 		SentAt:           timestamppb.Now(),
 		FromUser:         c.UserID.String(),
 		ToUser:           target.String(),
-		Chat:             c.Cache.Chats[uuid.MustParse(c.Cache.ActiveChat.Chat.Id)],
+		Chat:             c.Cache.Chats[uuid.MustParse(c.Cache.CurrentChat.Chat.Id)],
 		EncryptedMessage: sealedMessage,
 	}
 
@@ -89,45 +89,45 @@ func SendMessage(c *types.ClientInfo, target uuid.UUID, message string) {
 		log.Fatalf("Error sending message: %v", err)
 	}
 
-	_, err = c.Pstatements.SaveMessage.ExecContext(context.TODO(), uuid.New().String(), c.Cache.Chats[uuid.MustParse(c.Cache.ActiveChat.Chat.Id)], c.UserID.String(), target.String(), "outbound", sealedMessage, time.Now().UnixMilli())
+	_, err = c.Pstatements.SaveMessage.ExecContext(context.TODO(), uuid.New().String(), c.Cache.Chats[uuid.MustParse(c.Cache.CurrentChat.Chat.Id)], c.UserID.String(), target.String(), "outbound", sealedMessage, time.Now().UnixMilli())
 	if err != nil {
 		log.Fatalf("Failed to save message")
 	}
 
 }
 
-func ConfirmChat(ctx context.Context, c *types.ClientInfo, chatRequest *pb.BeginChatRequest, inviteState bool) error {
-	confirmation := pb.ConfirmChatRequest{
-		InviteId:  chatRequest.InviteId,
-		Initiator: chatRequest.Initiator,
-		Confirmer: c.UserID.String(),
-		State:     inviteState,
-		Chat:      chatRequest.Chat,
-	}
+// func ConfirmChat(ctx context.Context, c *types.ClientInfo, chatRequest *pb.BeginChatRequest, inviteState bool) error {
+// 	confirmation := pb.ConfirmChatRequest{
+// 		InviteId:  chatRequest.InviteId,
+// 		Initiator: chatRequest.Initiator,
+// 		Confirmer: c.UserID.String(),
+// 		State:     inviteState,
+// 		Chat:      chatRequest.Chat,
+// 	}
 
-	payload := pb.StreamPayload{
-		Target:  chatRequest.Initiator,
-		Sender:  c.UserID.String(),
-		Payload: &pb.StreamPayload_ChatConfirm{ChatConfirm: &confirmation},
-		Info:    "Chat Confirmation payload",
-	}
+// 	payload := pb.StreamPayload{
+// 		Target:  chatRequest.Initiator,
+// 		Sender:  c.UserID.String(),
+// 		Payload: &pb.StreamPayload_ChatConfirm{ChatConfirm: &confirmation},
+// 		Info:    "Chat Confirmation payload",
+// 	}
 
-	resp, err := c.Pbclient.SendPayload(ctx, &payload)
-	if err != nil {
-		return fmt.Errorf("failed to confirm chat: %v", err)
-	}
+// 	resp, err := c.Pbclient.SendPayload(ctx, &payload)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to confirm chat: %v", err)
+// 	}
 
-	delete(c.Cache.Invites, uuid.MustParse(chatRequest.InviteId))
-	// Cache a chat when you acceot an invite
+// 	delete(c.Cache.Invites, uuid.MustParse(chatRequest.InviteId))
+// 	// Cache a chat when you acceot an invite
 
-	if inviteState {
-		c.Cache.Chats[uuid.MustParse(chatRequest.Chat.Id)] = chatRequest.Chat
-	}
+// 	if inviteState {
+// 		c.Cache.Chats[uuid.MustParse(chatRequest.Chat.Id)] = chatRequest.Chat
+// 	}
 
-	fmt.Printf("Chat invite acknowledged: %+v\n", resp)
+// 	fmt.Printf("Chat invite acknowledged: %+v\n", resp)
 
-	return nil
-}
+// 	return nil
+// }
 
 func FriendRequest(ctx context.Context, c *types.ClientInfo, target string) error {
 

@@ -27,13 +27,13 @@ func DeriveKeys(c *types.ClientInfo, sct []byte) error {
 		return err
 	}
 
-	c.Cache.ActiveChat.EncKey = encKey
+	c.Cache.CurrentChat.EncKey = encKey
 
 	if _, err := io.ReadFull(d, hmacKey); err != nil {
 		return err
 	}
 
-	c.Cache.ActiveChat.HmacKey = hmacKey
+	c.Cache.CurrentChat.HmacKey = hmacKey
 
 	return nil
 }
@@ -51,7 +51,7 @@ func VerifyEdSignatures(pubKey ed25519.PublicKey, nonce, CurvePublicKey []byte, 
 }
 
 func Encrypt(c *types.ClientInfo, plaintext []byte) ([]byte, error) {
-	block, err := aes.NewCipher(c.Cache.ActiveChat.EncKey)
+	block, err := aes.NewCipher(c.Cache.CurrentChat.EncKey)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func Encrypt(c *types.ClientInfo, plaintext []byte) ([]byte, error) {
 }
 
 func Decrypt(c *types.ClientInfo, sealedMessage []byte) ([]byte, error) {
-	block, err := aes.NewCipher(c.Cache.ActiveChat.EncKey)
+	block, err := aes.NewCipher(c.Cache.CurrentChat.EncKey)
 	if err != nil {
 		return nil, err
 	}

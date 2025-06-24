@@ -204,7 +204,7 @@ func ProcessChatRequests(ch <-chan *pb.BeginChatRequest, c *types.ClientInfo, id
 			}
 			fmt.Printf("Chat Invite recieved from:%v Chat Name: %v\n", chatRequest.Initiator, chatRequest.Chat.Name)
 			// Recieve an invite, cache it
-			c.Cache.Invites[uuid.MustParse(chatRequest.InviteId)] = chatRequest
+			// c.Cache.Invites[uuid.MustParse(chatRequest.InviteId)] = chatRequest
 		case <-timeoutCh:
 			fmt.Printf("ChatRequest worker idle for %v, exiting.\n", idleTimeout) // shutdown ephemeral workers
 			mu.Lock()
