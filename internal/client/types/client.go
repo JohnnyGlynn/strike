@@ -24,7 +24,6 @@ type Cache struct {
 	CurrentChat    ChatDetails
 }
 
-// In memory persistence for shared secret and derived keys
 type ChatDetails struct {
 	Chat         *pb.Chat
 	SharedSecret []byte

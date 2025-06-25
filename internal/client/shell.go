@@ -205,6 +205,10 @@ func MShell(client *types.ClientInfo) {
 	}
 }
 
+func enterChat() {
+
+}
+
 // func MessagingShell(c *types.ClientInfo) {
 // 	ctx, cancel := context.WithCancel(context.TODO())
 // 	defer cancel()
@@ -349,9 +353,27 @@ func FriendList(c *types.ClientInfo) {
 		log.Fatal("Failed to load friends")
 	}
 
+	reader := bufio.NewReader(os.Stdin)
+
 	if len(friends) == 0 {
 		//TODO: Handle query loop here?
 		fmt.Println("No friends yet.")
+
+		if len(c.Cache.FriendRequests) != 0 {
+			fmt.Print("See friend requests?: [y/n]")
+			input, err := reader.ReadString('\n')
+			if err != nil {
+				log.Printf("Error reading input: %v\n", err)
+				return
+			}
+
+			input = strings.TrimSpace(strings.ToLower(input))
+			accepted := input == "y"
+			if accepted {
+				shellFriendRequests(context.TODO(), c)
+				return
+			}
+		}
 		return
 	}
 
@@ -359,11 +381,29 @@ func FriendList(c *types.ClientInfo) {
 	for _, f := range friends {
 		fmt.Printf("[%s] %s\n", f.UserId, f.Username)
 	}
+
+	//TODO: DRY
+	fmt.Print("See friend requests?: [y/n]")
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		log.Printf("Error reading input: %v\n", err)
+		return
+	}
+
+	input = strings.TrimSpace(strings.ToLower(input))
+	accepted := input == "y"
+	if accepted {
+		shellFriendRequests(context.TODO(), c)
+		return
+	}
+
+	return
+
 }
 
-func EnterChat(c *types.ClientInfo) {
+// func EnterChat(c *types.ClientInfo) {
 
-}
+// }
 
 func shellChat(inputReader *bufio.Reader, c *types.ClientInfo) {
 	if len(c.Cache.Chats) == 0 {
