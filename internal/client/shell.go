@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JohnnyGlynn/strike/internal/client/crypto"
-	"github.com/JohnnyGlynn/strike/internal/client/network"
+	// "github.com/JohnnyGlynn/strike/internal/client/crypto"
+	// "github.com/JohnnyGlynn/strike/internal/client/network"
 	"github.com/JohnnyGlynn/strike/internal/client/types"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 	"github.com/google/uuid"
@@ -397,114 +397,108 @@ func FriendList(c *types.ClientInfo) {
 		return
 	}
 
-	return
-
 }
 
-// func EnterChat(c *types.ClientInfo) {
+// func shellChat(inputReader *bufio.Reader, c *types.ClientInfo) {
+// 	if len(c.Cache.Chats) == 0 {
+// 		if err := loadChats(c); err != nil {
+// 			log.Printf("Error loading chats: %v", err)
+// 			return
+// 		}
+// 		if len(c.Cache.Chats) == 0 {
+// 			fmt.Println("No chats available")
+// 			return
+// 		}
+// 	}
+
+// 	fmt.Println("Available Chats:")
+
+// 	chatList := make([]*pb.Chat, 0, len(c.Cache.Chats))
+// 	index := 1
+
+// 	for _, chat := range c.Cache.Chats {
+// 		fmt.Printf("%d: %s [STATE: %v]\n", index, chat.Name, chat.State.String())
+// 		chatList = append(chatList, chat)
+// 		index++
+// 	}
+
+// 	fmt.Print("Enter the chat number to set active (Enter to cancel): ")
+// 	selectedIndexString, err := inputReader.ReadString('\n')
+// 	if err != nil {
+// 		log.Printf("Error reading input: %v\n", err)
+// 		return
+// 	}
+
+// 	selectedIndexString = strings.TrimSpace(selectedIndexString)
+// 	if selectedIndexString == "" {
+// 		fmt.Println("No chat selected.")
+// 		return
+// 	}
+
+// 	selectedIndex, err := strconv.Atoi(selectedIndexString)
+// 	if err != nil || selectedIndex < 1 || selectedIndex > len(chatList) {
+// 		fmt.Println("Invalid selection. Please enter a valid chat number.")
+// 		return
+// 	}
+
+// 	selectedChat := chatList[selectedIndex-1]
+
+// 	if c.Cache.CurrentChat.Chat == selectedChat {
+// 		fmt.Printf("%s already active", selectedChat.Name)
+// 		return
+// 	}
+
+// 	c.Cache.CurrentChat.Chat = selectedChat
+// 	fmt.Printf("Active chat: %s\n", c.Cache.CurrentChat.Chat.Name)
+
+// 	participants := c.Cache.CurrentChat.Chat.Participants
+
+// 	for k, v := range participants {
+// 		if v == c.UserID.String() {
+// 			participants = slices.Delete(participants, k, k+1)
+// 			break
+// 		}
+// 	}
+
+// 	if len(participants) == 0 {
+// 		log.Print("No other participants in the chat")
+// 		return
+// 	}
+
+// 	var targetUser string
+// 	row := c.Pstatements.GetUsername.QueryRowContext(context.TODO(), participants[0])
+// 	err = row.Scan(&targetUser)
+// 	if err != nil {
+// 		if errors.Is(err, sql.ErrNoRows) {
+// 			log.Fatalf("DB error: %v", err)
+// 		}
+// 		log.Fatalf("an error occured: %v", err)
+// 	}
+
+// 	uinfo := &pb.UserInfo{
+// 		Username: targetUser,
+// 	}
+
+// 	target, err := c.Pbclient.UserRequest(context.TODO(), uinfo)
+// 	if err != nil {
+// 		log.Printf("error beginning chat: %v", err)
+// 	}
+
+// 	sharedSecret, err := network.ComputeSharedSecret(c.Keys["EncryptionPrivateKey"], target.EncryptionPublicKey)
+// 	if err != nil {
+// 		// TODO: Error return
+// 		log.Print("failed to compute shared secret")
+// 		return
+// 	}
+
+// 	c.Cache.CurrentChat.SharedSecret = sharedSecret
+
+// 	err = crypto.DeriveKeys(c, sharedSecret)
+// 	if err != nil {
+// 		log.Fatalf("Failed to derive keys")
+// 	}
 
 // }
-
-func shellChat(inputReader *bufio.Reader, c *types.ClientInfo) {
-	if len(c.Cache.Chats) == 0 {
-		if err := loadChats(c); err != nil {
-			log.Printf("Error loading chats: %v", err)
-			return
-		}
-		if len(c.Cache.Chats) == 0 {
-			fmt.Println("No chats available")
-			return
-		}
-	}
-
-	fmt.Println("Available Chats:")
-
-	chatList := make([]*pb.Chat, 0, len(c.Cache.Chats))
-	index := 1
-
-	for _, chat := range c.Cache.Chats {
-		fmt.Printf("%d: %s [STATE: %v]\n", index, chat.Name, chat.State.String())
-		chatList = append(chatList, chat)
-		index++
-	}
-
-	fmt.Print("Enter the chat number to set active (Enter to cancel): ")
-	selectedIndexString, err := inputReader.ReadString('\n')
-	if err != nil {
-		log.Printf("Error reading input: %v\n", err)
-		return
-	}
-
-	selectedIndexString = strings.TrimSpace(selectedIndexString)
-	if selectedIndexString == "" {
-		fmt.Println("No chat selected.")
-		return
-	}
-
-	selectedIndex, err := strconv.Atoi(selectedIndexString)
-	if err != nil || selectedIndex < 1 || selectedIndex > len(chatList) {
-		fmt.Println("Invalid selection. Please enter a valid chat number.")
-		return
-	}
-
-	selectedChat := chatList[selectedIndex-1]
-
-	if c.Cache.CurrentChat.Chat == selectedChat {
-		fmt.Printf("%s already active", selectedChat.Name)
-		return
-	}
-
-	c.Cache.CurrentChat.Chat = selectedChat
-	fmt.Printf("Active chat: %s\n", c.Cache.CurrentChat.Chat.Name)
-
-	participants := c.Cache.CurrentChat.Chat.Participants
-
-	for k, v := range participants {
-		if v == c.UserID.String() {
-			participants = slices.Delete(participants, k, k+1)
-			break
-		}
-	}
-
-	if len(participants) == 0 {
-		log.Print("No other participants in the chat")
-		return
-	}
-
-	var targetUser string
-	row := c.Pstatements.GetUsername.QueryRowContext(context.TODO(), participants[0])
-	err = row.Scan(&targetUser)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			log.Fatalf("DB error: %v", err)
-		}
-		log.Fatalf("an error occured: %v", err)
-	}
-
-	uinfo := &pb.UserInfo{
-		Username: targetUser,
-	}
-
-	target, err := c.Pbclient.UserRequest(context.TODO(), uinfo)
-	if err != nil {
-		log.Printf("error beginning chat: %v", err)
-	}
-
-	sharedSecret, err := network.ComputeSharedSecret(c.Keys["EncryptionPrivateKey"], target.EncryptionPublicKey)
-	if err != nil {
-		// TODO: Error return
-		log.Print("failed to compute shared secret")
-		return
-	}
-
-	c.Cache.CurrentChat.SharedSecret = sharedSecret
-
-	err = crypto.DeriveKeys(c, sharedSecret)
-	if err != nil {
-		log.Fatalf("Failed to derive keys")
-	}
-
-}
 
 func shellAddFriend(inputReader *bufio.Reader, c *types.ClientInfo) {
 	fmt.Println("Online Users:")
@@ -557,45 +551,45 @@ func shellAddFriend(inputReader *bufio.Reader, c *types.ClientInfo) {
 
 }
 
-func shellBeginChat(c *types.ClientInfo, inputReader *bufio.Reader) {
-	fmt.Print("Invite User> ")
-	inviteUser, err := inputReader.ReadString('\n')
-	if err != nil {
-		log.Printf("Error reading invite input user: %v\n", err)
-		return
-	}
-	inviteUser = strings.TrimSpace(inviteUser)
+// func shellBeginChat(c *types.ClientInfo, inputReader *bufio.Reader) {
+// 	fmt.Print("Invite User> ")
+// 	inviteUser, err := inputReader.ReadString('\n')
+// 	if err != nil {
+// 		log.Printf("Error reading invite input user: %v\n", err)
+// 		return
+// 	}
+// 	inviteUser = strings.TrimSpace(inviteUser)
 
-	var targetUser *pb.UserInfo
+// 	var targetUser *pb.UserInfo
 
-	au := GetActiveUsers(c, &pb.UserInfo{
-		Username:            c.Username,
-		UserId:              c.UserID.String(),
-		EncryptionPublicKey: c.Keys["EncryptionPublicKey"],
-		SigningPublicKey:    c.Keys["SigningPublicKey"],
-	})
+// 	au := GetActiveUsers(c, &pb.UserInfo{
+// 		Username:            c.Username,
+// 		UserId:              c.UserID.String(),
+// 		EncryptionPublicKey: c.Keys["EncryptionPublicKey"],
+// 		SigningPublicKey:    c.Keys["SigningPublicKey"],
+// 	})
 
-	//TODO Add user function directly
-	for _, value := range au.Users {
-		if value.Username == inviteUser {
-			targetUser = value
-		}
+// 	//TODO Add user function directly
+// 	for _, value := range au.Users {
+// 		if value.Username == inviteUser {
+// 			targetUser = value
+// 		}
 
-	}
+// 	}
 
-	fmt.Print("Chat Name> ")
-	chatName, err := inputReader.ReadString('\n')
-	if err != nil {
-		log.Printf("Error reading invite input chat name: %v\n", err)
-		return
-	}
-	chatName = strings.TrimSpace(chatName)
+// 	fmt.Print("Chat Name> ")
+// 	chatName, err := inputReader.ReadString('\n')
+// 	if err != nil {
+// 		log.Printf("Error reading invite input chat name: %v\n", err)
+// 		return
+// 	}
+// 	chatName = strings.TrimSpace(chatName)
 
-	err = BeginChat(c, uuid.MustParse(targetUser.UserId), chatName)
-	if err != nil {
-		log.Printf("error beginning chat: %v", err)
-	}
-}
+// 	err = BeginChat(c, uuid.MustParse(targetUser.UserId), chatName)
+// 	if err != nil {
+// 		log.Printf("error beginning chat: %v", err)
+// 	}
+// }
 
 func shellSendMessage(input string, c *types.ClientInfo) error {
 	if input == "" {
