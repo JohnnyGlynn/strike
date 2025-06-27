@@ -14,7 +14,7 @@ import (
 	"github.com/JohnnyGlynn/strike/internal/client/types"
 )
 
-func DeriveKeys(c *types.ClientInfo, sct []byte) error {
+func DeriveKeys(c *types.ClientInfo, sct []byte) ([]byte, []byte, error) {
 
 	const keyLen = 32 //256 bits
 
@@ -24,18 +24,18 @@ func DeriveKeys(c *types.ClientInfo, sct []byte) error {
 	hmacKey := make([]byte, keyLen)
 
 	if _, err := io.ReadFull(d, encKey); err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	c.Cache.CurrentChat.EncKey = encKey
 
 	if _, err := io.ReadFull(d, hmacKey); err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	c.Cache.CurrentChat.HmacKey = hmacKey
 
-	return nil
+	return encKey, hmacKey, nil
 }
 
 func VerifyEdSignatures(pubKey ed25519.PublicKey, nonce, CurvePublicKey []byte, sigs [][]byte) bool {

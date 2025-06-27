@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	// "github.com/JohnnyGlynn/strike/internal/client/crypto"
-	// "github.com/JohnnyGlynn/strike/internal/client/network"
+	"github.com/JohnnyGlynn/strike/internal/client/crypto"
+	"github.com/JohnnyGlynn/strike/internal/client/network"
 	"github.com/JohnnyGlynn/strike/internal/client/types"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 	"github.com/google/uuid"
@@ -125,7 +125,8 @@ func buildCommandMap() map[string]types.Command {
 			//TODO: Centralize state?
 			state.Mode = types.ModeChat
 			// client.Cache.CurrentChat
-			fmt.Printf("Chatting with %s\n", args[0])
+			fmt.Printf("Chat with %s\n", args[0])
+			enterChat(client, args[0])
 
 		},
 		Scope: []types.ShellMode{types.ModeDefault},
@@ -205,7 +206,41 @@ func MShell(client *types.ClientInfo) {
 	}
 }
 
-func enterChat() {
+func enterChat(c *types.ClientInfo, target string) {
+
+	//Step 1 - get out chat target and derive the shared secret
+	u := types.User{}
+
+	row := c.Pstatements.GetUser.QueryRowContext(context.TODO(), target)
+	err := row.Scan(&u.Id, u.Name, u.Enckey, u.Sigkey)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			fmt.Printf("Friend: %s, not found", target)
+		}
+		log.Fatalf("an error occured: %v", err)
+	}
+
+	sharedSecret, err := network.ComputeSharedSecret(c.Keys["EncryptionPrivateKey"], u.Enckey)
+	if err != nil {
+		// TODO: Error return
+		log.Print("failed to compute shared secret")
+		return
+	}
+
+	encode, hmac, err := crypto.DeriveKeys(c, sharedSecret)
+	if err != nil {
+		log.Fatalf("Failed to derive keys")
+	}
+
+	cd := types.ChatDetails{
+		User:         u,
+		SharedSecret: sharedSecret,
+		EncKey:       encode,
+		HmacKey:      hmac,
+	}
+
+	fmt.Printf("Loading messages with: %s", cd.User.Name)
+	//Step 1
 
 }
 

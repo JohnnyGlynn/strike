@@ -24,8 +24,18 @@ type Cache struct {
 	CurrentChat    ChatDetails
 }
 
+type User struct {
+	Id     uuid.UUID
+	Name   string
+	Enckey []byte
+	Sigkey []byte
+}
+
 type ChatDetails struct {
-	Chat         *pb.Chat
+	//Redundant
+	Chat *pb.Chat
+	//
+	User         User
 	SharedSecret []byte
 	EncKey       []byte
 	HmacKey      []byte
@@ -45,7 +55,7 @@ type MessageStruct struct {
 type ClientDB struct {
 	SaveUserDetails *sql.Stmt
 	GetUserId       *sql.Stmt
-	GetUsername     *sql.Stmt
+	GetUser         *sql.Stmt
 	GetFriends      *sql.Stmt
 	CreateChat      *sql.Stmt
 	GetChat         *sql.Stmt

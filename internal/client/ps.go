@@ -22,7 +22,7 @@ func PrepareStatements(ctx context.Context, db *sql.DB) (*types.ClientDB, error)
 		return nil, err
 	}
 
-	if statements.GetUsername, err = db.PrepareContext(ctx, `SELECT username FROM addressbook WHERE user_id = ?;`); err != nil {
+	if statements.GetUser, err = db.PrepareContext(ctx, `SELECT * FROM addressbook WHERE username = ?;`); err != nil {
 		return nil, err
 	}
 
@@ -76,7 +76,7 @@ func CloseStatements(c *types.ClientDB) error {
 
 	closeStmt(c.SaveUserDetails)
 	closeStmt(c.GetUserId)
-	closeStmt(c.GetUsername)
+	closeStmt(c.GetUser)
 	closeStmt(c.GetFriends)
 	closeStmt(c.CreateChat)
 	closeStmt(c.GetChat)
