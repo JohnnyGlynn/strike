@@ -138,9 +138,9 @@ func buildCommandMap() map[string]types.Command {
 		CmdFn: func(args []string, state *types.ShellState, client *types.ClientInfo) {
 			switch state.Mode {
 			case types.ModeChat:
-				fmt.Printf("Exiting chat with: %s\n", client.Cache.CurrentChat.Chat.Id)
+				fmt.Printf("Exiting chat with: %s\n", client.Cache.CurrentChat.User)
+				client.Cache.CurrentChat = types.ChatDetails{}
 				state.Mode = types.ModeDefault
-				client.Cache.CurrentChat.Chat.Id = ""
 			case types.ModeDefault:
 				fmt.Println("Exiting mshell")
 				os.Exit(0)
@@ -195,7 +195,7 @@ func MShell(client *types.ClientInfo) {
 			switch state.Mode {
 			case types.ModeChat:
 				//TODO: active chat
-				if err := shellSendMessage(input, client); err != nil {
+				if err := SendMessage(client, input); err != nil {
 					fmt.Printf("Send failed: %v\n", err)
 					continue
 				}
@@ -208,7 +208,6 @@ func MShell(client *types.ClientInfo) {
 
 func enterChat(c *types.ClientInfo, target string) {
 
-	//Step 1 - get out chat target and derive the shared secret
 	u := types.User{}
 
 	row := c.Pstatements.GetUser.QueryRowContext(context.TODO(), target)
@@ -240,7 +239,8 @@ func enterChat(c *types.ClientInfo, target string) {
 	}
 
 	fmt.Printf("Loading messages with: %s", cd.User.Name)
-	//Step 1
+
+	c.Cache.CurrentChat = cd
 
 }
 
@@ -626,38 +626,38 @@ func shellAddFriend(inputReader *bufio.Reader, c *types.ClientInfo) {
 // 	}
 // }
 
-func shellSendMessage(input string, c *types.ClientInfo) error {
-	if input == "" {
-		return nil
-	}
+// func shellSendMessage(input string, c *types.ClientInfo) error {
+// 	if input == "" {
+// 		return nil
+// 	}
 
-	userAndMessage := strings.SplitN(input, ":", 2) // Check for : then splint into target and message
-	if len(userAndMessage) != 2 {
-		return fmt.Errorf("invalid format. Use recipient:message")
-	}
+// 	userAndMessage := strings.SplitN(input, ":", 2) // Check for : then splint into target and message
+// 	if len(userAndMessage) != 2 {
+// 		return fmt.Errorf("invalid format. Use recipient:message")
+// 	}
 
-	// TODO: Stopgap handle this elsewhere
-	if c.Cache.CurrentChat.Chat == nil {
-		return fmt.Errorf("no chat has been selected. use /chats to enable a chat first")
-	}
+// 	// TODO: Stopgap handle this elsewhere
+// 	if c.Cache.CurrentChat.Chat == nil {
+// 		return fmt.Errorf("no chat has been selected. use /chats to enable a chat first")
+// 	}
 
-	target, message := userAndMessage[0], userAndMessage[1]
+// 	target, message := userAndMessage[0], userAndMessage[1]
 
-	// TODO: Migrate messaging shell to active chat only, stop having to query uuid on every message
-	var targetID uuid.UUID
-	row := c.Pstatements.GetUserId.QueryRowContext(context.TODO(), target)
-	err := row.Scan(&targetID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			log.Fatalf("DB error: %v", err)
-		}
-		log.Fatalf("an error occured: %v", err)
-	}
+// 	// TODO: Migrate messaging shell to active chat only, stop having to query uuid on every message
+// 	var targetID uuid.UUID
+// 	row := c.Pstatements.GetUserId.QueryRowContext(context.TODO(), target)
+// 	err := row.Scan(&targetID)
+// 	if err != nil {
+// 		if errors.Is(err, sql.ErrNoRows) {
+// 			log.Fatalf("DB error: %v", err)
+// 		}
+// 		log.Fatalf("an error occured: %v", err)
+// 	}
 
-	SendMessage(c, targetID, message)
+// 	SendMessage(c, targetID, message)
 
-	return nil
-}
+// 	return nil
+// }
 
 func loadChats(c *types.ClientInfo) error {
 	rows, err := c.Pstatements.GetChats.QueryContext(context.TODO())

@@ -62,7 +62,7 @@ func ConnectPayloadStream(ctx context.Context, c *types.ClientInfo) error {
 	}
 }
 
-func SendMessage(c *types.ClientInfo, target uuid.UUID, message string) {
+func SendMessage(c *types.ClientInfo, message string) error {
 	sealedMessage, err := crypto.Encrypt(c, []byte(message))
 	if err != nil {
 		log.Fatal("Couldnt encrypt message")
@@ -72,13 +72,13 @@ func SendMessage(c *types.ClientInfo, target uuid.UUID, message string) {
 		SenderPublicKey:  c.Keys["SigningPublicKey"],
 		SentAt:           timestamppb.Now(),
 		FromUser:         c.UserID.String(),
-		ToUser:           target.String(),
+		ToUser:           c.Cache.CurrentChat.User.Id.String(),
 		Chat:             c.Cache.Chats[uuid.MustParse(c.Cache.CurrentChat.Chat.Id)],
 		EncryptedMessage: sealedMessage,
 	}
 
 	payloadEnvelope := pb.StreamPayload{
-		Target:  target.String(),
+		Target:  c.Cache.CurrentChat.User.Id.String(),
 		Sender:  c.UserID.String(),
 		Payload: &pb.StreamPayload_Encenv{Encenv: &encenv},
 		Info:    "Encrypted Payload",
@@ -86,14 +86,15 @@ func SendMessage(c *types.ClientInfo, target uuid.UUID, message string) {
 
 	_, err = c.Pbclient.SendPayload(context.Background(), &payloadEnvelope)
 	if err != nil {
-		log.Fatalf("Error sending message: %v", err)
+    return err
 	}
 
-	_, err = c.Pstatements.SaveMessage.ExecContext(context.TODO(), uuid.New().String(), c.Cache.Chats[uuid.MustParse(c.Cache.CurrentChat.Chat.Id)], c.UserID.String(), target.String(), "outbound", sealedMessage, time.Now().UnixMilli())
+	_, err = c.Pstatements.SaveMessage.ExecContext(context.TODO(), uuid.New().String(), c.Cache.Chats[uuid.MustParse(c.Cache.CurrentChat.Chat.Id)], c.UserID.String(), c.Cache.CurrentChat.User.Id, "outbound", sealedMessage, time.Now().UnixMilli())
 	if err != nil {
-		log.Fatalf("Failed to save message")
+    return err
 	}
 
+  return nil
 }
 
 // func ConfirmChat(ctx context.Context, c *types.ClientInfo, chatRequest *pb.BeginChatRequest, inviteState bool) error {
