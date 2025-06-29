@@ -87,7 +87,7 @@ func buildCommandMap() map[string]types.Command {
 			fmt.Printf("Server Info\n Name: %s\n ID: %s\n", sInfo.ServerName, sInfo.ServerId)
 			fmt.Println("Online Users:")
 			for i, u := range sInfo.Users {
-				fmt.Printf("[%v] %s: %s", i, u.UserId[:4], u.Username)
+				fmt.Printf("[%v] %s: %s", i+1, u.UserId[:4], u.Username)
 			}
 		},
 		Scope: []types.ShellMode{types.ModeDefault},
@@ -210,8 +210,10 @@ func enterChat(c *types.ClientInfo, target string) {
 
 	u := types.User{}
 
+	//Useful?
+	var created time.Time
 	row := c.Pstatements.GetUser.QueryRowContext(context.TODO(), target)
-	err := row.Scan(&u.Id, u.Name, u.Enckey, u.Sigkey)
+	err := row.Scan(&u.Id, &u.Name, &u.Enckey, &u.Sigkey, &created)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			fmt.Printf("Friend: %s, not found", target)
@@ -239,6 +241,7 @@ func enterChat(c *types.ClientInfo, target string) {
 	}
 
 	fmt.Printf("Loading messages with: %s", cd.User.Name)
+	// loadMessages()
 
 	c.Cache.CurrentChat = cd
 
@@ -552,7 +555,7 @@ func shellAddFriend(inputReader *bufio.Reader, c *types.ClientInfo) {
 		if user.UserId == c.UserID.String() {
 			continue
 		} else {
-			fmt.Printf("%d: %s\n", index, user.Username)
+			fmt.Printf("%d: %s\n", index+1, user.Username)
 			userList = append(userList, user)
 			index++
 		}
