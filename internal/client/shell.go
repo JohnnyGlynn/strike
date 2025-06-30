@@ -25,7 +25,7 @@ func printPrompt(state *types.ShellState, client *types.ClientInfo) {
 	case types.ModeDefault:
 		fmt.Printf("[shell:%s]> ", client.Username)
 	case types.ModeChat:
-		fmt.Printf("[chat:%s@%s]> ", client.Username, client.Cache.CurrentChat.Chat.Name)
+		fmt.Printf("[chat:%s@%s]> ", client.Username, client.Cache.CurrentChat.User.Name)
 	}
 }
 
@@ -146,7 +146,7 @@ func buildCommandMap() map[string]types.Command {
 				os.Exit(0)
 			}
 		},
-		Scope: []types.ShellMode{types.ModeDefault},
+		Scope: []types.ShellMode{types.ModeDefault, types.ModeChat},
 	})
 
 	register(types.Command{
@@ -200,7 +200,7 @@ func MShell(client *types.ClientInfo) {
 					continue
 				}
 			default:
-				fmt.Println("Chat not engaged. Use <CHATCOMMAND> [username] to begin")
+				// fmt.Println("Chat not engaged. Use <CHATCOMMAND> [username] to begin")
 			}
 		}
 	}

@@ -32,9 +32,6 @@ type User struct {
 }
 
 type ChatDetails struct {
-	//Redundant
-	Chat *pb.Chat
-	//
 	User         User
 	SharedSecret []byte
 	EncKey       []byte

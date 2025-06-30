@@ -1,6 +1,5 @@
-PRAGMA foreign_keys = ON;
+-- PRAGMA foreign_keys = ON;
 
--- CLIENT SPECIFIC TABLES
 CREATE TABLE IF NOT EXISTS addressbook (
     user_id TEXT PRIMARY KEY NOT NULL,
     username TEXT UNIQUE NOT NULL,
@@ -17,16 +16,16 @@ CREATE TABLE IF NOT EXISTS chats (
     state TEXT NOT NULL CHECK (state IN ('INIT', 'KEY_EXCHANGE_PENDING', 'ENCRYPTED')),
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (initiator) REFERENCES addressbook(user_id)
+    -- FOREIGN KEY (initiator) REFERENCES addressbook(user_id)
 );
 
 CREATE TABLE iF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
-    chat_id TEXT NOT NULL,
     sender TEXT NOT NULL,
-    content TEXT NOT NULL, 
-    sent_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (chat_id) REFERENCES chats(chat_id),
-    FOREIGN KEY (sender) REFERENCES addressbook(user_id)
+    receiver TEXT NOT NULL,
+    direction TEXT NOT NULL,
+    content BLOB NOT NULL, 
+    timestamp INTEGER NOT NULL,
+    -- FOREIGN KEY (sender) REFERENCES addressbook(user_id)
 );
 

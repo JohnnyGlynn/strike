@@ -158,7 +158,6 @@ message EncryptedEnvelope {
   string to_user = 3;
   string from_user = 4;
   bytes signature = 5; // sender ED25519 signature of encrypted_payload
-  Chat chat = 6;
   bytes nonce = 7; // number once - encryption
   bytes encrypted_message = 8; // encrypted message content
   google.protobuf.Timestamp sent_at = 9; // timestamp
