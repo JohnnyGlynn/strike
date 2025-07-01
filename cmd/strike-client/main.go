@@ -156,6 +156,7 @@ func main() {
 		UserID:      uuid.Nil,
 		Pbclient:    newClient,
 		Pstatements: statements,
+		Shell:       &types.ShellState{},
 	}
 
 	inputReader := bufio.NewReader(os.Stdin)

@@ -16,6 +16,8 @@ type ClientInfo struct {
 	UserID      uuid.UUID
 	Cache       Cache
 	Pstatements *ClientDB
+	//TODO: Cache?
+	Shell *ShellState
 }
 
 type Cache struct {
@@ -76,7 +78,7 @@ type ShellState struct {
 type Command struct {
 	Name  string
 	Desc  string
-	CmdFn func(args []string, state *ShellState, client *ClientInfo)
+	CmdFn func(args []string, client *ClientInfo)
 	Scope []ShellMode
 }
 

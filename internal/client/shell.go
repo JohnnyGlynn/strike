@@ -20,8 +20,8 @@ import (
 	"github.com/google/uuid"
 )
 
-func printPrompt(state *types.ShellState, client *types.ClientInfo) {
-	switch state.Mode {
+func printPrompt(client *types.ClientInfo) {
+	switch client.Shell.Mode {
 	case types.ModeDefault:
 		fmt.Printf("[shell:%s]> ", client.Username)
 	case types.ModeChat:
@@ -49,12 +49,12 @@ func inputParse(input string) types.ParsedInput {
 	}
 }
 
-func dispatchCommand(cmdMap map[string]types.Command, parsed types.ParsedInput, state *types.ShellState, client *types.ClientInfo) {
+func dispatchCommand(cmdMap map[string]types.Command, parsed types.ParsedInput, client *types.ClientInfo) {
 	if cmd, exists := cmdMap[parsed.Command]; exists {
-		if slices.Contains(cmd.Scope, state.Mode) {
-			cmd.CmdFn(parsed.Args, state, client)
+		if slices.Contains(cmd.Scope, client.Shell.Mode) {
+			cmd.CmdFn(parsed.Args, client)
 		} else {
-			fmt.Printf("'%s' command not availble in '%v' mode\n", cmd.Name, state.Mode)
+			fmt.Printf("'%s' command not availble in '%v' mode\n", cmd.Name, client.Shell.Mode)
 		}
 	} else {
 		fmt.Printf("Unknown command: %s\n", parsed.Command)
@@ -72,7 +72,7 @@ func buildCommandMap() map[string]types.Command {
 	register(types.Command{
 		Name: "/testCmd",
 		Desc: "Test command Map builder",
-		CmdFn: func(args []string, state *types.ShellState, client *types.ClientInfo) {
+		CmdFn: func(args []string, client *types.ClientInfo) {
 			//TODO: Bad idea to put all the command logic in here?
 			fmt.Println("Building the command map")
 		},
@@ -82,7 +82,7 @@ func buildCommandMap() map[string]types.Command {
 	register(types.Command{
 		Name: "/pollServer",
 		Desc: "Get a list of active users on a server",
-		CmdFn: func(args []string, state *types.ShellState, client *types.ClientInfo) {
+		CmdFn: func(args []string, client *types.ClientInfo) {
 			sInfo := PollServer(client)
 			fmt.Printf("Server Info\n Name: %s\n ID: %s\n", sInfo.ServerName, sInfo.ServerId)
 			fmt.Println("Online Users:")
@@ -96,7 +96,7 @@ func buildCommandMap() map[string]types.Command {
 	register(types.Command{
 		Name: "/addfriend",
 		Desc: "Send a friend request",
-		CmdFn: func(args []string, state *types.ShellState, client *types.ClientInfo) {
+		CmdFn: func(args []string, client *types.ClientInfo) {
 			//TODO: Refactor out the need to pass in a reader
 			todoReader := bufio.NewReader(os.Stdin)
 			shellAddFriend(todoReader, client)
@@ -107,7 +107,7 @@ func buildCommandMap() map[string]types.Command {
 	register(types.Command{
 		Name: "/friends",
 		Desc: "Display friends list",
-		CmdFn: func(args []string, state *types.ShellState, client *types.ClientInfo) {
+		CmdFn: func(args []string, client *types.ClientInfo) {
 			FriendList(client)
 		},
 		Scope: []types.ShellMode{types.ModeDefault},
@@ -116,14 +116,14 @@ func buildCommandMap() map[string]types.Command {
 	register(types.Command{
 		Name: "/chat",
 		Desc: "Chat with a friend",
-		CmdFn: func(args []string, state *types.ShellState, client *types.ClientInfo) {
+		CmdFn: func(args []string, client *types.ClientInfo) {
 			if len(args) == 0 {
 				fmt.Println("Useage: /chat <friends username>")
 				return
 			}
 
 			//TODO: Centralize state?
-			state.Mode = types.ModeChat
+			client.Shell.Mode = types.ModeChat
 			// client.Cache.CurrentChat
 			fmt.Printf("Chat with %s\n", args[0])
 			enterChat(client, args[0])
@@ -135,12 +135,12 @@ func buildCommandMap() map[string]types.Command {
 	register(types.Command{
 		Name: "/exit",
 		Desc: "Exit mshell",
-		CmdFn: func(args []string, state *types.ShellState, client *types.ClientInfo) {
-			switch state.Mode {
+		CmdFn: func(args []string, client *types.ClientInfo) {
+			switch client.Shell.Mode {
 			case types.ModeChat:
 				fmt.Printf("Exiting chat with: %s\n", client.Cache.CurrentChat.User)
 				client.Cache.CurrentChat = types.ChatDetails{}
-				state.Mode = types.ModeDefault
+				client.Shell.Mode = types.ModeDefault
 			case types.ModeDefault:
 				fmt.Println("Exiting mshell")
 				os.Exit(0)
@@ -152,7 +152,7 @@ func buildCommandMap() map[string]types.Command {
 	register(types.Command{
 		Name: "/help",
 		Desc: "List all available commands",
-		CmdFn: func(args []string, state *types.ShellState, client *types.ClientInfo) {
+		CmdFn: func(args []string, client *types.ClientInfo) {
 			fmt.Println("Available Commands:")
 			for _, cmd := range cmds {
 				fmt.Printf("%s: %s\n", cmd.Name, cmd.Desc)
@@ -176,11 +176,10 @@ func MShell(client *types.ClientInfo) {
 	}()
 
 	reader := bufio.NewReader(os.Stdin)
-	state := &types.ShellState{Mode: types.ModeDefault}
 	commands := buildCommandMap()
 
 	for {
-		printPrompt(state, client)
+		printPrompt(client)
 		input, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Printf("Error reading input: %v\n", err)
@@ -190,9 +189,9 @@ func MShell(client *types.ClientInfo) {
 		parsed := inputParse(input)
 
 		if parsed.IsCommand {
-			dispatchCommand(commands, parsed, state, client)
+			dispatchCommand(commands, parsed, client)
 		} else {
-			switch state.Mode {
+			switch client.Shell.Mode {
 			case types.ModeChat:
 				//TODO: active chat
 				if err := SendMessage(client, input); err != nil {
