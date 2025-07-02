@@ -295,7 +295,7 @@ func initDB(path string) (*sql.DB, error) {
 
 		_, err = dbOpen.Exec(string(init))
 		if err != nil {
-			return nil, fmt.Errorf("failed to init db")
+			return nil, err
 		}
 	}
 

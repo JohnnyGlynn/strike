@@ -15,17 +15,17 @@ CREATE TABLE IF NOT EXISTS chats (
     participants TEXT NOT NULL,
     state TEXT NOT NULL CHECK (state IN ('INIT', 'KEY_EXCHANGE_PENDING', 'ENCRYPTED')),
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     -- FOREIGN KEY (initiator) REFERENCES addressbook(user_id)
 );
 
-CREATE TABLE iF NOT EXISTS messages (
+CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
     sender TEXT NOT NULL,
     receiver TEXT NOT NULL,
     direction TEXT NOT NULL,
     content BLOB NOT NULL, 
-    timestamp INTEGER NOT NULL,
+    timestamp INTEGER NOT NULL
     -- FOREIGN KEY (sender) REFERENCES addressbook(user_id)
 );
 
