@@ -65,7 +65,8 @@ func ConnectPayloadStream(ctx context.Context, c *types.ClientInfo) error {
 func SendMessage(c *types.ClientInfo, message string) error {
 	sealedMessage, err := crypto.Encrypt(c, []byte(message))
 	if err != nil {
-		log.Fatal("Couldnt encrypt message")
+		log.Println("Couldnt encrypt message")
+    return err
 	}
 
 	encenv := pb.EncryptedEnvelope{
@@ -95,39 +96,6 @@ func SendMessage(c *types.ClientInfo, message string) error {
 
   return nil
 }
-
-// func ConfirmChat(ctx context.Context, c *types.ClientInfo, chatRequest *pb.BeginChatRequest, inviteState bool) error {
-// 	confirmation := pb.ConfirmChatRequest{
-// 		InviteId:  chatRequest.InviteId,
-// 		Initiator: chatRequest.Initiator,
-// 		Confirmer: c.UserID.String(),
-// 		State:     inviteState,
-// 		Chat:      chatRequest.Chat,
-// 	}
-
-// 	payload := pb.StreamPayload{
-// 		Target:  chatRequest.Initiator,
-// 		Sender:  c.UserID.String(),
-// 		Payload: &pb.StreamPayload_ChatConfirm{ChatConfirm: &confirmation},
-// 		Info:    "Chat Confirmation payload",
-// 	}
-
-// 	resp, err := c.Pbclient.SendPayload(ctx, &payload)
-// 	if err != nil {
-// 		return fmt.Errorf("failed to confirm chat: %v", err)
-// 	}
-
-// 	delete(c.Cache.Invites, uuid.MustParse(chatRequest.InviteId))
-// 	// Cache a chat when you acceot an invite
-
-// 	if inviteState {
-// 		c.Cache.Chats[uuid.MustParse(chatRequest.Chat.Id)] = chatRequest.Chat
-// 	}
-
-// 	fmt.Printf("Chat invite acknowledged: %+v\n", resp)
-
-// 	return nil
-// }
 
 func FriendRequest(ctx context.Context, c *types.ClientInfo, target string) error {
 
@@ -229,7 +197,7 @@ func ClientSignup(c *types.ClientInfo, password string, curve25519key []byte, ed
 
 	serverRes, err := c.Pbclient.Signup(ctx, &initUser)
 	if err != nil {
-		log.Fatalf("signup failed: %v", err)
+		log.Printf("signup failed: %v\n", err)
 		return err
 	}
 
@@ -255,7 +223,8 @@ func Login(c *types.ClientInfo, password string) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			dbsync, err := c.Pbclient.UserRequest(context.TODO(), &pb.UserInfo{Username: c.Username})
 			if err != nil {
-				log.Printf("error syncing: %v", err)
+				log.Printf("error syncing: %v\n", err)
+        return err
 			}
 
 			_, err = c.Pstatements.SaveUserDetails.ExecContext(ctx, c.UserID.String(), c.Username, c.Keys["EncryptionPublicKey"], c.Keys["SigningPublicKey"])
@@ -265,7 +234,8 @@ func Login(c *types.ClientInfo, password string) error {
 
 			userID = uuid.MustParse(dbsync.UserId)
 		} else {
-			log.Fatalf("an error occured while logging in: %v", err)
+			log.Printf("an error occured while logging in: %v\n", err)
+      return err
 		}
 	}
 
@@ -280,7 +250,7 @@ func Login(c *types.ClientInfo, password string) error {
 
 	salt, err := c.Pbclient.SaltMine(ctx, &userInfo)
 	if err != nil {
-		log.Fatalf("Salt retrieval failed: %v", err)
+		log.Printf("Salt retrieval failed: %v\n", err)
 		return err
 	}
 
@@ -296,7 +266,7 @@ func Login(c *types.ClientInfo, password string) error {
 
 	loginReq, err := c.Pbclient.Login(ctx, &loginUP)
 	if err != nil {
-		log.Fatalf("login failed: %v", err)
+		log.Printf("login failed: %v\n", err)
 		return err
 	}
 
@@ -317,14 +287,14 @@ func RegisterStatus(c *types.ClientInfo) error {
 
 	stream, err := c.Pbclient.StatusStream(context.TODO(), &userInfo)
 	if err != nil {
-		log.Fatalf("status failure: %v", err)
+		log.Printf("status failure: %v\n", err)
 		return err
 	}
 
 	for {
 		connectionStream, err := stream.Recv()
 		if err != nil {
-			log.Fatalf("Failed to connect to Status stream: %v", err)
+			log.Printf("Failed to connect to Status stream: %v\n", err)
 			return err
 		}
 
@@ -362,7 +332,7 @@ func BeginChat(c *types.ClientInfo, target uuid.UUID, chatName string) error {
 
 	beginChatResponse, err := c.Pbclient.SendPayload(ctx, &payloadChatRequest)
 	if err != nil {
-		log.Fatalf("Begin Chat failed: %v", err)
+		log.Printf("Begin Chat failed: %v\n", err)
 		return err
 	}
 
@@ -371,16 +341,17 @@ func BeginChat(c *types.ClientInfo, target uuid.UUID, chatName string) error {
 	return nil
 }
 
-func GetActiveUsers(c *types.ClientInfo, uinfo *pb.UserInfo) *pb.Users {
+func GetActiveUsers(c *types.ClientInfo, uinfo *pb.UserInfo) (*pb.Users, error){
 	activeUsers, err := c.Pbclient.OnlineUsers(context.TODO(), uinfo)
 	if err != nil {
-		log.Printf("error getting active users: %v", err)
+		log.Printf("error getting active users: %v\n", err)
+    return nil, err
 	}
 
-	return activeUsers
+	return activeUsers, nil
 }
 
-func PollServer(c *types.ClientInfo) *pb.ServerInfo {
+func PollServer(c *types.ClientInfo) (*pb.ServerInfo, error) {
 	sInfo, err := c.Pbclient.PollServer(context.TODO(), &pb.UserInfo{
 		Username:            c.Username,
 		UserId:              c.UserID.String(),
@@ -388,10 +359,11 @@ func PollServer(c *types.ClientInfo) *pb.ServerInfo {
 		SigningPublicKey:    c.Keys["SigningPublicKeyu"],
 	})
 	if err != nil {
-		log.Printf("error polling server: %v", err)
+		log.Printf("error polling server: %v\n", err)
+    return nil, err
 	}
 
-	return sInfo
+	return sInfo, nil
 }
 
 // TODO: Handle all input like this?

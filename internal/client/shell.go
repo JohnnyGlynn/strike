@@ -83,7 +83,11 @@ func buildCommandMap() map[string]types.Command {
 		Name: "/pollServer",
 		Desc: "Get a list of active users on a server",
 		CmdFn: func(args []string, client *types.ClientInfo) {
-			sInfo := PollServer(client)
+			sInfo, err := PollServer(client)
+			if err != nil {
+				log.Println("failed to poll server")
+				return
+			}
 			fmt.Printf("Server Info\n Name: %s\n ID: %s\n", sInfo.ServerName, sInfo.ServerId)
 			fmt.Println("Online Users:")
 			for i, u := range sInfo.Users {
@@ -328,15 +332,19 @@ func FriendList(c *types.ClientInfo) {
 
 }
 
-func shellAddFriend(inputReader *bufio.Reader, c *types.ClientInfo) {
+func shellAddFriend(inputReader *bufio.Reader, c *types.ClientInfo) error {
 	fmt.Println("Online Users:")
 
-	au := GetActiveUsers(c, &pb.UserInfo{
+	au, err := GetActiveUsers(c, &pb.UserInfo{
 		Username:            c.Username,
 		UserId:              c.UserID.String(),
 		EncryptionPublicKey: c.Keys["EncryptionPublicKey"],
 		SigningPublicKey:    c.Keys["SigningPublicKey"],
 	})
+	if err != nil {
+		log.Println("failed to get active users")
+		return err
+	}
 
 	userList := make([]*pb.UserInfo, 0, len(au.Users))
 	index := 0
@@ -355,19 +363,19 @@ func shellAddFriend(inputReader *bufio.Reader, c *types.ClientInfo) {
 	selectedIndexString, err := inputReader.ReadString('\n')
 	if err != nil {
 		log.Printf("Error reading input: %v\n", err)
-		return
+		return err
 	}
 
 	selectedIndexString = strings.TrimSpace(selectedIndexString)
 	if selectedIndexString == "" {
 		fmt.Println("No user selected.")
-		return
+		return nil
 	}
 
 	selectedIndex, err := strconv.Atoi(selectedIndexString)
 	if err != nil || selectedIndex < 1 || selectedIndex > len(userList) {
 		fmt.Println("Invalid selection. Please enter a valid user number.")
-		return
+		return nil
 	}
 
 	selectedUser := userList[selectedIndex-1]
@@ -377,6 +385,7 @@ func shellAddFriend(inputReader *bufio.Reader, c *types.ClientInfo) {
 		log.Printf("error beginning chat: %v", err)
 	}
 
+	return nil
 }
 
 func loadChats(c *types.ClientInfo) error {

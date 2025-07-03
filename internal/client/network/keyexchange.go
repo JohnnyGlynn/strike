@@ -15,30 +15,29 @@ import (
 	"github.com/google/uuid"
 )
 
-func InitiateKeyExchange(ctx context.Context, c *types.ClientInfo, target uuid.UUID, chat *pb.Chat) {
+func InitiateKeyExchange(ctx context.Context, c *types.ClientInfo, target uuid.UUID, chat *pb.Chat) error {
 	// make nonce
 	nonce := make([]byte, 32)
 	_, err := rand.Read(nonce)
 	if err != nil {
-		log.Fatalf("Error generating nonce: %v", err)
+		log.Printf("Error generating nonce: %v\n", err)
+		return err
 	}
 
 	block, _ := pem.Decode(c.Keys["SigningPrivateKey"])
 	if block == nil {
-		log.Print("failed to decode PEM block")
-		return
+		return fmt.Errorf("failed to decode PEM block")
 	}
 
 	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
 		log.Print("failed to parse private key")
-		return
+		return err
 	}
 	// ok if ed25519
 	priv, ok := key.(ed25519.PrivateKey)
 	if !ok {
-		log.Print("invalid ED25519 private key")
-		return
+		return fmt.Errorf("invalid ED25519 private key")
 	}
 
 	// signatures
@@ -58,8 +57,6 @@ func InitiateKeyExchange(ctx context.Context, c *types.ClientInfo, target uuid.U
 		Signatures:     sigs,
 	}
 
-	fmt.Printf("Target UUID: %v", target.String())
-
 	payload := pb.StreamPayload{
 		Target:  target.String(),
 		Sender:  c.UserID.String(),
@@ -69,36 +66,37 @@ func InitiateKeyExchange(ctx context.Context, c *types.ClientInfo, target uuid.U
 
 	resp, err := c.Pbclient.SendPayload(ctx, &payload)
 	if err != nil {
-		log.Fatalf("Error initiating key exchange: %v", err)
+		log.Printf("Error initiating key exchange: %v\n", err)
+		return err
 	}
 
 	fmt.Printf("Key Exchange initiated: %v", resp.Success)
+
+	return nil
 }
 
-func ReciprocateKeyExchange(ctx context.Context, c *types.ClientInfo, target uuid.UUID, chat *pb.Chat) {
+func ReciprocateKeyExchange(ctx context.Context, c *types.ClientInfo, target uuid.UUID, chat *pb.Chat) error {
 	// make nonce
 	nonce := make([]byte, 32)
 	_, err := rand.Read(nonce)
 	if err != nil {
-		log.Fatalf("Error generating nonce: %v", err)
+		log.Printf("Error generating nonce: %v\n", err)
+		return err
 	}
 
 	block, _ := pem.Decode(c.Keys["SigningPrivateKey"])
 	if block == nil {
-		log.Print("failed to decode PEM block")
-		return
+		return fmt.Errorf("failed to decode PEM block")
 	}
 
 	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
-		log.Print("failed to parse private key")
-		return
+		return fmt.Errorf("failed to parse private key")
 	}
 	// ok if ed25519
 	priv, ok := key.(ed25519.PrivateKey)
 	if !ok {
-		log.Print("invalid ED25519 private key")
-		return
+		return fmt.Errorf("invalid ED25519 private key")
 	}
 
 	// signatures
@@ -125,13 +123,16 @@ func ReciprocateKeyExchange(ctx context.Context, c *types.ClientInfo, target uui
 
 	resp, err := c.Pbclient.SendPayload(ctx, &payload)
 	if err != nil {
-		log.Fatalf("Error reciprocating key exchange: %v", err)
+		log.Printf("Error reciprocating key exchange: %v\n", err)
+		return err
 	}
 
 	fmt.Printf("Key Exchange reciprocated: %v", resp.Success)
+
+	return nil
 }
 
-func ConfirmKeyExchange(ctx context.Context, c *types.ClientInfo, target uuid.UUID, status bool, chat *pb.Chat) {
+func ConfirmKeyExchange(ctx context.Context, c *types.ClientInfo, target uuid.UUID, status bool, chat *pb.Chat) error {
 	confirmation := pb.KeyExchangeConfirmation{
 		ChatId:          chat.Id,
 		Status:          status,
@@ -149,10 +150,13 @@ func ConfirmKeyExchange(ctx context.Context, c *types.ClientInfo, target uuid.UU
 
 	resp, err := c.Pbclient.SendPayload(ctx, &payload)
 	if err != nil {
-		log.Fatalf("Error confirming key exchange: %v", err)
+		log.Printf("Error confirming key exchange: %v\n", err)
+		return err
 	}
 
 	fmt.Printf("Key exchange confirmed: %v", resp.Success)
+
+	return nil
 }
 
 func ComputeSharedSecret(privateCurveKey []byte, inboundKey []byte) ([]byte, error) {
