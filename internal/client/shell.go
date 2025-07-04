@@ -17,7 +17,6 @@ import (
 	"github.com/JohnnyGlynn/strike/internal/client/network"
 	"github.com/JohnnyGlynn/strike/internal/client/types"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
-	"github.com/google/uuid"
 )
 
 func printPrompt(client *types.ClientInfo) {
@@ -61,7 +60,7 @@ func dispatchCommand(cmdMap map[string]types.Command, parsed types.ParsedInput, 
 	}
 }
 
-func buildCommandMap() map[string]types.Command {
+func buildCommandMap() (map[string]types.Command, error) {
 	cmds := map[string]types.Command{}
 
 	//TODO: Bad idea?
@@ -72,9 +71,10 @@ func buildCommandMap() map[string]types.Command {
 	register(types.Command{
 		Name: "/testCmd",
 		Desc: "Test command Map builder",
-		CmdFn: func(args []string, client *types.ClientInfo) {
+		CmdFn: func(args []string, client *types.ClientInfo) error {
 			//TODO: Bad idea to put all the command logic in here?
 			fmt.Println("Building the command map")
+			return nil
 		},
 		Scope: []types.ShellMode{types.ModeDefault},
 	})
@@ -82,17 +82,18 @@ func buildCommandMap() map[string]types.Command {
 	register(types.Command{
 		Name: "/pollServer",
 		Desc: "Get a list of active users on a server",
-		CmdFn: func(args []string, client *types.ClientInfo) {
+		CmdFn: func(args []string, client *types.ClientInfo) error {
 			sInfo, err := PollServer(client)
 			if err != nil {
 				log.Println("failed to poll server")
-				return
+				return err
 			}
 			fmt.Printf("Server Info\n Name: %s\n ID: %s\n", sInfo.ServerName, sInfo.ServerId)
 			fmt.Println("Online Users:")
 			for i, u := range sInfo.Users {
 				fmt.Printf("[%v] %s: %s", i+1, u.UserId[:4], u.Username)
 			}
+			return nil
 		},
 		Scope: []types.ShellMode{types.ModeDefault},
 	})
@@ -100,10 +101,11 @@ func buildCommandMap() map[string]types.Command {
 	register(types.Command{
 		Name: "/addfriend",
 		Desc: "Send a friend request",
-		CmdFn: func(args []string, client *types.ClientInfo) {
+		CmdFn: func(args []string, client *types.ClientInfo) error {
 			//TODO: Refactor out the need to pass in a reader
 			todoReader := bufio.NewReader(os.Stdin)
 			shellAddFriend(todoReader, client)
+			return nil
 		},
 		Scope: []types.ShellMode{types.ModeDefault},
 	})
@@ -111,8 +113,9 @@ func buildCommandMap() map[string]types.Command {
 	register(types.Command{
 		Name: "/friends",
 		Desc: "Display friends list",
-		CmdFn: func(args []string, client *types.ClientInfo) {
+		CmdFn: func(args []string, client *types.ClientInfo) error {
 			FriendList(client)
+			return nil
 		},
 		Scope: []types.ShellMode{types.ModeDefault},
 	})
@@ -120,18 +123,17 @@ func buildCommandMap() map[string]types.Command {
 	register(types.Command{
 		Name: "/chat",
 		Desc: "Chat with a friend",
-		CmdFn: func(args []string, client *types.ClientInfo) {
+		CmdFn: func(args []string, client *types.ClientInfo) error {
 			if len(args) == 0 {
 				fmt.Println("Useage: /chat <friends username>")
-				return
+				return nil
 			}
-
 			//TODO: Centralize state?
 			client.Shell.Mode = types.ModeChat
 			// client.Cache.CurrentChat
 			fmt.Printf("Chat with %s\n", args[0])
 			enterChat(client, args[0])
-
+			return nil
 		},
 		Scope: []types.ShellMode{types.ModeDefault},
 	})
@@ -139,7 +141,7 @@ func buildCommandMap() map[string]types.Command {
 	register(types.Command{
 		Name: "/exit",
 		Desc: "Exit mshell",
-		CmdFn: func(args []string, client *types.ClientInfo) {
+		CmdFn: func(args []string, client *types.ClientInfo) error {
 			switch client.Shell.Mode {
 			case types.ModeChat:
 				fmt.Printf("Exiting chat with: %s\n", client.Cache.CurrentChat.User)
@@ -149,6 +151,8 @@ func buildCommandMap() map[string]types.Command {
 				fmt.Println("Exiting mshell")
 				os.Exit(0)
 			}
+
+			return nil
 		},
 		Scope: []types.ShellMode{types.ModeDefault, types.ModeChat},
 	})
@@ -156,27 +160,32 @@ func buildCommandMap() map[string]types.Command {
 	register(types.Command{
 		Name: "/help",
 		Desc: "List all available commands",
-		CmdFn: func(args []string, client *types.ClientInfo) {
+		CmdFn: func(args []string, client *types.ClientInfo) error {
 			fmt.Println("Available Commands:")
 			for _, cmd := range cmds {
 				fmt.Printf("%s: %s\n", cmd.Name, cmd.Desc)
 			}
+			return nil
 		},
 		Scope: []types.ShellMode{types.ModeDefault, types.ModeChat},
 	})
 
-	return cmds
+	return cmds, nil
 }
 
-func MShell(client *types.ClientInfo) {
+func MShell(client *types.ClientInfo) error {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	go func() {
+	go func() error {
+
 		err := ConnectPayloadStream(ctx, client)
 		if err != nil {
-			log.Fatalf("failed to connect message stream: %v\n", err)
+			fmt.Printf("Payload steam failure: %s\n", err)
+			return err
 		}
+
+		return nil
 	}()
 
 	reader := bufio.NewReader(os.Stdin)
@@ -209,7 +218,7 @@ func MShell(client *types.ClientInfo) {
 	}
 }
 
-func enterChat(c *types.ClientInfo, target string) {
+func enterChat(c *types.ClientInfo, target string) error {
 
 	u := types.User{}
 
@@ -221,19 +230,19 @@ func enterChat(c *types.ClientInfo, target string) {
 		if errors.Is(err, sql.ErrNoRows) {
 			fmt.Printf("Friend: %s, not found", target)
 		}
-		log.Fatalf("an error occured: %v", err)
+		return fmt.Errorf("an error occured: %v", err)
 	}
 
 	sharedSecret, err := network.ComputeSharedSecret(c.Keys["EncryptionPrivateKey"], u.Enckey)
 	if err != nil {
-		// TODO: Error return
 		log.Print("failed to compute shared secret")
-		return
+		return err
 	}
 
 	encode, hmac, err := crypto.DeriveKeys(c, sharedSecret)
 	if err != nil {
-		log.Fatalf("Failed to derive keys")
+		fmt.Println("Failed to derive keys")
+		return err
 	}
 
 	cd := types.ChatDetails{
@@ -244,16 +253,17 @@ func enterChat(c *types.ClientInfo, target string) {
 	}
 
 	fmt.Printf("Loading messages with: %s", cd.User.Name)
-	// loadMessages()
+	//TODO: loadMessages()
 
 	c.Cache.CurrentChat = cd
 
+	return nil
 }
 
-func shellFriendRequests(ctx context.Context, c *types.ClientInfo) {
+func shellFriendRequests(ctx context.Context, c *types.ClientInfo) error {
 	if len(c.Cache.FriendRequests) == 0 {
 		fmt.Println("No pending Friend requests :^[")
-		return
+		return nil
 	}
 
 	fmt.Println("Pending Friend requests")
@@ -273,17 +283,18 @@ func shellFriendRequests(ctx context.Context, c *types.ClientInfo) {
 		accepted := input == "y"
 
 		if err := FriendResponse(ctx, c, c.Cache.FriendRequests[k], accepted); err != nil {
-			log.Printf("Failed to decline invite: %v", err)
+			return fmt.Errorf("Friend response failure: %v", err)
 		}
-
 	}
+
+	return nil
 }
 
-func FriendList(c *types.ClientInfo) {
+func FriendList(c *types.ClientInfo) error {
 	fmt.Println("Friend list:")
 	friends, err := loadFriends(c)
 	if err != nil {
-		log.Fatal("Failed to load friends")
+		return err
 	}
 
 	reader := bufio.NewReader(os.Stdin)
@@ -296,18 +307,18 @@ func FriendList(c *types.ClientInfo) {
 			fmt.Print("See friend requests?: [y/n]")
 			input, err := reader.ReadString('\n')
 			if err != nil {
-				log.Printf("Error reading input: %v\n", err)
-				return
+				log.Println("Error reading input")
+				return err
 			}
 
 			input = strings.TrimSpace(strings.ToLower(input))
 			accepted := input == "y"
 			if accepted {
 				shellFriendRequests(context.TODO(), c)
-				return
+				return nil
 			}
 		}
-		return
+		return nil
 	}
 
 	//TODO: add active status
@@ -319,17 +330,18 @@ func FriendList(c *types.ClientInfo) {
 	fmt.Print("See friend requests?: [y/n]")
 	input, err := reader.ReadString('\n')
 	if err != nil {
-		log.Printf("Error reading input: %v\n", err)
-		return
+		log.Println("Error reading input")
+		return err
 	}
 
 	input = strings.TrimSpace(strings.ToLower(input))
 	accepted := input == "y"
 	if accepted {
 		shellFriendRequests(context.TODO(), c)
-		return
+		return nil
 	}
 
+	return nil
 }
 
 func shellAddFriend(inputReader *bufio.Reader, c *types.ClientInfo) error {
@@ -388,55 +400,6 @@ func shellAddFriend(inputReader *bufio.Reader, c *types.ClientInfo) error {
 	return nil
 }
 
-func loadChats(c *types.ClientInfo) error {
-	rows, err := c.Pstatements.GetChats.QueryContext(context.TODO())
-	if err != nil {
-		return fmt.Errorf("error querying chats: %v", err)
-	}
-
-	defer func() {
-		if rowErr := rows.Close(); rowErr != nil {
-			log.Fatalf("error getting rows: %v\n", rowErr)
-		}
-	}()
-
-	for rows.Next() {
-		var (
-			chat_id      uuid.UUID
-			chat_name    string
-			initiator    uuid.UUID
-			participants []uuid.UUID
-			stateStr     string
-		)
-
-		if err := rows.Scan(&chat_id, &chat_name, &initiator, &participants, &stateStr); err != nil {
-			log.Printf("error scanning row: %v", err)
-			return err
-		}
-
-		stateEnum, ok := pb.Chat_State_value[stateStr]
-		if !ok {
-			return fmt.Errorf("invalid chat state: %s", stateStr)
-		}
-
-		var participantsStrung []string
-		for _, uID := range participants {
-			participantsStrung = append(participantsStrung, uID.String())
-		}
-
-		chat := &pb.Chat{
-			Id:           chat_id.String(),
-			Name:         chat_name,
-			State:        pb.Chat_State(stateEnum),
-			Participants: participantsStrung,
-		}
-
-		c.Cache.Chats[chat_id] = chat
-	}
-
-	return nil
-}
-
 func loadMessages(c *types.ClientInfo) ([]types.MessageStruct, error) {
 	rows, err := c.Pstatements.GetMessages.QueryContext(context.TODO(), c.Cache.CurrentChat)
 	if err != nil {
@@ -444,10 +407,12 @@ func loadMessages(c *types.ClientInfo) ([]types.MessageStruct, error) {
 		return nil, fmt.Errorf("error querying messages: %v", err)
 	}
 
-	defer func() {
+	defer func() error {
 		if rowErr := rows.Close(); rowErr != nil {
-			log.Fatalf("error getting rows: %v\n", rowErr)
+			fmt.Printf("error getting rows: %v\n", rowErr)
+			return err
 		}
+		return nil
 	}()
 
 	var messages []types.MessageStruct
@@ -471,10 +436,13 @@ func loadFriends(c *types.ClientInfo) ([]*pb.UserInfo, error) {
 		return nil, fmt.Errorf("error querying friends: %v", err)
 	}
 
-	defer func() {
+	defer func() error {
 		if rowErr := rows.Close(); rowErr != nil {
-			log.Fatalf("error getting rows: %v\n", rowErr)
+			fmt.Printf("error getting rows: %v\n", rowErr)
+			return rowErr
 		}
+
+		return nil
 	}()
 
 	var users []*pb.UserInfo

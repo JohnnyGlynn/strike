@@ -78,7 +78,7 @@ type ShellState struct {
 type Command struct {
 	Name  string
 	Desc  string
-	CmdFn func(args []string, client *ClientInfo)
+	CmdFn func(args []string, client *ClientInfo) error
 	Scope []ShellMode
 }
 
