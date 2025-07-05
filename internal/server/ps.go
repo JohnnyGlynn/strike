@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"log"
+	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -23,7 +23,7 @@ type ServerDB struct {
 func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*ServerDB, error) {
 	poolConnection, err := dbpool.Acquire(ctx)
 	if err != nil {
-		log.Fatalf("failed to acquire connection from pool: %v", err)
+		fmt.Printf("failed to acquire connection from pool: %v\n", err)
 		return nil, err
 	}
 	defer poolConnection.Release()

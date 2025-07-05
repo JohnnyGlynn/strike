@@ -189,7 +189,10 @@ func MShell(client *types.ClientInfo) error {
 	}()
 
 	reader := bufio.NewReader(os.Stdin)
-	commands := buildCommandMap()
+	commands, err := buildCommandMap()
+	if err != nil {
+		return fmt.Errorf("failed to build command map: %v", err)
+	}
 
 	for {
 		printPrompt(client)

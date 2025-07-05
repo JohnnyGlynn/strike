@@ -37,12 +37,14 @@ func main() {
 
 	idb, err := initDB("./client.db")
 	if err != nil {
-		log.Fatalf("Error initializing db: %v", err)
+		fmt.Printf("Error initializing db: %v\n", err)
+		return
 	}
 
 	defer func() {
 		if dbInitErr := idb.Close(); dbInitErr != nil {
-			log.Fatalf("error initializing db: %v\n", dbInitErr)
+			fmt.Printf("error initializing db: %v\n", dbInitErr)
+			return
 		}
 	}()
 
@@ -79,15 +81,17 @@ func main() {
 	}
 
 	if *configFilePath != "" && !*keygen {
-		log.Println("Loading Config from File")
+		fmt.Println("Loading Config from File")
 
 		clientCfg, err = config.LoadConfigFile[config.ClientConfig](*configFilePath)
 		if err != nil {
-			log.Fatalf("Failed to load client config: %v", err)
+			fmt.Printf("Failed to load client config: %v\n", err)
+			return
 		}
 
 		if err := clientCfg.ValidateConfig(); err != nil {
-			log.Fatalf("Invalid client config: %v", err)
+			fmt.Printf("Invalid client config: %v\n", err)
+			return
 		}
 
 	} else if !*keygen {
@@ -96,7 +100,8 @@ func main() {
 		clientCfg = *config.LoadClientConfigEnv()
 
 		if err := clientCfg.ValidateEnv(); err != nil {
-			log.Fatalf("Invalid client config: %v", err)
+			fmt.Printf("Invalid client config: %v\n", err)
+			return
 		}
 	}
 
@@ -109,24 +114,28 @@ func main() {
 
 	loadedKeys, err := keys.LoadAndValidateKeys(keysMap)
 	if err != nil {
-		log.Fatalf("error loading and validating keys: %v", err)
+		fmt.Printf("error loading and validating keys: %v\n", err)
+		return
 	}
 
 	statements, err := client.PrepareStatements(context.TODO(), cDB)
 	if err != nil {
-		log.Fatalf("Failed to prepare statements: %v", err)
+		fmt.Printf("Failed to prepare statements: %v\n", err)
+		return
 	}
 
 	defer func() {
 		if psErr := client.CloseStatements(statements); psErr != nil {
-			log.Fatalf("error preparing statements: %v\n", psErr)
+			fmt.Printf("error preparing statements: %v\n", psErr)
+			return
 		}
 	}()
 
 	// Begin GRPC setup
 	creds, err := credentials.NewClientTLSFromFile(clientCfg.ServerCertificatePath, "")
 	if err != nil {
-		log.Fatalf("Failed to load server certificate: %v", err)
+		fmt.Printf("Failed to load server certificate: %v\n", err)
+		return
 	}
 
 	var opts []grpc.DialOption
@@ -134,12 +143,14 @@ func main() {
 
 	conn, err := grpc.NewClient(clientCfg.ServerHost, opts...)
 	if err != nil {
-		log.Fatalf("fail to dial: %v", err)
+		fmt.Printf("fail to dial: %v\n", err)
+		return
 	}
 
 	defer func() {
 		if connectionError := conn.Close(); connectionError != nil {
-			log.Fatalf("Failed to connect to Strike Server: %v\n", connectionError)
+			fmt.Printf("Failed to connect to Strike Server: %v\n", connectionError)
+			return
 		}
 	}()
 
@@ -207,14 +218,16 @@ func main() {
 
 				err = client.Login(clientInfo, password)
 				if err != nil {
-					log.Fatalf("error during login: %v", err)
+					fmt.Printf("error during login: %v\n", err)
+					return
 				}
 				isLoggedIn = true
 
 				go func() {
 					err = client.RegisterStatus(clientInfo)
 					if err != nil {
-						log.Fatalf("error connecting stream: %v", err)
+						fmt.Printf("error connecting stream: %v\n", err)
+						return
 					}
 				}()
 
@@ -247,7 +260,8 @@ func main() {
 
 				err = client.ClientSignup(clientInfo, password, loadedKeys["EncryptionPublicKey"], loadedKeys["SigningPublicKey"])
 				if err != nil {
-					log.Fatalf("error connecting: %v", err)
+					fmt.Printf("error connecting: %v\n", err)
+					return
 				}
 
 				isLoggedIn = true
@@ -255,7 +269,8 @@ func main() {
 				go func() {
 					err = client.RegisterStatus(clientInfo)
 					if err != nil {
-						log.Fatalf("error connecting stream: %v", err)
+						fmt.Printf("error connecting stream: %v\n", err)
+						return
 					}
 				}()
 

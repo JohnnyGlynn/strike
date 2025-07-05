@@ -9,7 +9,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"log"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -187,7 +186,8 @@ func LoadAndValidateKeys(keyMap map[string]KeyDefinition) (map[string][]byte, er
 	for name, def := range keyMap {
 		key, err := GetKeyFromPath(def.Path)
 		if err != nil {
-			log.Fatalf("failed to read key from path: %v", err)
+			fmt.Printf("failed to read key from path: %v", err)
+			return nil, err
 		}
 
 		switch def.Type {
@@ -214,10 +214,12 @@ func GetKeyFromPath(path string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error opening key file: %v", err)
 	}
-	defer func() {
+	defer func() error {
 		if fileError := keyFile.Close(); fileError != nil {
-			log.Fatalf("error reading file: %v\n", fileError)
+			fmt.Printf("error reading file: %v\n", fileError)
+			return fileError
 		}
+		return nil
 	}()
 	key, err := io.ReadAll(keyFile)
 	if err != nil {
@@ -348,7 +350,8 @@ func GenerateServerKeysAndCert() error {
 	// Self-sign TODO: More robust (i.e no self parent)
 	signedCert, err := x509.CreateCertificate(rand.Reader, &strikeCert, &strikeCert, publicKey, privateKey)
 	if err != nil {
-		log.Fatalf("Failed to create server certificate: %v", err)
+		fmt.Printf("Failed to create server certificate: %v", err)
+		return nil
 	}
 
 	certPEM := pem.Block{
