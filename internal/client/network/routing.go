@@ -134,31 +134,48 @@ func (d *Demultiplexer) StartMonitoring(c *types.ClientInfo) {
 
 	// Monitor our channels - spawn workers if needed - more for messages obviously
 	go monitorChannel(d.encenvelopeChannel, 20, 5, &d.envelopeWorkerCount, &d.mu,
-		func() {
-			ProcessEnvelopes(d.encenvelopeChannel, c, ephemeralTimeout, &d.envelopeWorkerCount, &d.mu)
+		func() error {
+			err := ProcessEnvelopes(d.encenvelopeChannel, c, ephemeralTimeout, &d.envelopeWorkerCount, &d.mu)
+			if err != nil {
+				return err
+			}
+			return nil
 		},
 	)
 
 	go monitorChannel(d.chatRequestChannel, 10, 3, &d.chatRequestWorkerCount, &d.mu,
-		func() {
-			ProcessChatRequests(d.chatRequestChannel, c, ephemeralTimeout, &d.chatRequestWorkerCount, &d.mu)
+		func() error {
+			err := ProcessChatRequests(d.chatRequestChannel, c, ephemeralTimeout, &d.chatRequestWorkerCount, &d.mu)
+			if err != nil {
+				return err
+			}
+			return nil
+
 		},
 	)
 
 	go monitorChannel(d.chatConfirmChannel, 10, 3, &d.chatConfirmWorkerCount, &d.mu,
-		func() {
-			ProcessConfirmChatRequests(c, d.chatConfirmChannel, ephemeralTimeout, &d.chatConfirmWorkerCount, &d.mu)
+		func() error {
+			err := ProcessConfirmChatRequests(c, d.chatConfirmChannel, ephemeralTimeout, &d.chatConfirmWorkerCount, &d.mu)
+			if err != nil {
+				return err
+			}
+			return nil
 		},
 	)
 
 	go monitorChannel(d.keyExchangeChannel, 10, 3, &d.keyExchangeRequestWorkerCount, &d.mu,
-		func() {
-			ProcessKeyExchangeRequests(c, d.keyExchangeChannel, ephemeralTimeout, &d.keyExchangeRequestWorkerCount, &d.mu) // TODO: This is a mes
+		func() error {
+      err := ProcessKeyExchangeRequests(c, d.keyExchangeChannel, ephemeralTimeout, &d.keyExchangeRequestWorkerCount, &d.mu)
+      if err != nil {
+				return err
+			}
+			return nil
 		},
 	)
 }
 
-func ProcessEnvelopes(ch <-chan *pb.EncryptedEnvelope, c *types.ClientInfo, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
+func ProcessEnvelopes(ch <-chan *pb.EncryptedEnvelope, c *types.ClientInfo, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) error {
 	for {
 		var timeoutCh <-chan time.Time // channel for timer
 		if idleTimeout > 0 {
@@ -167,34 +184,36 @@ func ProcessEnvelopes(ch <-chan *pb.EncryptedEnvelope, c *types.ClientInfo, idle
 		select {
 		case envelope, ok := <-ch:
 			if !ok {
-				return
+				return nil
 			}
 
 			msg, err := crypto.Decrypt(c, envelope.EncryptedMessage)
 			if err != nil {
-				log.Fatal("Failed to decrypt sealed message")
+				fmt.Printf("Failed to decrypt sealed message")
+				return err
 			}
 
 			// TODO: Batch insert messages?
-      if c.Shell.Mode == types.ModeChat && envelope.FromUser == c.Cache.CurrentChat.User.Id.String(){
-        fmt.Printf("[%s]:%s\n", envelope.FromUser, msg)
-      }
+			if c.Shell.Mode == types.ModeChat && envelope.FromUser == c.Cache.CurrentChat.User.Id.String() {
+				fmt.Printf("[%s]:%s\n", envelope.FromUser, msg)
+			}
 
 			_, err = c.Pstatements.SaveMessage.ExecContext(context.TODO(), uuid.New().String(), envelope.FromUser, c.UserID.String(), "inbound", msg, envelope.SentAt.AsTime().UnixMilli())
 			if err != nil {
-				log.Fatalf("Failed to save message")
+				fmt.Printf("Failed to save message")
+				return err
 			}
 		case <-timeoutCh:
 			fmt.Printf("Envelope worker idle for %v, exiting.\n", idleTimeout) // shutdown ephemeral workers
 			mu.Lock()
 			*workerCount--
 			mu.Unlock()
-			return
+			return nil
 		}
 	}
 }
 
-func ProcessChatRequests(ch <-chan *pb.BeginChatRequest, c *types.ClientInfo, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
+func ProcessChatRequests(ch <-chan *pb.BeginChatRequest, c *types.ClientInfo, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) error {
 	for {
 		var timeoutCh <-chan time.Time // channel for timer
 		if idleTimeout > 0 {
@@ -203,7 +222,7 @@ func ProcessChatRequests(ch <-chan *pb.BeginChatRequest, c *types.ClientInfo, id
 		select {
 		case chatRequest, ok := <-ch:
 			if !ok {
-				return
+				return nil
 			}
 			fmt.Printf("Chat Invite recieved from:%v Chat Name: %v\n", chatRequest.Initiator, chatRequest.Chat.Name)
 			// Recieve an invite, cache it
@@ -213,12 +232,12 @@ func ProcessChatRequests(ch <-chan *pb.BeginChatRequest, c *types.ClientInfo, id
 			mu.Lock()
 			*workerCount--
 			mu.Unlock()
-			return
+			return nil
 		}
 	}
 }
 
-func ProcessFriendRequests(ch <-chan *pb.FriendRequest, c *types.ClientInfo, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
+func ProcessFriendRequests(ch <-chan *pb.FriendRequest, c *types.ClientInfo, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) error {
 	for {
 		var timeoutCh <-chan time.Time // channel for timer
 		if idleTimeout > 0 {
@@ -227,7 +246,7 @@ func ProcessFriendRequests(ch <-chan *pb.FriendRequest, c *types.ClientInfo, idl
 		select {
 		case friendRequest, ok := <-ch:
 			if !ok {
-				return
+				return nil
 			}
 			fmt.Printf("Friend Request from: %v\n", friendRequest.UserInfo.Username)
 			// Recieve an invite, cache it
@@ -236,12 +255,12 @@ func ProcessFriendRequests(ch <-chan *pb.FriendRequest, c *types.ClientInfo, idl
 			mu.Lock()
 			*workerCount--
 			mu.Unlock()
-			return
+			return nil
 		}
 	}
 }
 
-func ProcessFriendResponse(ch <-chan *pb.FriendResponse, c *types.ClientInfo, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
+func ProcessFriendResponse(ch <-chan *pb.FriendResponse, c *types.ClientInfo, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) error {
 	for {
 		var timeoutCh <-chan time.Time // channel for timer
 		if idleTimeout > 0 {
@@ -250,7 +269,7 @@ func ProcessFriendResponse(ch <-chan *pb.FriendResponse, c *types.ClientInfo, id
 		select {
 		case friendRes, ok := <-ch:
 			if !ok {
-				return
+				return nil
 			}
 			fmt.Printf("Friend Response from: %v\n", friendRes.UserInfo.Username)
 
@@ -260,7 +279,7 @@ func ProcessFriendResponse(ch <-chan *pb.FriendResponse, c *types.ClientInfo, id
 				_, err := c.Pstatements.SaveUserDetails.ExecContext(context.TODO(), friendRes.UserInfo.UserId, friendRes.UserInfo.Username, friendRes.UserInfo.EncryptionPublicKey, friendRes.UserInfo.SigningPublicKey)
 				if err != nil {
 					fmt.Printf("failed adding to address book: %v", err)
-					return
+					return err
 				}
 			}
 
@@ -268,12 +287,12 @@ func ProcessFriendResponse(ch <-chan *pb.FriendResponse, c *types.ClientInfo, id
 			mu.Lock()
 			*workerCount--
 			mu.Unlock()
-			return
+			return nil
 		}
 	}
 }
 
-func ProcessConfirmChatRequests(c *types.ClientInfo, ch <-chan *pb.ConfirmChatRequest, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
+func ProcessConfirmChatRequests(c *types.ClientInfo, ch <-chan *pb.ConfirmChatRequest, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) error {
 	for {
 		var timeoutCh <-chan time.Time // channel for timer
 		if idleTimeout > 0 {
@@ -282,7 +301,7 @@ func ProcessConfirmChatRequests(c *types.ClientInfo, ch <-chan *pb.ConfirmChatRe
 		select {
 		case confirmation, ok := <-ch:
 			if !ok {
-				return
+				return nil
 			}
 
 			if confirmation.State {
@@ -300,12 +319,12 @@ func ProcessConfirmChatRequests(c *types.ClientInfo, ch <-chan *pb.ConfirmChatRe
 			mu.Lock()
 			*workerCount--
 			mu.Unlock()
-			return
+			return nil
 		}
 	}
 }
 
-func ProcessKeyExchangeRequests(c *types.ClientInfo, ch <-chan *pb.KeyExchangeRequest, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
+func ProcessKeyExchangeRequests(c *types.ClientInfo, ch <-chan *pb.KeyExchangeRequest, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) error {
 	for {
 		var timeoutCh <-chan time.Time // channel for timer
 		if idleTimeout > 0 {
@@ -314,7 +333,7 @@ func ProcessKeyExchangeRequests(c *types.ClientInfo, ch <-chan *pb.KeyExchangeRe
 		select {
 		case keyExReq, ok := <-ch:
 			if !ok {
-				return
+				return nil
 			}
 
 			fmt.Printf("keyExReq: %v", keyExReq)
@@ -326,7 +345,7 @@ func ProcessKeyExchangeRequests(c *types.ClientInfo, ch <-chan *pb.KeyExchangeRe
 			chat, exists := c.Cache.Chats[chatId]
 			if !exists {
 				log.Printf("Failed to find chat: %v", keyExReq.ChatId)
-				return
+				return nil
 			}
 
 			participants := slices.Clone(chat.Participants)
@@ -335,7 +354,8 @@ func ProcessKeyExchangeRequests(c *types.ClientInfo, ch <-chan *pb.KeyExchangeRe
 
 			_, err := c.Pstatements.CreateChat.ExecContext(context.TODO(), chatId, chat.Name, uuid.MustParse(keyExReq.SenderUserId), participantsSerialized, chat.State.String())
 			if err != nil {
-				log.Fatal("Failed to save Chat")
+				fmt.Printf("Failed to save Chat")
+				return err
 			}
 
 			// TODO: Signature is gross
@@ -346,12 +366,12 @@ func ProcessKeyExchangeRequests(c *types.ClientInfo, ch <-chan *pb.KeyExchangeRe
 			mu.Lock()
 			*workerCount--
 			mu.Unlock()
-			return
+			return nil
 		}
 	}
 }
 
-func ProcessKeyExchangeResponses(c *types.ClientInfo, ch <-chan *pb.KeyExchangeResponse, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
+func ProcessKeyExchangeResponses(c *types.ClientInfo, ch <-chan *pb.KeyExchangeResponse, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) error {
 	for {
 		var timeoutCh <-chan time.Time // channel for timer
 		if idleTimeout > 0 {
@@ -360,13 +380,13 @@ func ProcessKeyExchangeResponses(c *types.ClientInfo, ch <-chan *pb.KeyExchangeR
 		select {
 		case keyExRes, ok := <-ch:
 			if !ok {
-				return
+				return nil
 			}
 			fmt.Printf("Key exchange response for: %v\n", keyExRes.ChatId)
 			chat, exists := c.Cache.Chats[uuid.MustParse(keyExRes.ChatId)]
 			if !exists {
 				log.Printf("Failed to find chat: %v", keyExRes.ChatId)
-				return
+				return nil
 			}
 
 			chat.State = pb.Chat_ENCRYPTED
@@ -377,7 +397,8 @@ func ProcessKeyExchangeResponses(c *types.ClientInfo, ch <-chan *pb.KeyExchangeR
 
 			_, err := c.Pstatements.CreateChat.ExecContext(context.TODO(), uuid.MustParse(keyExRes.ChatId), chat.Name, uuid.MustParse(keyExRes.ResponderUserId), participantsSerialized, chat.State.String())
 			if err != nil {
-				log.Fatal("Failed to save Chat")
+				fmt.Printf("Failed to save Chat")
+				return err
 			}
 
 			// TODO: Something fails so the confirmations can be false???
@@ -388,12 +409,12 @@ func ProcessKeyExchangeResponses(c *types.ClientInfo, ch <-chan *pb.KeyExchangeR
 			mu.Lock()
 			*workerCount--
 			mu.Unlock()
-			return
+			return nil
 		}
 	}
 }
 
-func ProcessKeyExchangeConfirmations(c *types.ClientInfo, ch <-chan *pb.KeyExchangeConfirmation, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) {
+func ProcessKeyExchangeConfirmations(c *types.ClientInfo, ch <-chan *pb.KeyExchangeConfirmation, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) error {
 	for {
 		var timeoutCh <-chan time.Time // channel for timer
 		if idleTimeout > 0 {
@@ -402,18 +423,19 @@ func ProcessKeyExchangeConfirmations(c *types.ClientInfo, ch <-chan *pb.KeyExcha
 		select {
 		case keyExCon, ok := <-ch:
 			if !ok {
-				return
+				return nil
 			}
 			chat, exists := c.Cache.Chats[uuid.MustParse(keyExCon.ChatId)]
 			if !exists {
 				log.Printf("Failed to find chat: %v", keyExCon.ChatId)
-				return
+				return nil
 			}
 
 			if chat.State != pb.Chat_ENCRYPTED {
 				_, err := c.Pstatements.UpdateChatState.ExecContext(context.TODO(), pb.Chat_ENCRYPTED.String(), uuid.MustParse(keyExCon.ChatId))
 				if err != nil {
-					log.Fatal("Failed to save Chat")
+					fmt.Printf("Failed to save Chat")
+					return err
 				}
 
 				chat.State = pb.Chat_ENCRYPTED
@@ -425,20 +447,20 @@ func ProcessKeyExchangeConfirmations(c *types.ClientInfo, ch <-chan *pb.KeyExcha
 				fmt.Println("Chat already encrypted, confirmation skipped")
 			}
 
-			return
+			return nil
 
 		case <-timeoutCh:
 			fmt.Printf("KeyExchangeResponse worker idle for %v, exiting.\n", idleTimeout) // shutdown ephemeral workers
 			mu.Lock()
 			*workerCount--
 			mu.Unlock()
-			return
+			return nil
 		}
 	}
 }
 
 // Generic Channel monitor- Provide it any channel and respective processor function
-func monitorChannel[T any](ch <-chan T, threshold, maxWorkers int, workerCount *int, mu *sync.Mutex, spawnWorker func()) {
+func monitorChannel[T any](ch <-chan T, threshold, maxWorkers int, workerCount *int, mu *sync.Mutex, spawnWorker func() error) {
 	ticker := time.NewTicker(5 * time.Second) // Check channel every 5 seconds
 	defer ticker.Stop()
 
