@@ -46,11 +46,13 @@ func main() {
 
 		serverCfg, err = config.LoadConfigFile[config.ServerConfig](*configFilePath)
 		if err != nil {
-			log.Fatalf("Failed to load server config: %v", err)
+			fmt.Printf("Failed to load server config: %v", err)
+			return
 		}
 
 		if err = serverCfg.ValidateConfig(); err != nil {
-			log.Fatalf("Invalid Server config: %v", err)
+			fmt.Printf("Invalid Server config: %v", err)
+			return
 		}
 
 	} else if !*keygen {
@@ -59,7 +61,8 @@ func main() {
 		serverCfg = *config.LoadServerConfigEnv()
 
 		if err = serverCfg.ValidateEnv(); err != nil {
-			log.Fatalf("Invalid Server config: %v", err)
+			fmt.Printf("Invalid Server config: %v", err)
+			return
 		}
 	}
 
@@ -69,25 +72,29 @@ func main() {
 	//TODO: Config for connection string
 	pgConfig, err := pgxpool.ParseConfig("postgres://strikeadmin:plaintextisbad@strike-db:5432/strike")
 	if err != nil {
-		log.Fatalf("Config parsing failed: %v", err)
+		fmt.Printf("Config parsing failed: %v", err)
+		return
 	}
 
 	pool, err := pgxpool.NewWithConfig(ctx, pgConfig)
 	if err != nil {
-		log.Fatalf("DB pool connection failed: %v", err)
+		fmt.Printf("DB pool connection failed: %v", err)
+		return
 	}
 	defer pool.Close()
 
 	statements, err := server.PrepareStatements(ctx, pool)
 	if err != nil {
-		log.Fatalf("Failed to prepare statements: %v", err)
+		fmt.Printf("Failed to prepare statements: %v", err)
+		return
 	}
 
 	log.Println("DB connection established...")
 
 	serverCreds, err := credentials.NewServerTLSFromFile(serverCfg.CertificatePath, serverCfg.SigningPrivateKeyPath)
 	if err != nil {
-		log.Fatalf("Failed to load TLS credentials: %v", err)
+		fmt.Printf("Failed to load TLS credentials: %v", err)
+		return
 	}
 
 	log.Println("Loaded TLS credentials")
@@ -103,7 +110,8 @@ func main() {
 	// GRPC server prep
 	lis, err := net.Listen("tcp", ":8080")
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		fmt.Printf("failed to listen: %v", err)
+		return
 	}
 
 	opts := []grpc.ServerOption{

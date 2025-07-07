@@ -62,10 +62,10 @@ func (s *StrikeServer) SaltMine(ctx context.Context, userInfo *pb.UserInfo) (*pb
 	err := s.DBpool.QueryRow(ctx, s.PStatements.SaltMine, userInfo.Username).Scan(&salt)
 	if err != nil {
 		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
-			log.Fatalf("Unable mine salt: %v", err)
+			fmt.Printf("Unable mine salt: %v", err)
 			return nil, nil
 		}
-		log.Fatalf("An Error occured while mining salt: %v", err)
+		fmt.Printf("An Error occured while mining salt: %v", err)
 		return nil, nil
 	}
 
@@ -78,10 +78,10 @@ func (s *StrikeServer) Login(ctx context.Context, clientLogin *pb.LoginVerify) (
 	err := s.DBpool.QueryRow(ctx, s.PStatements.LoginUser, clientLogin.Username).Scan(&storedHash)
 	if err != nil {
 		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
-			log.Fatalf("Unable to verify user: %v", err)
+			fmt.Printf("Unable to verify user: %v", err)
 			return nil, nil
 		}
-		log.Fatalf("An Error occured while verifying user: %v", err)
+		fmt.Printf("An Error occured while verifying user: %v", err)
 		return nil, nil
 	}
 
@@ -175,10 +175,10 @@ func (s *StrikeServer) UserRequest(ctx context.Context, userInfo *pb.UserInfo) (
 	err := s.DBpool.QueryRow(ctx, s.PStatements.GetUser, userInfo.Username).Scan(&userid)
 	if err != nil {
 		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
-			log.Fatalf("Unable get username: %v", err)
+			fmt.Printf("Unable get username: %v", err)
 			return nil, nil
 		}
-		log.Fatalf("Error acquiring username: %v", err)
+		fmt.Printf("Error acquiring username: %v", err)
 		return nil, nil
 	}
 
