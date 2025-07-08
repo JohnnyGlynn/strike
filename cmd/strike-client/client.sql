@@ -1,5 +1,13 @@
 -- PRAGMA foreign_keys = ON;
 
+CREATE TABLE identity (
+    user_id TEXT PRIMARY KEY NOT NULL,
+    username TEXT NOT NULL,
+    enc_pkey BLOB NOT NULL,
+    sig_pkey BLOB NOT NULL
+  -- TODO: Include other stuff here? What happens in a multitenant system?
+);
+
 CREATE TABLE IF NOT EXISTS addressbook (
     user_id TEXT PRIMARY KEY NOT NULL,
     username TEXT UNIQUE NOT NULL,
