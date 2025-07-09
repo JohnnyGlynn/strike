@@ -55,6 +55,8 @@ type ClientDB struct {
 	SaveUserDetails *sql.Stmt
 	GetUserId       *sql.Stmt
 	GetUser         *sql.Stmt
+	GetID           *sql.Stmt
+	SaveID          *sql.Stmt
 	GetFriends      *sql.Stmt
 	CreateChat      *sql.Stmt
 	GetChat         *sql.Stmt

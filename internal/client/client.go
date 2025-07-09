@@ -66,7 +66,7 @@ func SendMessage(c *types.ClientInfo, message string) error {
 	sealedMessage, err := crypto.Encrypt(c, []byte(message))
 	if err != nil {
 		log.Println("Couldnt encrypt message")
-    return err
+		return err
 	}
 
 	encenv := pb.EncryptedEnvelope{
@@ -86,15 +86,15 @@ func SendMessage(c *types.ClientInfo, message string) error {
 
 	_, err = c.Pbclient.SendPayload(context.Background(), &payloadEnvelope)
 	if err != nil {
-    return err
+		return err
 	}
 
 	_, err = c.Pstatements.SaveMessage.ExecContext(context.TODO(), uuid.New().String(), c.UserID.String(), c.Cache.CurrentChat.User.Id, "outbound", sealedMessage, time.Now().UnixMilli())
 	if err != nil {
-    return err
+		return err
 	}
 
-  return nil
+	return nil
 }
 
 func FriendRequest(ctx context.Context, c *types.ClientInfo, target string) error {
@@ -202,7 +202,7 @@ func ClientSignup(c *types.ClientInfo, password string, curve25519key []byte, ed
 	}
 
 	// Save users own details to local client db
-	_, err = c.Pstatements.SaveUserDetails.ExecContext(ctx, c.UserID.String(), c.Username, curve25519key, ed25519key)
+	_, err = c.Pstatements.SaveID.ExecContext(ctx, c.UserID.String(), c.Username, curve25519key, ed25519key)
 	if err != nil {
 		return fmt.Errorf("failed adding to address book: %v", err)
 	}
@@ -217,17 +217,17 @@ func Login(c *types.ClientInfo, password string) error {
 
 	// Retrieve UUID
 	var userID uuid.UUID
-	row := c.Pstatements.GetUserId.QueryRowContext(context.TODO(), c.Username)
+	row := c.Pstatements.GetID.QueryRowContext(context.TODO(), c.Username)
 	err := row.Scan(&userID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			dbsync, err := c.Pbclient.UserRequest(context.TODO(), &pb.UserInfo{Username: c.Username})
 			if err != nil {
 				log.Printf("error syncing: %v\n", err)
-        return err
+				return err
 			}
 
-			_, err = c.Pstatements.SaveUserDetails.ExecContext(ctx, c.UserID.String(), c.Username, c.Keys["EncryptionPublicKey"], c.Keys["SigningPublicKey"])
+			_, err = c.Pstatements.SaveID.ExecContext(ctx, c.UserID.String(), c.Username, c.Keys["EncryptionPublicKey"], c.Keys["SigningPublicKey"])
 			if err != nil {
 				return fmt.Errorf("failed adding to address book: %v", err)
 			}
@@ -235,7 +235,7 @@ func Login(c *types.ClientInfo, password string) error {
 			userID = uuid.MustParse(dbsync.UserId)
 		} else {
 			log.Printf("an error occured while logging in: %v\n", err)
-      return err
+			return err
 		}
 	}
 
@@ -341,11 +341,11 @@ func BeginChat(c *types.ClientInfo, target uuid.UUID, chatName string) error {
 	return nil
 }
 
-func GetActiveUsers(c *types.ClientInfo, uinfo *pb.UserInfo) (*pb.Users, error){
+func GetActiveUsers(c *types.ClientInfo, uinfo *pb.UserInfo) (*pb.Users, error) {
 	activeUsers, err := c.Pbclient.OnlineUsers(context.TODO(), uinfo)
 	if err != nil {
 		log.Printf("error getting active users: %v\n", err)
-    return nil, err
+		return nil, err
 	}
 
 	return activeUsers, nil
@@ -360,7 +360,7 @@ func PollServer(c *types.ClientInfo) (*pb.ServerInfo, error) {
 	})
 	if err != nil {
 		log.Printf("error polling server: %v\n", err)
-    return nil, err
+		return nil, err
 	}
 
 	return sInfo, nil

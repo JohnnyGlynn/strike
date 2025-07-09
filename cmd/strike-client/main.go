@@ -61,6 +61,7 @@ func main() {
 	*/
 
 	// If user wants to create keys to use with strike - no existing PKI
+	// TODO: Replace Keygen with --firstrun
 	if *keygen {
 		err := keys.SigningKeygen()
 		if err != nil {

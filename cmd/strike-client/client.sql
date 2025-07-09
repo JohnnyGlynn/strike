@@ -6,6 +6,9 @@ CREATE TABLE identity (
     enc_pkey BLOB NOT NULL,
     sig_pkey BLOB NOT NULL
   -- TODO: Include other stuff here? What happens in a multitenant system?
+  -- enc_priv BLOB NOT NULL, TODO: Ephemeral users/Import PKI
+  -- sig_priv BLOB NOT NULL,
+  -- cert? 
 );
 
 CREATE TABLE IF NOT EXISTS addressbook (
