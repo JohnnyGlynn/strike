@@ -26,14 +26,11 @@ import (
 
 //go:embed client.sql
 var schemaFS embed.FS
-var cDB *sql.DB
+
+// var cDB *sql.DB
 
 func main() {
 	fmt.Println("Strike client")
-
-	// Avoid shadowing
-	var clientCfg config.ClientConfig
-	var err error
 
 	idb, err := initDB("./client.db")
 	if err != nil {
@@ -48,78 +45,19 @@ func main() {
 		}
 	}()
 
-	cDB = idb
+	// cDB = idb
 
 	configFilePath := flag.String("config", "", "Path to configuration JSON file")
 	keygen := flag.Bool("keygen", false, "Launch Strike Key generation, creating keypair for user not bringing existing PKI")
 	flag.Parse()
 
-	/*
-		Flag check:
-		-config: Provide a config file, otherwise look for env vars
-		-keygen: Generate user keys
-	*/
-
-	// If user wants to create keys to use with strike - no existing PKI
-	// TODO: Replace Keygen with --firstrun
-	if *keygen {
-		err := keys.SigningKeygen()
-		if err != nil {
-			fmt.Printf("error generating signing keys: %v\n", err)
-			return
-		}
-
-		fmt.Println("Signing keys generated successfully ")
-
-		err = keys.EncryptionKeygen()
-		if err != nil {
-			fmt.Printf("error generating encryption keys: %v\n", err)
-			return
-		}
-
-		fmt.Println("Encryption keys generated successfully ")
-		os.Exit(0)
-	}
-
-	if *configFilePath != "" && !*keygen {
-		fmt.Println("Loading Config from File")
-
-		clientCfg, err = config.LoadConfigFile[config.ClientConfig](*configFilePath)
-		if err != nil {
-			fmt.Printf("Failed to load client config: %v\n", err)
-			return
-		}
-
-		if err := clientCfg.ValidateConfig(); err != nil {
-			fmt.Printf("Invalid client config: %v\n", err)
-			return
-		}
-
-	} else if !*keygen {
-		log.Println("Loading Config from Envrionment Variables")
-
-		clientCfg = *config.LoadClientConfigEnv()
-
-		if err := clientCfg.ValidateEnv(); err != nil {
-			fmt.Printf("Invalid client config: %v\n", err)
-			return
-		}
-	}
-
-	keysMap := map[string]keys.KeyDefinition{
-		"SigningPrivateKey":    {Path: clientCfg.SigningPrivateKeyPath, Type: keys.SigningKey},
-		"SigningPublicKey":     {Path: clientCfg.SigningPublicKeyPath, Type: keys.SigningKey},
-		"EncryptionPrivateKey": {Path: clientCfg.EncryptionPrivateKeyPath, Type: keys.EncryptionKey},
-		"EncryptionPublicKey":  {Path: clientCfg.EncryptionPublicKeyPath, Type: keys.EncryptionKey},
-	}
-
-	loadedKeys, err := keys.LoadAndValidateKeys(keysMap)
+	clientCfg, loadedKeys, err := setupClientConfigAndKeys(*configFilePath, *keygen)
 	if err != nil {
-		fmt.Printf("error loading and validating keys: %v\n", err)
+		fmt.Printf("error setting up config/keys: %v", err)
 		return
 	}
 
-	statements, err := client.PrepareStatements(context.TODO(), cDB)
+	statements, err := client.PrepareStatements(context.TODO(), idb)
 	if err != nil {
 		fmt.Printf("Failed to prepare statements: %v\n", err)
 		return
@@ -161,7 +99,6 @@ func main() {
 		Config: &clientCfg,
 		Keys:   loadedKeys,
 		Cache: types.Cache{
-			Chats:          make(map[uuid.UUID]*pb.Chat),
 			FriendRequests: make(map[uuid.UUID]*pb.FriendRequest),
 		},
 		Username:    "",
@@ -316,4 +253,62 @@ func initDB(path string) (*sql.DB, error) {
 	}
 
 	return dbOpen, nil
+}
+
+func setupClientConfigAndKeys(cfgPath string, keygen bool) (config.ClientConfig, map[string][]byte, error) {
+	// Avoid shadowing
+	var clientCfg config.ClientConfig
+	var err error
+
+	// TODO: Replace Keygen with --firstrun?
+	if keygen {
+		if err := keys.SigningKeygen(); err != nil {
+			return clientCfg, nil, fmt.Errorf("error generating signing keys: %v\n", err)
+		}
+		fmt.Println("Signing keys generated successfully ")
+
+		if err = keys.EncryptionKeygen(); err != nil {
+			return clientCfg, nil, fmt.Errorf("error generating encryption keys: %v\n", err)
+		}
+		fmt.Println("Encryption keys generated successfully ")
+
+		os.Exit(0)
+	}
+
+	if cfgPath != "" {
+		fmt.Println("Loading Config from File")
+
+		clientCfg, err = config.LoadConfigFile[config.ClientConfig](cfgPath)
+		if err != nil {
+			return clientCfg, nil, fmt.Errorf("Failed to load client config: %v\n", err)
+		}
+
+		if err := clientCfg.ValidateConfig(); err != nil {
+			return clientCfg, nil, fmt.Errorf("Invalid client config: %v\n", err)
+		}
+
+	} else {
+		log.Println("Loading Config from Envrionment Variables")
+
+		clientCfg = *config.LoadClientConfigEnv()
+
+		if err := clientCfg.ValidateEnv(); err != nil {
+			return clientCfg, nil, fmt.Errorf("Invalid client config: %v\n", err)
+		}
+	}
+
+	keysMap := map[string]keys.KeyDefinition{
+		"SigningPrivateKey":    {Path: clientCfg.SigningPrivateKeyPath, Type: keys.SigningKey},
+		"SigningPublicKey":     {Path: clientCfg.SigningPublicKeyPath, Type: keys.SigningKey},
+		"EncryptionPrivateKey": {Path: clientCfg.EncryptionPrivateKeyPath, Type: keys.EncryptionKey},
+		"EncryptionPublicKey":  {Path: clientCfg.EncryptionPublicKeyPath, Type: keys.EncryptionKey},
+	}
+
+	loadedKeys, err := keys.LoadAndValidateKeys(keysMap)
+	if err != nil {
+		return clientCfg, nil, fmt.Errorf("error loading and validating keys: %v\n", err)
+	}
+
+	return clientCfg, loadedKeys, nil
+
 }
