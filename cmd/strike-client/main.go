@@ -135,86 +135,9 @@ func main() {
 			case "/login":
 				inputReader.Reset(os.Stdin)
 
-				username, err = client.LoginInput("Username > ", inputReader)
-				if err != nil {
-					log.Printf("error reading username: %v\n", err)
-					continue
-				}
-
-				password, err := client.LoginInput("Password > ", inputReader)
-				if err != nil {
-					log.Printf("error reading username: %v\n", err)
-					continue
-				}
-
-				if username == "" || password == "" {
-					fmt.Println("Username and password cannot be empty.")
-					continue
-				}
-
-				clientInfo.Username = username
-
-				err = client.Login(clientInfo, password)
-				if err != nil {
-					fmt.Printf("error during login: %v\n", err)
-					return
-				}
-				isLoggedIn = true
-
-				go func() {
-					err = client.RegisterStatus(clientInfo)
-					if err != nil {
-						fmt.Printf("error connecting stream: %v\n", err)
-						return
-					}
-				}()
-
-				fmt.Println("Logged In!")
-				// Logged in
-				fmt.Printf("Welcome back %s!\n", clientInfo.Username)
 			case "/signup":
 				inputReader.Reset(os.Stdin)
 
-				username, err = client.LoginInput("Username > ", inputReader)
-				if err != nil {
-					log.Printf("error reading username: %v\n", err)
-					continue
-				}
-
-				password, err := client.LoginInput("Password > ", inputReader)
-				if err != nil {
-					log.Printf("error reading username: %v\n", err)
-					continue
-				}
-
-				if username == "" || password == "" {
-					fmt.Println("Username and password cannot be empty.")
-					continue
-				}
-
-				// Create a new UUID
-				clientInfo.UserID = uuid.New()
-				clientInfo.Username = username
-
-				err = client.ClientSignup(clientInfo, password, loadedKeys["EncryptionPublicKey"], loadedKeys["SigningPublicKey"])
-				if err != nil {
-					fmt.Printf("error connecting: %v\n", err)
-					return
-				}
-
-				isLoggedIn = true
-
-				go func() {
-					err = client.RegisterStatus(clientInfo)
-					if err != nil {
-						fmt.Printf("error connecting stream: %v\n", err)
-						return
-					}
-				}()
-
-				fmt.Println("Logged In!")
-				// Logged in
-				fmt.Printf("Welcome %s!\n", username)
 			case "/exit":
 				fmt.Println("Strike Client shutting down")
 				return
@@ -311,4 +234,77 @@ func setupClientConfigAndKeys(cfgPath string, keygen bool) (config.ClientConfig,
 
 	return clientCfg, loadedKeys, nil
 
+}
+
+func handleLogin(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
+	username, err := client.LoginInput("Username > ", reader)
+	if err != nil {
+		return fmt.Errorf("error reading username: %v", err)
+
+	}
+
+	password, err := client.LoginInput("Password > ", reader)
+	if err != nil {
+		return fmt.Errorf("error reading username: %v", err)
+	}
+
+	if username == "" || password == "" {
+		return fmt.Errorf("Username and password cannot be empty.")
+	}
+
+	clientInfo.Username = username
+
+	err = client.Login(clientInfo, password)
+	if err != nil {
+		return fmt.Errorf("error during login: %v", err)
+	}
+
+	go func() {
+		if err = client.RegisterStatus(clientInfo); err != nil {
+			fmt.Printf("error connecting stream: %v", err)
+			return
+		}
+	}()
+
+	fmt.Printf("Welcome back %s!\n", clientInfo.Username)
+
+	return nil
+}
+
+func handleSignup(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
+	username, err := client.LoginInput("Username > ", reader)
+	if err != nil {
+		return fmt.Errorf("error reading username: %v\n", err)
+	}
+
+	password, err := client.LoginInput("Password > ", reader)
+	if err != nil {
+		return fmt.Errorf("error reading username: %v\n", err)
+	}
+
+	if username == "" || password == "" {
+		return fmt.Errorf("Username and password cannot be empty.")
+	}
+
+	// Create a new UUID
+	clientInfo.UserID = uuid.New()
+	clientInfo.Username = username
+	//TODO: Handle Keyloading here?
+
+	//WARN: Keys are empty here
+	err = client.ClientSignup(clientInfo, password, clientInfo.Keys["EncryptionPublicKey"], clientInfo.Keys["SigningPublicKey"])
+	if err != nil {
+		return fmt.Errorf("error connecting: %v\n", err)
+	}
+
+	go func() {
+		if err = client.RegisterStatus(clientInfo); err != nil {
+			fmt.Printf("error connecting stream: %v\n", err)
+			return
+		}
+	}()
+
+	fmt.Printf("Welcome %s!\n", username)
+
+	return nil
 }
