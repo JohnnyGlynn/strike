@@ -108,47 +108,7 @@ func main() {
 		Shell:       &types.ShellState{},
 	}
 
-	inputReader := bufio.NewReader(os.Stdin)
-	isLoggedIn := false
-	var username string
-
-	fmt.Println("Type /login to log into the Strike Messaging service")
-	fmt.Println("Type /signup to signup to the Strike Messaging service")
-	fmt.Println("Type /exit to quit.")
-
-	for {
-		if !isLoggedIn {
-			// Prompt for input
-			fmt.Print("> ")
-			input, err := inputReader.ReadString('\n')
-			if err != nil {
-				log.Printf("Error reading input: %v\n", err)
-				continue
-			}
-
-			input = strings.TrimSpace(input)
-			if input == "" {
-				continue
-			}
-
-			switch input {
-			case "/login":
-				inputReader.Reset(os.Stdin)
-
-			case "/signup":
-				inputReader.Reset(os.Stdin)
-
-			case "/exit":
-				fmt.Println("Strike Client shutting down")
-				return
-			default:
-				fmt.Printf("Unknown command: %s\n", input)
-			}
-
-		} else {
-			client.MShell(clientInfo)
-		}
-	}
+	authHandler(clientInfo)
 }
 
 func initDB(path string) (*sql.DB, error) {
@@ -291,7 +251,6 @@ func handleSignup(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
 	clientInfo.Username = username
 	//TODO: Handle Keyloading here?
 
-	//WARN: Keys are empty here
 	err = client.ClientSignup(clientInfo, password, clientInfo.Keys["EncryptionPublicKey"], clientInfo.Keys["SigningPublicKey"])
 	if err != nil {
 		return fmt.Errorf("error connecting: %v\n", err)
@@ -307,4 +266,50 @@ func handleSignup(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
 	fmt.Printf("Welcome %s!\n", username)
 
 	return nil
+}
+
+// TODO: Bad name?
+func authHandler(c *types.ClientInfo) {
+	inputReader := bufio.NewReader(os.Stdin)
+
+	fmt.Println("Type /login to log into the Strike Messaging service")
+	fmt.Println("Type /signup to signup to the Strike Messaging service")
+	fmt.Println("Type /exit to quit.")
+
+	for {
+		if c.Username == "" {
+			fmt.Print("> ")
+			input, err := inputReader.ReadString('\n')
+			if err != nil {
+				log.Printf("Error reading input: %v\n", err)
+				continue
+			}
+
+			input = strings.TrimSpace(input)
+			if input == "" {
+				continue
+			}
+
+			switch input {
+			case "/login":
+				if err := handleLogin(inputReader, c); err != nil {
+					fmt.Printf("login error: %v\n", err)
+					continue
+				}
+			case "/signup":
+				if err := handleSignup(inputReader, c); err != nil {
+					fmt.Printf("signup error: %v\n", err)
+					continue
+				}
+			case "/exit":
+				fmt.Println("Strike Client shutting down")
+				return
+			default:
+				fmt.Printf("Unknown command: %s\n", input)
+			}
+
+		} else {
+			client.MShell(c)
+		}
+	}
 }
