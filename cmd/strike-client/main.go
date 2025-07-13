@@ -53,7 +53,7 @@ func main() {
 
 	clientCfg, loadedKeys, err := setupClientConfigAndKeys(*configFilePath, *keygen)
 	if err != nil {
-		fmt.Printf("error setting up config/keys: %v", err)
+		fmt.Printf("error setting up config/keys: %v\n", err)
 		return
 	}
 
@@ -70,19 +70,9 @@ func main() {
 		}
 	}()
 
-	// Begin GRPC setup
-	creds, err := credentials.NewClientTLSFromFile(clientCfg.ServerCertificatePath, "")
+	conn, err := grpcSetup(clientCfg)
 	if err != nil {
-		fmt.Printf("Failed to load server certificate: %v\n", err)
-		return
-	}
-
-	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithTransportCredentials(creds))
-
-	conn, err := grpc.NewClient(clientCfg.ServerHost, opts...)
-	if err != nil {
-		fmt.Printf("fail to dial: %v\n", err)
+		fmt.Printf("error establishing grpc conncetion: %v\n", err)
 		return
 	}
 
@@ -93,7 +83,7 @@ func main() {
 		}
 	}()
 
-	newClient := pb.NewStrikeClient(conn)
+	client := pb.NewStrikeClient(conn)
 
 	clientInfo := &types.ClientInfo{
 		Config: &clientCfg,
@@ -103,12 +93,15 @@ func main() {
 		},
 		Username:    "",
 		UserID:      uuid.Nil,
-		Pbclient:    newClient,
+		Pbclient:    client,
 		Pstatements: statements,
 		Shell:       &types.ShellState{},
 	}
 
-	authHandler(clientInfo)
+	if err := authHandler(clientInfo); err != nil {
+		fmt.Printf("authHandler error: %v\n", err)
+		return
+	}
 }
 
 func initDB(path string) (*sql.DB, error) {
@@ -146,37 +139,33 @@ func setupClientConfigAndKeys(cfgPath string, keygen bool) (config.ClientConfig,
 	// TODO: Replace Keygen with --firstrun?
 	if keygen {
 		if err := keys.SigningKeygen(); err != nil {
-			return clientCfg, nil, fmt.Errorf("error generating signing keys: %v\n", err)
+			return clientCfg, nil, fmt.Errorf("error generating signing keys: %v", err)
 		}
 		fmt.Println("Signing keys generated successfully ")
 
 		if err = keys.EncryptionKeygen(); err != nil {
-			return clientCfg, nil, fmt.Errorf("error generating encryption keys: %v\n", err)
+			return clientCfg, nil, fmt.Errorf("error generating encryption keys: %v", err)
 		}
-		fmt.Println("Encryption keys generated successfully ")
+		fmt.Println("Encryption keys generated successfully")
 
 		os.Exit(0)
 	}
 
 	if cfgPath != "" {
-		fmt.Println("Loading Config from File")
-
 		clientCfg, err = config.LoadConfigFile[config.ClientConfig](cfgPath)
 		if err != nil {
-			return clientCfg, nil, fmt.Errorf("Failed to load client config: %v\n", err)
+			return clientCfg, nil, fmt.Errorf("failed to load client config: %v", err)
 		}
 
 		if err := clientCfg.ValidateConfig(); err != nil {
-			return clientCfg, nil, fmt.Errorf("Invalid client config: %v\n", err)
+			return clientCfg, nil, fmt.Errorf("invalid client config: %v", err)
 		}
 
 	} else {
-		log.Println("Loading Config from Envrionment Variables")
-
 		clientCfg = *config.LoadClientConfigEnv()
 
 		if err := clientCfg.ValidateEnv(); err != nil {
-			return clientCfg, nil, fmt.Errorf("Invalid client config: %v\n", err)
+			return clientCfg, nil, fmt.Errorf("invalid client config: %v", err)
 		}
 	}
 
@@ -189,11 +178,29 @@ func setupClientConfigAndKeys(cfgPath string, keygen bool) (config.ClientConfig,
 
 	loadedKeys, err := keys.LoadAndValidateKeys(keysMap)
 	if err != nil {
-		return clientCfg, nil, fmt.Errorf("error loading and validating keys: %v\n", err)
+		return clientCfg, nil, fmt.Errorf("error loading and validating keys: %v", err)
 	}
 
 	return clientCfg, loadedKeys, nil
 
+}
+
+func grpcSetup(cfg config.ClientConfig) (*grpc.ClientConn, error) {
+
+	creds, err := credentials.NewClientTLSFromFile(cfg.ServerCertificatePath, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load server certificate: %v", err)
+	}
+
+	var opts []grpc.DialOption
+	opts = append(opts, grpc.WithTransportCredentials(creds))
+
+	conn, err := grpc.NewClient(cfg.ServerHost, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to dial: %v", err)
+	}
+
+	return conn, nil
 }
 
 func handleLogin(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
@@ -209,7 +216,7 @@ func handleLogin(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
 	}
 
 	if username == "" || password == "" {
-		return fmt.Errorf("Username and password cannot be empty.")
+		return fmt.Errorf("username and password cannot be empty")
 	}
 
 	clientInfo.Username = username
@@ -221,7 +228,7 @@ func handleLogin(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
 
 	go func() {
 		if err = client.RegisterStatus(clientInfo); err != nil {
-			fmt.Printf("error connecting stream: %v", err)
+			fmt.Printf("error connecting stream: %v\n", err)
 			return
 		}
 	}()
@@ -234,16 +241,16 @@ func handleLogin(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
 func handleSignup(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
 	username, err := client.LoginInput("Username > ", reader)
 	if err != nil {
-		return fmt.Errorf("error reading username: %v\n", err)
+		return fmt.Errorf("error reading username: %v", err)
 	}
 
 	password, err := client.LoginInput("Password > ", reader)
 	if err != nil {
-		return fmt.Errorf("error reading username: %v\n", err)
+		return fmt.Errorf("error reading username: %v", err)
 	}
 
 	if username == "" || password == "" {
-		return fmt.Errorf("Username and password cannot be empty.")
+		return fmt.Errorf("username and password cannot be empty")
 	}
 
 	// Create a new UUID
@@ -253,7 +260,7 @@ func handleSignup(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
 
 	err = client.ClientSignup(clientInfo, password, clientInfo.Keys["EncryptionPublicKey"], clientInfo.Keys["SigningPublicKey"])
 	if err != nil {
-		return fmt.Errorf("error connecting: %v\n", err)
+		return fmt.Errorf("error connecting: %v", err)
 	}
 
 	go func() {
@@ -269,7 +276,7 @@ func handleSignup(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
 }
 
 // TODO: Bad name?
-func authHandler(c *types.ClientInfo) {
+func authHandler(c *types.ClientInfo) error {
 	inputReader := bufio.NewReader(os.Stdin)
 
 	fmt.Println("Type /login to log into the Strike Messaging service")
@@ -303,13 +310,15 @@ func authHandler(c *types.ClientInfo) {
 				}
 			case "/exit":
 				fmt.Println("Strike Client shutting down")
-				return
+				return nil
 			default:
 				fmt.Printf("Unknown command: %s\n", input)
 			}
 
 		} else {
-			client.MShell(c)
+			if err := client.MShell(c); err != nil {
+				return err
+			}
 		}
 	}
 }

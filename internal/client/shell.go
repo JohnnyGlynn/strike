@@ -51,7 +51,11 @@ func inputParse(input string) types.ParsedInput {
 func dispatchCommand(cmdMap map[string]types.Command, parsed types.ParsedInput, client *types.ClientInfo) {
 	if cmd, exists := cmdMap[parsed.Command]; exists {
 		if slices.Contains(cmd.Scope, client.Shell.Mode) {
-			cmd.CmdFn(parsed.Args, client)
+			err := cmd.CmdFn(parsed.Args, client)
+			if err != nil {
+				fmt.Printf("failed to dispatch command: %v\n", err)
+				return
+			}
 		} else {
 			fmt.Printf("'%s' command not availble in '%v' mode\n", cmd.Name, client.Shell.Mode)
 		}
@@ -104,7 +108,11 @@ func buildCommandMap() (map[string]types.Command, error) {
 		CmdFn: func(args []string, client *types.ClientInfo) error {
 			//TODO: Refactor out the need to pass in a reader
 			todoReader := bufio.NewReader(os.Stdin)
-			shellAddFriend(todoReader, client)
+			err := shellAddFriend(todoReader, client)
+			if err != nil {
+				fmt.Printf("error executing addFriend shell: %v\n", err)
+				return err
+			}
 			return nil
 		},
 		Scope: []types.ShellMode{types.ModeDefault},
@@ -114,7 +122,11 @@ func buildCommandMap() (map[string]types.Command, error) {
 		Name: "/friends",
 		Desc: "Display friends list",
 		CmdFn: func(args []string, client *types.ClientInfo) error {
-			FriendList(client)
+			err := FriendList(client)
+			if err != nil {
+				fmt.Printf("error executing FriendList shell: %v\n", err)
+				return err
+			}
 			return nil
 		},
 		Scope: []types.ShellMode{types.ModeDefault},
@@ -286,7 +298,7 @@ func shellFriendRequests(ctx context.Context, c *types.ClientInfo) error {
 		accepted := input == "y"
 
 		if err := FriendResponse(ctx, c, c.Cache.FriendRequests[k], accepted); err != nil {
-			return fmt.Errorf("Friend response failure: %v", err)
+			return fmt.Errorf("friend response failure: %v", err)
 		}
 	}
 
