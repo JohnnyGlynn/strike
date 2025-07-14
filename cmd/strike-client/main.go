@@ -32,7 +32,13 @@ var schemaFS embed.FS
 func main() {
 	fmt.Println("Strike client")
 
-	idb, err := initDB("./client.db")
+	schema, err := schemaFS.ReadFile("client.sql")
+	if err != nil {
+		fmt.Println("schema not found")
+		return
+	}
+
+	idb, err := initDB("./client.db", schema)
 	if err != nil {
 		fmt.Printf("Error initializing db: %v\n", err)
 		return
@@ -98,13 +104,13 @@ func main() {
 		Shell:       &types.ShellState{},
 	}
 
-	if err := authHandler(clientInfo); err != nil {
+	if err := launchREPL(clientInfo); err != nil {
 		fmt.Printf("authHandler error: %v\n", err)
 		return
 	}
 }
 
-func initDB(path string) (*sql.DB, error) {
+func initDB(path string, schema []byte) (*sql.DB, error) {
 	firstRun := false
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -117,12 +123,7 @@ func initDB(path string) (*sql.DB, error) {
 	}
 
 	if firstRun {
-		init, err := schemaFS.ReadFile("client.sql")
-		if err != nil {
-			return nil, fmt.Errorf("schema not found")
-		}
-
-		_, err = dbOpen.Exec(string(init))
+		_, err = dbOpen.Exec(string(schema))
 		if err != nil {
 			return nil, err
 		}
@@ -258,7 +259,14 @@ func handleSignup(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
 	clientInfo.Username = username
 	//TODO: Handle Keyloading here?
 
-	err = client.ClientSignup(clientInfo, password, clientInfo.Keys["EncryptionPublicKey"], clientInfo.Keys["SigningPublicKey"])
+	encKey, ok1 := clientInfo.Keys["EncryptionPublicKey"]
+	sigKey, ok2 := clientInfo.Keys["SigningPublicKey"]
+
+	if !ok1 || !ok2 {
+		return fmt.Errorf("missing required public keys for signup")
+	}
+
+	err = client.ClientSignup(clientInfo, password, encKey, sigKey)
 	if err != nil {
 		return fmt.Errorf("error connecting: %v", err)
 	}
@@ -275,8 +283,7 @@ func handleSignup(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
 	return nil
 }
 
-// TODO: Bad name?
-func authHandler(c *types.ClientInfo) error {
+func launchREPL(c *types.ClientInfo) error {
 	inputReader := bufio.NewReader(os.Stdin)
 
 	fmt.Println("Type /login to log into the Strike Messaging service")
@@ -312,7 +319,7 @@ func authHandler(c *types.ClientInfo) error {
 				fmt.Println("Strike Client shutting down")
 				return nil
 			default:
-				fmt.Printf("Unknown command: %s\n", input)
+				fmt.Printf("Unknown command: %s\nTry /help for available commands.", input)
 			}
 
 		} else {
