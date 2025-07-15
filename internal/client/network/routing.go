@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"slices"
-	"strings"
 	"sync"
 	"time"
 
@@ -16,8 +14,6 @@ import (
 )
 
 type Demultiplexer struct {
-	chatRequestChannel             chan *pb.BeginChatRequest
-	chatConfirmChannel             chan *pb.ConfirmChatRequest
 	friendRequestChannel           chan *pb.FriendRequest
 	friendResponseChannel          chan *pb.FriendResponse
 	encenvelopeChannel             chan *pb.EncryptedEnvelope
@@ -27,8 +23,6 @@ type Demultiplexer struct {
 
 	// Workers
 	envelopeWorkerCount           int
-	chatRequestWorkerCount        int
-	chatConfirmWorkerCount        int
 	keyExchangeRequestWorkerCount int
 
 	// mutex for workers
@@ -38,8 +32,6 @@ type Demultiplexer struct {
 
 func NewDemultiplexer(c *types.ClientInfo) *Demultiplexer {
 	d := &Demultiplexer{
-		chatRequestChannel:    make(chan *pb.BeginChatRequest, 20),
-		chatConfirmChannel:    make(chan *pb.ConfirmChatRequest, 20),
 		friendRequestChannel:  make(chan *pb.FriendRequest, 200),
 		friendResponseChannel: make(chan *pb.FriendResponse, 200),
 		encenvelopeChannel:    make(chan *pb.EncryptedEnvelope, 200),
@@ -52,18 +44,13 @@ func NewDemultiplexer(c *types.ClientInfo) *Demultiplexer {
 	// Baseline workers
 	d.mu.Lock()
 	d.envelopeWorkerCount = 1
-	d.chatRequestWorkerCount = 1
-	d.chatConfirmWorkerCount = 1
 	d.keyExchangeRequestWorkerCount = 1
 	d.mu.Unlock()
 
 	// Run demultiplexer channel processors - Permanent processors
 	go ProcessEnvelopes(d.encenvelopeChannel, c, 0, &d.envelopeWorkerCount, &d.mu)
-	go ProcessChatRequests(d.chatRequestChannel, c, 0, &d.chatRequestWorkerCount, &d.mu)
-	//TODO: This is a mess
 	go ProcessFriendRequests(d.friendRequestChannel, c, 0, &d.keyExchangeRequestWorkerCount, &d.mu)
 	go ProcessFriendResponse(d.friendResponseChannel, c, 0, &d.keyExchangeRequestWorkerCount, &d.mu)
-	go ProcessConfirmChatRequests(c, d.chatConfirmChannel, 0, &d.chatConfirmWorkerCount, &d.mu)
 	go ProcessKeyExchangeRequests(c, d.keyExchangeChannel, 0, &d.keyExchangeRequestWorkerCount, &d.mu)
 	go ProcessKeyExchangeResponses(c, d.keyExchangeResponseChannel, 0, &d.keyExchangeRequestWorkerCount, &d.mu)
 	go ProcessKeyExchangeConfirmations(c, d.keyExchangeConfirmationChannel, 0, &d.keyExchangeRequestWorkerCount, &d.mu)
@@ -91,20 +78,6 @@ func (d *Demultiplexer) Dispatcher(msg *pb.StreamPayload) {
 		default:
 			log.Printf("WARNING: Channel full - Friend Response dropped - Sender: %v\n", payload.FriendResponse.UserInfo.Username)
 		}
-	case *pb.StreamPayload_ChatRequest:
-		select {
-		case d.chatRequestChannel <- payload.ChatRequest:
-		default:
-			log.Printf("WARNING: Channel full - Chat Request dropped - Sender: %v\n", payload.ChatRequest.Initiator)
-		}
-	case *pb.StreamPayload_ChatConfirm:
-		select {
-		case d.chatConfirmChannel <- payload.ChatConfirm:
-		default:
-			log.Printf("WARNING: Channel full - Chat Confirm dropped - Sender: %v\n", payload.ChatConfirm.Confirmer)
-			// TODO: Retry to create chats if this fails
-		}
-		// TODO: Do better than X was dropped
 	case *pb.StreamPayload_KeyExchRequest:
 		select {
 		case d.keyExchangeChannel <- payload.KeyExchRequest:
@@ -143,31 +116,10 @@ func (d *Demultiplexer) StartMonitoring(c *types.ClientInfo) {
 		},
 	)
 
-	go monitorChannel(d.chatRequestChannel, 10, 3, &d.chatRequestWorkerCount, &d.mu,
-		func() error {
-			err := ProcessChatRequests(d.chatRequestChannel, c, ephemeralTimeout, &d.chatRequestWorkerCount, &d.mu)
-			if err != nil {
-				return err
-			}
-			return nil
-
-		},
-	)
-
-	go monitorChannel(d.chatConfirmChannel, 10, 3, &d.chatConfirmWorkerCount, &d.mu,
-		func() error {
-			err := ProcessConfirmChatRequests(c, d.chatConfirmChannel, ephemeralTimeout, &d.chatConfirmWorkerCount, &d.mu)
-			if err != nil {
-				return err
-			}
-			return nil
-		},
-	)
-
 	go monitorChannel(d.keyExchangeChannel, 10, 3, &d.keyExchangeRequestWorkerCount, &d.mu,
 		func() error {
-      err := ProcessKeyExchangeRequests(c, d.keyExchangeChannel, ephemeralTimeout, &d.keyExchangeRequestWorkerCount, &d.mu)
-      if err != nil {
+			err := ProcessKeyExchangeRequests(c, d.keyExchangeChannel, ephemeralTimeout, &d.keyExchangeRequestWorkerCount, &d.mu)
+			if err != nil {
 				return err
 			}
 			return nil
@@ -205,30 +157,6 @@ func ProcessEnvelopes(ch <-chan *pb.EncryptedEnvelope, c *types.ClientInfo, idle
 			}
 		case <-timeoutCh:
 			fmt.Printf("Envelope worker idle for %v, exiting.\n", idleTimeout) // shutdown ephemeral workers
-			mu.Lock()
-			*workerCount--
-			mu.Unlock()
-			return nil
-		}
-	}
-}
-
-func ProcessChatRequests(ch <-chan *pb.BeginChatRequest, c *types.ClientInfo, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) error {
-	for {
-		var timeoutCh <-chan time.Time // channel for timer
-		if idleTimeout > 0 {
-			timeoutCh = time.After(idleTimeout) // if timeout non-0 create timout channel
-		}
-		select {
-		case chatRequest, ok := <-ch:
-			if !ok {
-				return nil
-			}
-			fmt.Printf("Chat Invite recieved from:%v Chat Name: %v\n", chatRequest.Initiator, chatRequest.Chat.Name)
-			// Recieve an invite, cache it
-			// c.Cache.Invites[uuid.MustParse(chatRequest.InviteId)] = chatRequest
-		case <-timeoutCh:
-			fmt.Printf("ChatRequest worker idle for %v, exiting.\n", idleTimeout) // shutdown ephemeral workers
 			mu.Lock()
 			*workerCount--
 			mu.Unlock()
@@ -281,41 +209,11 @@ func ProcessFriendResponse(ch <-chan *pb.FriendResponse, c *types.ClientInfo, id
 					fmt.Printf("failed adding to address book: %v", err)
 					return err
 				}
+
+				InitiateKeyExchange(context.TODO(), c, uuid.MustParse(friendRes.UserInfo.UserId))
 			}
 
 		case <-timeoutCh:
-			mu.Lock()
-			*workerCount--
-			mu.Unlock()
-			return nil
-		}
-	}
-}
-
-func ProcessConfirmChatRequests(c *types.ClientInfo, ch <-chan *pb.ConfirmChatRequest, idleTimeout time.Duration, workerCount *int, mu *sync.Mutex) error {
-	for {
-		var timeoutCh <-chan time.Time // channel for timer
-		if idleTimeout > 0 {
-			timeoutCh = time.After(idleTimeout) // if timeout non-0 create timout channel
-		}
-		select {
-		case confirmation, ok := <-ch:
-			if !ok {
-				return nil
-			}
-
-			if confirmation.State {
-				confirmerParsed := uuid.MustParse(confirmation.Confirmer)
-				fmt.Printf("Invitation %v for:%s, With: %s, Status: Accepted\n", confirmation.InviteId, confirmation.Chat.Name, confirmerParsed)
-				c.Cache.Chats[uuid.MustParse(confirmation.Chat.Id)] = confirmation.Chat
-				c.Cache.Chats[uuid.MustParse(confirmation.Chat.Id)].State = pb.Chat_KEY_EXCHANGE_PENDING
-				// TODO: Initiator will probably have to change
-				InitiateKeyExchange(context.TODO(), c, confirmerParsed, confirmation.Chat)
-			} else {
-				fmt.Printf("Invitation %v for:%s, With: %s, Status: Declined\n", confirmation.InviteId, confirmation.Chat.Name, confirmation.Confirmer)
-			}
-		case <-timeoutCh:
-			fmt.Printf("ConfirmChatRequest worker idle for %v, exiting.\n", idleTimeout) // shutdown ephemeral workers
 			mu.Lock()
 			*workerCount--
 			mu.Unlock()
@@ -338,28 +236,9 @@ func ProcessKeyExchangeRequests(c *types.ClientInfo, ch <-chan *pb.KeyExchangeRe
 
 			fmt.Printf("keyExReq: %v", keyExReq)
 
-			chatId := uuid.MustParse(keyExReq.ChatId)
 			senderId := uuid.MustParse(keyExReq.SenderUserId)
-			fmt.Printf("Key exchange initiated for: %v\n", chatId)
 
-			chat, exists := c.Cache.Chats[chatId]
-			if !exists {
-				log.Printf("Failed to find chat: %v", keyExReq.ChatId)
-				return nil
-			}
-
-			participants := slices.Clone(chat.Participants)
-
-			participantsSerialized := strings.Join(participants, ",")
-
-			_, err := c.Pstatements.CreateChat.ExecContext(context.TODO(), chatId, chat.Name, uuid.MustParse(keyExReq.SenderUserId), participantsSerialized, chat.State.String())
-			if err != nil {
-				fmt.Printf("Failed to save Chat")
-				return err
-			}
-
-			// TODO: Signature is gross
-			ReciprocateKeyExchange(context.TODO(), c, senderId, chat)
+			ReciprocateKeyExchange(context.TODO(), c, senderId)
 
 		case <-timeoutCh:
 			fmt.Printf("KeyExchangeRequest worker idle for %v, exiting.\n", idleTimeout) // shutdown ephemeral workers
@@ -383,26 +262,9 @@ func ProcessKeyExchangeResponses(c *types.ClientInfo, ch <-chan *pb.KeyExchangeR
 				return nil
 			}
 			fmt.Printf("Key exchange response for: %v\n", keyExRes.ChatId)
-			chat, exists := c.Cache.Chats[uuid.MustParse(keyExRes.ChatId)]
-			if !exists {
-				log.Printf("Failed to find chat: %v", keyExRes.ChatId)
-				return nil
-			}
-
-			chat.State = pb.Chat_ENCRYPTED
-
-			participants := slices.Clone(chat.Participants)
-
-			participantsSerialized := strings.Join(participants, ",")
-
-			_, err := c.Pstatements.CreateChat.ExecContext(context.TODO(), uuid.MustParse(keyExRes.ChatId), chat.Name, uuid.MustParse(keyExRes.ResponderUserId), participantsSerialized, chat.State.String())
-			if err != nil {
-				fmt.Printf("Failed to save Chat")
-				return err
-			}
 
 			// TODO: Something fails so the confirmations can be false???
-			ConfirmKeyExchange(context.TODO(), c, uuid.MustParse(keyExRes.ResponderUserId), true, chat)
+			ConfirmKeyExchange(context.TODO(), c, uuid.MustParse(keyExRes.ResponderUserId), true)
 
 		case <-timeoutCh:
 			fmt.Printf("KeyExchangeResponse worker idle for %v, exiting.\n", idleTimeout) // shutdown ephemeral workers
@@ -440,7 +302,7 @@ func ProcessKeyExchangeConfirmations(c *types.ClientInfo, ch <-chan *pb.KeyExcha
 
 				chat.State = pb.Chat_ENCRYPTED
 
-				ConfirmKeyExchange(context.TODO(), c, uuid.MustParse(keyExCon.ConfirmerUserId), true, chat)
+				ConfirmKeyExchange(context.TODO(), c, uuid.MustParse(keyExCon.ConfirmerUserId), true)
 
 			}
 			if chat.State == pb.Chat_ENCRYPTED {

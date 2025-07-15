@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func InitiateKeyExchange(ctx context.Context, c *types.ClientInfo, target uuid.UUID, chat *pb.Chat) error {
+func InitiateKeyExchange(ctx context.Context, c *types.ClientInfo, target uuid.UUID) error {
 	// make nonce
 	nonce := make([]byte, 32)
 	_, err := rand.Read(nonce)
@@ -46,10 +46,7 @@ func InitiateKeyExchange(ctx context.Context, c *types.ClientInfo, target uuid.U
 
 	sigs := [][]byte{nonceSig, publicKeySig}
 
-	c.Cache.Chats[uuid.MustParse(chat.Id)].State = pb.Chat_KEY_EXCHANGE_PENDING
-
 	exchangeInfo := pb.KeyExchangeRequest{
-		ChatId:         chat.Id,
 		SenderUserId:   c.UserID.String(),
 		Target:         target.String(),
 		CurvePublicKey: c.Keys["EncryptionPublicKey"],
@@ -75,7 +72,7 @@ func InitiateKeyExchange(ctx context.Context, c *types.ClientInfo, target uuid.U
 	return nil
 }
 
-func ReciprocateKeyExchange(ctx context.Context, c *types.ClientInfo, target uuid.UUID, chat *pb.Chat) error {
+func ReciprocateKeyExchange(ctx context.Context, c *types.ClientInfo, target uuid.UUID) error {
 	// make nonce
 	nonce := make([]byte, 32)
 	_, err := rand.Read(nonce)
@@ -106,8 +103,6 @@ func ReciprocateKeyExchange(ctx context.Context, c *types.ClientInfo, target uui
 	sigs := [][]byte{nonceSig, publicKeySig}
 
 	exchangeInfo := pb.KeyExchangeResponse{
-		ChatId: chat.Id,
-		// TODO:UUID NOT USERNAME, REAL uuid
 		ResponderUserId: c.UserID.String(),
 		CurvePublicKey:  c.Keys["EncryptionPublicKey"],
 		Nonce:           nonce,
@@ -132,9 +127,8 @@ func ReciprocateKeyExchange(ctx context.Context, c *types.ClientInfo, target uui
 	return nil
 }
 
-func ConfirmKeyExchange(ctx context.Context, c *types.ClientInfo, target uuid.UUID, status bool, chat *pb.Chat) error {
+func ConfirmKeyExchange(ctx context.Context, c *types.ClientInfo, target uuid.UUID, status bool) error {
 	confirmation := pb.KeyExchangeConfirmation{
-		ChatId:          chat.Id,
 		Status:          status,
 		ConfirmerUserId: c.UserID.String(),
 	}
@@ -145,8 +139,6 @@ func ConfirmKeyExchange(ctx context.Context, c *types.ClientInfo, target uuid.UU
 		Payload: &pb.StreamPayload_KeyExchConfirm{KeyExchConfirm: &confirmation},
 		Info:    "Key Exchange confirmation paload",
 	}
-
-	c.Cache.Chats[uuid.MustParse(chat.Id)] = chat
 
 	resp, err := c.Pbclient.SendPayload(ctx, &payload)
 	if err != nil {
