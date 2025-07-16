@@ -58,10 +58,8 @@ type ClientDB struct {
 	GetID           *sql.Stmt
 	SaveID          *sql.Stmt
 	GetFriends      *sql.Stmt
-	CreateChat      *sql.Stmt
-	GetChat         *sql.Stmt
-	GetChats        *sql.Stmt
-	UpdateChatState *sql.Stmt
+	GetKeyEx        *sql.Stmt
+	ConfirmKeyEx    *sql.Stmt
 	SaveMessage     *sql.Stmt
 	GetMessages     *sql.Stmt
 }

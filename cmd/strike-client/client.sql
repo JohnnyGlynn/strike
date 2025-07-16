@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS addressbook (
     username TEXT UNIQUE NOT NULL,
     enc_pkey BLOB NOT NULL,
     sig_pkey BLOB NOT NULL,
+    keyex INTEGER DEFAULT 0, --key exchange state
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

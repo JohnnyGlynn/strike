@@ -38,23 +38,13 @@ func PrepareStatements(ctx context.Context, db *sql.DB) (*types.ClientDB, error)
 		return nil, err
 	}
 
-	// Insert Chat
-	if statements.CreateChat, err = db.PrepareContext(ctx, `INSERT INTO chats (chat_id, chat_name, initiator, participants, state) VALUES (?, ?, ?, ?, ?)`); err != nil {
+	// Key exchange check
+	if statements.GetKeyEx, err = db.PrepareContext(ctx, `SELECT keyex FROM addressbook WHERE user_id = ?;`); err != nil {
 		return nil, err
 	}
 
-	// get chat
-	if statements.GetChat, err = db.PrepareContext(ctx, `SELECT * FROM chats WHERE chat_id = ?`); err != nil {
-		return nil, err
-	}
-
-	// get chats
-	if statements.GetChats, err = db.PrepareContext(ctx, `SELECT * FROM chats`); err != nil {
-		return nil, err
-	}
-
-	// Updated Chat state
-	if statements.UpdateChatState, err = db.PrepareContext(ctx, `UPDATE chats SET state = ? WHERE chat_id = ?`); err != nil {
+	// Key exchange confirm
+	if statements.ConfirmKeyEx, err = db.PrepareContext(ctx, `UPDATE addressbook SET keyex = ? WHERE user_id = ?`); err != nil {
 		return nil, err
 	}
 
@@ -88,10 +78,8 @@ func CloseStatements(c *types.ClientDB) error {
 	closeStmt(c.GetID)
 	closeStmt(c.SaveID)
 	closeStmt(c.GetFriends)
-	closeStmt(c.CreateChat)
-	closeStmt(c.GetChat)
-	closeStmt(c.GetChats)
-	closeStmt(c.UpdateChatState)
+	closeStmt(c.GetKeyEx)
+	closeStmt(c.ConfirmKeyEx)
 	closeStmt(c.SaveMessage)
 	closeStmt(c.GetMessages)
 
