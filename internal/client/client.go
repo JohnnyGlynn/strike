@@ -303,44 +303,6 @@ func RegisterStatus(c *types.ClientInfo) error {
 
 }
 
-func BeginChat(c *types.ClientInfo, target uuid.UUID, chatName string) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	newInvite := uuid.New().String()
-
-	participants := []string{c.UserID.String(), target.String()}
-
-	beginChat := &pb.BeginChatRequest{
-		InviteId:  newInvite,
-		Initiator: c.UserID.String(),
-		Target:    target.String(),
-		Chat: &pb.Chat{
-			Id:           uuid.New().String(),
-			Name:         chatName,
-			State:        pb.Chat_INIT,
-			Participants: participants,
-		},
-	}
-
-	payloadChatRequest := pb.StreamPayload{
-		Target:  target.String(),
-		Sender:  c.UserID.String(),
-		Payload: &pb.StreamPayload_ChatRequest{ChatRequest: beginChat},
-		Info:    "Begin Chat payload",
-	}
-
-	beginChatResponse, err := c.Pbclient.SendPayload(ctx, &payloadChatRequest)
-	if err != nil {
-		log.Printf("Begin Chat failed: %v\n", err)
-		return err
-	}
-
-	fmt.Printf("Chat Request sent: %v", beginChatResponse)
-
-	return nil
-}
-
 func GetActiveUsers(c *types.ClientInfo, uinfo *pb.UserInfo) (*pb.Users, error) {
 	activeUsers, err := c.Pbclient.OnlineUsers(context.TODO(), uinfo)
 	if err != nil {

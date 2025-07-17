@@ -2,6 +2,7 @@ package network
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"sync"
@@ -261,10 +262,13 @@ func ProcessKeyExchangeResponses(c *types.ClientInfo, ch <-chan *pb.KeyExchangeR
 			if !ok {
 				return nil
 			}
-			fmt.Printf("Key exchange response for: %v\n", keyExRes.ChatId)
 
 			// TODO: Something fails so the confirmations can be false???
-			ConfirmKeyExchange(context.TODO(), c, uuid.MustParse(keyExRes.ResponderUserId), true)
+			err := ConfirmKeyExchange(context.TODO(), c, uuid.MustParse(keyExRes.ResponderUserId), true)
+			if err != nil {
+				fmt.Println("key exchange confirmation failed")
+				return err
+			}
 
 		case <-timeoutCh:
 			fmt.Printf("KeyExchangeResponse worker idle for %v, exiting.\n", idleTimeout) // shutdown ephemeral workers
@@ -287,27 +291,34 @@ func ProcessKeyExchangeConfirmations(c *types.ClientInfo, ch <-chan *pb.KeyExcha
 			if !ok {
 				return nil
 			}
-			chat, exists := c.Cache.Chats[uuid.MustParse(keyExCon.ChatId)]
-			if !exists {
-				log.Printf("Failed to find chat: %v", keyExCon.ChatId)
+
+			var confirmed int
+			err := c.Pstatements.GetKeyEx.QueryRowContext(context.TODO(), keyExCon.ConfirmerUserId).Scan(&confirmed)
+			if err != nil && err != sql.ErrNoRows {
+				fmt.Printf("failed to query key exchange state")
+				return err
+			}
+
+			if confirmed != 0 {
+				fmt.Println("Keys have already been exchanged")
 				return nil
 			}
 
-			if chat.State != pb.Chat_ENCRYPTED {
-				_, err := c.Pstatements.UpdateChatState.ExecContext(context.TODO(), pb.Chat_ENCRYPTED.String(), uuid.MustParse(keyExCon.ChatId))
-				if err != nil {
-					fmt.Printf("Failed to save Chat")
-					return err
-				}
-
-				chat.State = pb.Chat_ENCRYPTED
-
-				ConfirmKeyExchange(context.TODO(), c, uuid.MustParse(keyExCon.ConfirmerUserId), true)
-
+			_, err = c.Pstatements.ConfirmKeyEx.ExecContext(context.TODO(), true, keyExCon.ConfirmerUserId)
+			if err != nil {
+				fmt.Println("failed to confirm key exchange locally")
+				return err
+				//TODO: Retry mechanism?
 			}
-			if chat.State == pb.Chat_ENCRYPTED {
-				fmt.Println("Chat already encrypted, confirmation skipped")
+
+			err = ConfirmKeyExchange(context.TODO(), c, uuid.MustParse(keyExCon.ConfirmerUserId), true)
+			if err != nil {
+				fmt.Println("key exchange confirmation failed")
+				return err
 			}
+
+			//Username
+			fmt.Printf("Keys have been exchanged with %s\n", keyExCon.ConfirmerUserId)
 
 			return nil
 
