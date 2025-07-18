@@ -86,11 +86,13 @@ func SendMessage(c *types.ClientInfo, message string) error {
 
 	_, err = c.Pbclient.SendPayload(context.Background(), &payloadEnvelope)
 	if err != nil {
+		log.Println("Error sending payload")
 		return err
 	}
 
-	_, err = c.Pstatements.SaveMessage.ExecContext(context.TODO(), uuid.New().String(), c.UserID.String(), c.Cache.CurrentChat.User.Id, "outbound", sealedMessage, time.Now().UnixMilli())
+	_, err = c.Pstatements.SaveMessage.ExecContext(context.TODO(), uuid.New().String(), c.UserID.String(), c.Cache.CurrentChat.User.Id.String(), "outbound", sealedMessage, time.Now().UnixMilli())
 	if err != nil {
+		log.Println("Error saving message")
 		return err
 	}
 

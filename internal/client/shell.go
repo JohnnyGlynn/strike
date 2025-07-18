@@ -144,7 +144,11 @@ func buildCommandMap() (map[string]types.Command, error) {
 			client.Shell.Mode = types.ModeChat
 			// client.Cache.CurrentChat
 			fmt.Printf("Chat with %s\n", args[0])
-			enterChat(client, args[0])
+			err := enterChat(client, args[0])
+			if err != nil {
+				fmt.Printf("failed to enter chat: %v", err)
+				return err
+			}
 			return nil
 		},
 		Scope: []types.ShellMode{types.ModeDefault},
@@ -156,7 +160,7 @@ func buildCommandMap() (map[string]types.Command, error) {
 		CmdFn: func(args []string, client *types.ClientInfo) error {
 			switch client.Shell.Mode {
 			case types.ModeChat:
-				fmt.Printf("Exiting chat with: %s\n", client.Cache.CurrentChat.User)
+				fmt.Printf("Exiting chat with: %v\n", client.Cache.CurrentChat.User)
 				client.Cache.CurrentChat = types.ChatDetails{}
 				client.Shell.Mode = types.ModeDefault
 			case types.ModeDefault:
@@ -240,7 +244,7 @@ func enterChat(c *types.ClientInfo, target string) error {
 	//Useful?
 	var created time.Time
 	row := c.Pstatements.GetUser.QueryRowContext(context.TODO(), target)
-	err := row.Scan(&u.Id, &u.Name, &u.Enckey, &u.Sigkey, &created)
+	err := row.Scan(&u.Id, &u.Name, &u.Enckey, &u.Sigkey, &u.KeyEx, &created)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			fmt.Printf("Friend: %s, not found", target)

@@ -31,6 +31,7 @@ type User struct {
 	Name   string
 	Enckey []byte
 	Sigkey []byte
+	KeyEx  int
 }
 
 type ChatDetails struct {
