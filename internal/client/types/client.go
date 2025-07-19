@@ -41,12 +41,9 @@ type ChatDetails struct {
 	HmacKey      []byte
 }
 
-// TODO: CLEAN THIS UP
 type MessageStruct struct {
 	Id        uuid.UUID
-	ChatId    uuid.UUID
-	Sender    uuid.UUID
-	Receiver  uuid.UUID
+	FriendId  uuid.UUID
 	Direction string
 	Content   []byte
 	Timestamp int64

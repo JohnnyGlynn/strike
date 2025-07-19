@@ -90,7 +90,7 @@ func SendMessage(c *types.ClientInfo, message string) error {
 		return err
 	}
 
-	_, err = c.Pstatements.SaveMessage.ExecContext(context.TODO(), uuid.New().String(), c.UserID.String(), c.Cache.CurrentChat.User.Id.String(), "outbound", sealedMessage, time.Now().UnixMilli())
+	_, err = c.Pstatements.SaveMessage.ExecContext(context.TODO(), uuid.New().String(), c.Cache.CurrentChat.User.Id.String(), "outbound", sealedMessage, time.Now().UnixMilli())
 	if err != nil {
 		log.Println("Error saving message")
 		return err

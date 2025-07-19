@@ -160,7 +160,6 @@ func buildCommandMap() (map[string]types.Command, error) {
 		CmdFn: func(args []string, client *types.ClientInfo) error {
 			switch client.Shell.Mode {
 			case types.ModeChat:
-				fmt.Printf("Exiting chat with: %v\n", client.Cache.CurrentChat.User)
 				client.Cache.CurrentChat = types.ChatDetails{}
 				client.Shell.Mode = types.ModeDefault
 			case types.ModeDefault:
@@ -225,6 +224,9 @@ func MShell(client *types.ClientInfo) error {
 		} else {
 			switch client.Shell.Mode {
 			case types.ModeChat:
+        if parsed.Raw == "" {
+          continue
+        }
 				//TODO: active chat
 				if err := SendMessage(client, input); err != nil {
 					fmt.Printf("Send failed: %v\n", err)
@@ -419,6 +421,7 @@ func shellAddFriend(inputReader *bufio.Reader, c *types.ClientInfo) error {
 	return nil
 }
 
+//TODO: Need to figure out the best way to display these
 func loadMessages(c *types.ClientInfo) ([]types.MessageStruct, error) {
 	rows, err := c.Pstatements.GetMessages.QueryContext(context.TODO(), c.Cache.CurrentChat)
 	if err != nil {
@@ -438,7 +441,7 @@ func loadMessages(c *types.ClientInfo) ([]types.MessageStruct, error) {
 
 	for rows.Next() {
 		var msg types.MessageStruct
-		if err := rows.Scan(&msg.Id, &msg.ChatId, &msg.Sender, &msg.Receiver, &msg.Direction, &msg.Content, &msg.Timestamp); err != nil {
+		if err := rows.Scan(&msg.Id, &msg.FriendId, &msg.Direction, &msg.Content, &msg.Timestamp); err != nil {
 			log.Printf("error scanning row: %v", err)
 			return nil, err
 		}
@@ -484,7 +487,6 @@ func loadFriends(c *types.ClientInfo) ([]*pb.UserInfo, error) {
 	}
 
 	if !found {
-		fmt.Println("No friends found.")
 		return []*pb.UserInfo{}, nil
 	}
 

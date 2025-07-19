@@ -151,7 +151,7 @@ func ProcessEnvelopes(ch <-chan *pb.EncryptedEnvelope, c *types.ClientInfo, idle
 				fmt.Printf("[%s]:%s\n", envelope.FromUser, msg)
 			}
 
-			_, err = c.Pstatements.SaveMessage.ExecContext(context.TODO(), uuid.New().String(), envelope.FromUser, c.UserID.String(), "inbound", msg, envelope.SentAt.AsTime().UnixMilli())
+			_, err = c.Pstatements.SaveMessage.ExecContext(context.TODO(), uuid.New().String(), envelope.FromUser, "inbound", msg, envelope.SentAt.AsTime().UnixMilli())
 			if err != nil {
 				fmt.Printf("Failed to save message")
 				return err

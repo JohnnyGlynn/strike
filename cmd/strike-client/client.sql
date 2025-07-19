@@ -33,8 +33,7 @@ CREATE TABLE IF NOT EXISTS chats (
 
 CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
-    sender TEXT NOT NULL,
-    receiver TEXT NOT NULL,
+    friendId TEXT NOT NULL, -- The friend who the chat relates too?
     direction TEXT NOT NULL,
     content BLOB NOT NULL, 
     timestamp INTEGER NOT NULL
