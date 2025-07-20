@@ -224,9 +224,9 @@ func MShell(client *types.ClientInfo) error {
 		} else {
 			switch client.Shell.Mode {
 			case types.ModeChat:
-        if parsed.Raw == "" {
-          continue
-        }
+				if parsed.Raw == "" {
+					continue
+				}
 				//TODO: active chat
 				if err := SendMessage(client, input); err != nil {
 					fmt.Printf("Send failed: %v\n", err)
@@ -273,10 +273,21 @@ func enterChat(c *types.ClientInfo, target string) error {
 		HmacKey:      hmac,
 	}
 
-	fmt.Printf("Loading messages with: %s", cd.User.Name)
-	//TODO: loadMessages()
+	msgs, err := loadMessages(c)
+	if err != nil {
+		fmt.Println("failure loading messages")
+		return err
+	}
 
 	c.Cache.CurrentChat = cd
+
+	for _, v := range msgs {
+		if v.Direction == "inbound" {
+			fmt.Printf("[%s]: %s", c.Cache.CurrentChat.User.Name, v.Content)
+		} else {
+			fmt.Printf("[%s]: %s", c.Username, v.Content)
+		}
+	}
 
 	return nil
 }
@@ -344,7 +355,7 @@ func FriendList(c *types.ClientInfo) error {
 
 	//TODO: add active status
 	for _, f := range friends {
-		fmt.Printf("[%s] %s\n", f.UserId, f.Username)
+		fmt.Printf("[%s] %s\n", f.Id, f.Name)
 	}
 
 	//TODO: DRY
@@ -421,9 +432,9 @@ func shellAddFriend(inputReader *bufio.Reader, c *types.ClientInfo) error {
 	return nil
 }
 
-//TODO: Need to figure out the best way to display these
+// TODO: Need to figure out the best way to display these
 func loadMessages(c *types.ClientInfo) ([]types.MessageStruct, error) {
-	rows, err := c.Pstatements.GetMessages.QueryContext(context.TODO(), c.Cache.CurrentChat)
+	rows, err := c.Pstatements.GetMessages.QueryContext(context.TODO(), c.Cache.CurrentChat.User.Id)
 	if err != nil {
 
 		return nil, fmt.Errorf("error querying messages: %v", err)
@@ -452,7 +463,7 @@ func loadMessages(c *types.ClientInfo) ([]types.MessageStruct, error) {
 }
 
 // TODO: Generic loading function?
-func loadFriends(c *types.ClientInfo) ([]*pb.UserInfo, error) {
+func loadFriends(c *types.ClientInfo) ([]*types.User, error) {
 	rows, err := c.Pstatements.GetFriends.QueryContext(context.TODO())
 	if err != nil {
 		return nil, fmt.Errorf("error querying friends: %v", err)
@@ -467,19 +478,19 @@ func loadFriends(c *types.ClientInfo) ([]*pb.UserInfo, error) {
 		return nil
 	}()
 
-	var users []*pb.UserInfo
+	var users []*types.User
 	found := false
 
 	//TODO: Clean this up
 	friendsStr := struct {
-		uInfo pb.UserInfo
+		uInfo types.User
 		crAt  time.Time
 	}{}
 
 	for rows.Next() {
 		// usr := &pb.UserInfo{}
 		found = true
-		if err := rows.Scan(&friendsStr.uInfo.UserId, &friendsStr.uInfo.Username, &friendsStr.uInfo.EncryptionPublicKey, &friendsStr.uInfo.SigningPublicKey, &friendsStr.crAt); err != nil {
+		if err := rows.Scan(&friendsStr.uInfo.Id, &friendsStr.uInfo.Name, &friendsStr.uInfo.Enckey, &friendsStr.uInfo.Sigkey, &friendsStr.uInfo.KeyEx, &friendsStr.crAt); err != nil {
 			log.Printf("error scanning row: %v", err)
 			return nil, err
 		}
@@ -487,7 +498,7 @@ func loadFriends(c *types.ClientInfo) ([]*pb.UserInfo, error) {
 	}
 
 	if !found {
-		return []*pb.UserInfo{}, nil
+		return []*types.User{}, nil
 	}
 
 	if err := rows.Err(); err != nil {

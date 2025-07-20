@@ -54,7 +54,7 @@ func PrepareStatements(ctx context.Context, db *sql.DB) (*types.ClientDB, error)
 	}
 
 	// get all messages
-	if statements.GetMessages, err = db.PrepareContext(ctx, `SELECT * FROM messages WHERE chat_id = ? ORDER BY timestamp ASC, id ASC;`); err != nil {
+	if statements.GetMessages, err = db.PrepareContext(ctx, `SELECT * FROM messages WHERE friendId = ? ORDER BY timestamp ASC, id ASC;`); err != nil {
 		return nil, err
 	}
 
