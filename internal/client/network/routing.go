@@ -152,7 +152,7 @@ func ProcessEnvelopes(ch <-chan *pb.EncryptedEnvelope, c *types.ClientInfo, idle
 			}
 
 			//TODO: Save encrypted and decrypt on retrieval
-			_, err = c.Pstatements.SaveMessage.ExecContext(context.TODO(), uuid.New().String(), envelope.FromUser, "inbound", msg, envelope.SentAt.AsTime().UnixMilli())
+			_, err = c.Pstatements.SaveMessage.ExecContext(context.TODO(), uuid.New().String(), envelope.FromUser, "inbound", envelope.EncryptedMessage, envelope.SentAt.AsTime().UnixMilli())
 			if err != nil {
 				fmt.Printf("Failed to save message")
 				return err

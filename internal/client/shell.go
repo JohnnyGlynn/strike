@@ -273,13 +273,13 @@ func enterChat(c *types.ClientInfo, target string) error {
 		HmacKey:      hmac,
 	}
 
+	c.Cache.CurrentChat = cd
+
 	msgs, err := loadMessages(c)
 	if err != nil {
 		fmt.Println("failure loading messages")
 		return err
 	}
-
-	c.Cache.CurrentChat = cd
 
 	for _, v := range msgs {
 		if v.Direction == "inbound" {
@@ -456,6 +456,15 @@ func loadMessages(c *types.ClientInfo) ([]types.MessageStruct, error) {
 			log.Printf("error scanning row: %v", err)
 			return nil, err
 		}
+
+		decrypted, err := crypto.Decrypt(c, msg.Content)
+		if err != nil {
+			fmt.Printf("Failed to decrypt sealed message")
+			return nil, err
+		}
+
+		msg.Content = decrypted
+
 		messages = append(messages, msg)
 	}
 
