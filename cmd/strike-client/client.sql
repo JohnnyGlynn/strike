@@ -20,15 +20,9 @@ CREATE TABLE IF NOT EXISTS addressbook (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS chats (
-    chat_id TEXT PRIMARY KEY,
-    chat_name TEXT NOT NULL,
-    initiator TEXT NOT NULL,
-    participants TEXT NOT NULL,
-    state TEXT NOT NULL CHECK (state IN ('INIT', 'KEY_EXCHANGE_PENDING', 'ENCRYPTED')),
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-    -- FOREIGN KEY (initiator) REFERENCES addressbook(user_id)
+CREATE TABLE IF NOT EXISTS friendrequests (
+    friendId TEXT NOT NULL,
+    direction TEXT NOT NULL,
 );
 
 CREATE TABLE IF NOT EXISTS messages (

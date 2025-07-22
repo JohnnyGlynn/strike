@@ -151,7 +151,6 @@ func ProcessEnvelopes(ch <-chan *pb.EncryptedEnvelope, c *types.ClientInfo, idle
 				fmt.Printf("[%s]:%s\n", c.Cache.CurrentChat.User.Name, msg)
 			}
 
-			//TODO: Save encrypted and decrypt on retrieval
 			_, err = c.Pstatements.SaveMessage.ExecContext(context.TODO(), uuid.New().String(), envelope.FromUser, "inbound", envelope.EncryptedMessage, envelope.SentAt.AsTime().UnixMilli())
 			if err != nil {
 				fmt.Printf("Failed to save message")
@@ -181,6 +180,13 @@ func ProcessFriendRequests(ch <-chan *pb.FriendRequest, c *types.ClientInfo, idl
 			fmt.Printf("Friend Request from: %v\n", friendRequest.UserInfo.Username)
 			// Recieve an invite, cache it
 			c.Cache.FriendRequests[uuid.MustParse(friendRequest.InviteId)] = friendRequest
+
+			_, err := c.Pstatements.SaveFriendRequest.ExecContext(context.TODO(), friendRequest.UserInfo.UserId, "inbound")
+			if err != nil {
+				fmt.Printf("failed to save save Friend Request")
+				return err
+			}
+
 		case <-timeoutCh:
 			mu.Lock()
 			*workerCount--
@@ -213,6 +219,12 @@ func ProcessFriendResponse(ch <-chan *pb.FriendResponse, c *types.ClientInfo, id
 				}
 
 				InitiateKeyExchange(context.TODO(), c, uuid.MustParse(friendRes.UserInfo.UserId))
+			}
+
+			_, err := c.Pstatements.DeleteFriendRequest.ExecContext(context.TODO(), c.UserID)
+			if err != nil {
+				fmt.Printf("failed deleting friend request: %v", err)
+				return err
 			}
 
 		case <-timeoutCh:

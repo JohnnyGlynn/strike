@@ -58,6 +58,18 @@ func PrepareStatements(ctx context.Context, db *sql.DB) (*types.ClientDB, error)
 		return nil, err
 	}
 
+	if statements.SaveFriendRequest, err = db.PrepareContext(ctx, `INSERT INTO friendrequests (friendId, direction) VALUES (?, ?)`); err != nil {
+		return nil, err
+	}
+
+	if statements.GetFriendRequests, err = db.PrepareContext(ctx, `SELECT * FROM friendrequests WHERE friendId = ?`); err != nil {
+		return nil, err
+	}
+
+	if statements.DeleteFriendRequest, err = db.PrepareContext(ctx, `DELETE FROM friendrequests WHERE friendId = ?`); err != nil {
+		return nil, err
+	}
+
 	return statements, nil
 }
 
@@ -82,6 +94,9 @@ func CloseStatements(c *types.ClientDB) error {
 	closeStmt(c.ConfirmKeyEx)
 	closeStmt(c.SaveMessage)
 	closeStmt(c.GetMessages)
+	closeStmt(c.SaveFriendRequest)
+	closeStmt(c.GetFriendRequests)
+	closeStmt(c.DeleteFriendRequest)
 
 	if len(errs) > 0 {
 		return fmt.Errorf("error closing statements: %v", errs)

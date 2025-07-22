@@ -50,16 +50,19 @@ type MessageStruct struct {
 }
 
 type ClientDB struct {
-	SaveUserDetails *sql.Stmt
-	GetUserId       *sql.Stmt
-	GetUser         *sql.Stmt
-	GetID           *sql.Stmt
-	SaveID          *sql.Stmt
-	GetFriends      *sql.Stmt
-	GetKeyEx        *sql.Stmt
-	ConfirmKeyEx    *sql.Stmt
-	SaveMessage     *sql.Stmt
-	GetMessages     *sql.Stmt
+	SaveUserDetails     *sql.Stmt
+	GetUserId           *sql.Stmt
+	GetUser             *sql.Stmt
+	GetID               *sql.Stmt
+	SaveID              *sql.Stmt
+	GetFriends          *sql.Stmt
+	GetKeyEx            *sql.Stmt
+	ConfirmKeyEx        *sql.Stmt
+	SaveMessage         *sql.Stmt
+	GetMessages         *sql.Stmt
+	SaveFriendRequest   *sql.Stmt
+	GetFriendRequests   *sql.Stmt
+	DeleteFriendRequest *sql.Stmt
 }
 
 type ShellMode int
