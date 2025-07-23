@@ -52,13 +52,11 @@ message Salt {
 }
 
 message FriendRequest {
-  string invite_id = 1;
   string target = 2;
   UserInfo user_info = 4;
 }
 
 message FriendResponse {
-  string invite_id = 1;
   string target = 2;
   UserInfo user_info = 4;
   bool state = 5;

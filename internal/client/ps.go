@@ -58,7 +58,7 @@ func PrepareStatements(ctx context.Context, db *sql.DB) (*types.ClientDB, error)
 		return nil, err
 	}
 
-	if statements.SaveFriendRequest, err = db.PrepareContext(ctx, `INSERT INTO friendrequests (friendId, direction) VALUES (?, ?)`); err != nil {
+	if statements.SaveFriendRequest, err = db.PrepareContext(ctx, `INSERT INTO friendrequests (friendId, username, direction) VALUES (?, ?)`); err != nil {
 		return nil, err
 	}
 

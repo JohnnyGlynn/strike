@@ -49,6 +49,12 @@ type MessageStruct struct {
 	Timestamp int64
 }
 
+type FriendRequest struct {
+	FriendId  uuid.UUID
+	Username  string
+	Direction string
+}
+
 type ClientDB struct {
 	SaveUserDetails     *sql.Stmt
 	GetUserId           *sql.Stmt

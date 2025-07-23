@@ -293,7 +293,12 @@ func enterChat(c *types.ClientInfo, target string) error {
 }
 
 func shellFriendRequests(ctx context.Context, c *types.ClientInfo) error {
-	if len(c.Cache.FriendRequests) == 0 {
+	frs, err := loadFriendRequests(c)
+	if err != nil {
+		fmt.Printf("failed to load friend requests: %v\n", err)
+	}
+
+	if len(frs) == 0 {
 		fmt.Println("No pending Friend requests :^[")
 		return nil
 	}
@@ -301,8 +306,8 @@ func shellFriendRequests(ctx context.Context, c *types.ClientInfo) error {
 	fmt.Println("Pending Friend requests")
 	inputReader := bufio.NewReader(os.Stdin)
 
-	for k, fr := range c.Cache.FriendRequests {
-		fmt.Printf("[%s] %s\n", fr.UserInfo.SigningPublicKey[:6], fr.UserInfo.Username)
+	for _, fr := range frs {
+		fmt.Printf("[%s] %s\n", fr.FriendId, fr.Username)
 		fmt.Printf(" y[Accept] / n[Decline] :")
 
 		input, err := inputReader.ReadString('\n')
@@ -314,7 +319,17 @@ func shellFriendRequests(ctx context.Context, c *types.ClientInfo) error {
 		input = strings.TrimSpace(strings.ToLower(input))
 		accepted := input == "y"
 
-		if err := FriendResponse(ctx, c, c.Cache.FriendRequests[k], accepted); err != nil {
+		pbfr := pb.FriendRequest{
+			Target: fr.FriendId.String(),
+			UserInfo: &pb.UserInfo{
+				UserId:              c.UserID.String(),
+				Username:            c.Username,
+				EncryptionPublicKey: c.Keys["EncryptionPublicKey"],
+				SigningPublicKey:    c.Keys["SigningPublicKey"],
+			},
+		}
+
+		if err := FriendResponse(ctx, c, &pbfr, accepted); err != nil {
 			return fmt.Errorf("friend response failure: %v", err)
 		}
 	}
@@ -335,21 +350,20 @@ func FriendList(c *types.ClientInfo) error {
 		//TODO: Handle query loop here?
 		fmt.Println("No friends yet.")
 
-		if len(c.Cache.FriendRequests) != 0 {
-			fmt.Print("See friend requests?: [y/n]")
-			input, err := reader.ReadString('\n')
-			if err != nil {
-				log.Println("Error reading input")
-				return err
-			}
-
-			input = strings.TrimSpace(strings.ToLower(input))
-			accepted := input == "y"
-			if accepted {
-				shellFriendRequests(context.TODO(), c)
-				return nil
-			}
+		fmt.Print("See friend requests?: [y/n]")
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			log.Println("Error reading input")
+			return err
 		}
+
+		input = strings.TrimSpace(strings.ToLower(input))
+		accepted := input == "y"
+		if accepted {
+			shellFriendRequests(context.TODO(), c)
+			return nil
+		}
+
 		return nil
 	}
 
@@ -424,7 +438,7 @@ func shellAddFriend(inputReader *bufio.Reader, c *types.ClientInfo) error {
 
 	selectedUser := userList[selectedIndex-1]
 
-	err = FriendRequest(context.TODO(), c, selectedUser.UserId)
+	err = FriendRequest(context.TODO(), c, selectedUser)
 	if err != nil {
 		log.Printf("error beginning chat: %v", err)
 	}
@@ -515,4 +529,50 @@ func loadFriends(c *types.ClientInfo) ([]*types.User, error) {
 	}
 
 	return users, nil
+}
+
+// TODO: DRY?
+func loadFriendRequests(c *types.ClientInfo) ([]*types.FriendRequest, error) {
+	rows, err := c.Pstatements.GetFriendRequests.QueryContext(context.TODO())
+	if err != nil {
+		return nil, fmt.Errorf("error querying friend requests: %v", err)
+	}
+
+	defer func() error {
+		if rowErr := rows.Close(); rowErr != nil {
+			fmt.Printf("error getting rows: %v\n", rowErr)
+			return rowErr
+		}
+
+		return nil
+	}()
+
+	var friendRequests []*types.FriendRequest
+	var fr types.FriendRequest
+	found := false
+
+	for rows.Next() {
+		// usr := &pb.UserInfo{}
+		found = true
+		if err := rows.Scan(&fr.FriendId, &fr.Username, &fr.Direction); err != nil {
+			log.Printf("error scanning row: %v", err)
+			return nil, err
+		}
+
+		if fr.Direction == "outbound" {
+			continue
+		} else {
+			friendRequests = append(friendRequests, &fr)
+		}
+	}
+
+	if !found {
+		return []*types.FriendRequest{}, nil
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return friendRequests, nil
 }

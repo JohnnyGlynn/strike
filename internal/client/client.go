@@ -99,11 +99,10 @@ func SendMessage(c *types.ClientInfo, message string) error {
 	return nil
 }
 
-func FriendRequest(ctx context.Context, c *types.ClientInfo, target string) error {
+func FriendRequest(ctx context.Context, c *types.ClientInfo, target *pb.UserInfo) error {
 
 	req := pb.FriendRequest{
-		InviteId: uuid.New().String(),
-		Target:   target,
+		Target: target.UserId,
 		UserInfo: &pb.UserInfo{
 			Username:            c.Username,
 			UserId:              c.UserID.String(),
@@ -113,7 +112,7 @@ func FriendRequest(ctx context.Context, c *types.ClientInfo, target string) erro
 	}
 
 	payload := pb.StreamPayload{
-		Target:  target,
+		Target:  target.UserId,
 		Sender:  c.UserID.String(),
 		Payload: &pb.StreamPayload_FriendRequest{FriendRequest: &req},
 		Info:    "Friend Request payload",
@@ -124,8 +123,11 @@ func FriendRequest(ctx context.Context, c *types.ClientInfo, target string) erro
 		return fmt.Errorf("failed to confirm chat: %v", err)
 	}
 
-	//Add to cache on send for placeholder?
-	c.Cache.FriendRequests[uuid.MustParse(req.InviteId)] = &pb.FriendRequest{Target: target}
+	_, err = c.Pstatements.SaveFriendRequest.ExecContext(context.TODO(), target.UserId, target.Username, "outbound")
+	if err != nil {
+		fmt.Printf("failed to save Friend Request")
+		return err
+	}
 
 	fmt.Printf("Friend request sent: %+v\n", resp)
 
@@ -135,8 +137,7 @@ func FriendRequest(ctx context.Context, c *types.ClientInfo, target string) erro
 func FriendResponse(ctx context.Context, c *types.ClientInfo, friendReq *pb.FriendRequest, state bool) error {
 
 	res := pb.FriendResponse{
-		InviteId: friendReq.InviteId,
-		Target:   friendReq.UserInfo.UserId,
+		Target: friendReq.UserInfo.UserId,
 		UserInfo: &pb.UserInfo{
 			Username:            c.Username,
 			UserId:              c.UserID.String(),
@@ -158,14 +159,18 @@ func FriendResponse(ctx context.Context, c *types.ClientInfo, friendReq *pb.Frie
 		return fmt.Errorf("failed to confirm chat: %v", err)
 	}
 
-	delete(c.Cache.FriendRequests, uuid.MustParse(friendReq.InviteId))
-
 	if state {
 		_, err = c.Pstatements.SaveUserDetails.ExecContext(ctx, friendReq.UserInfo.UserId, friendReq.UserInfo.Username, friendReq.UserInfo.EncryptionPublicKey, friendReq.UserInfo.SigningPublicKey)
 		if err != nil {
 			return fmt.Errorf("failed adding to address book: %v", err)
 		}
 	}
+
+  _, err = c.Pstatements.DeleteFriendRequest.ExecContext(context.TODO(), friendReq.UserInfo.UserId)
+  if err != nil {
+    fmt.Printf("failed deleting friend request: %v", err)
+    return err
+  }
 
 	fmt.Printf("Friend request acknowledged: %+v\n", resp)
 

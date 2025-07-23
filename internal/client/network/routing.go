@@ -178,12 +178,10 @@ func ProcessFriendRequests(ch <-chan *pb.FriendRequest, c *types.ClientInfo, idl
 				return nil
 			}
 			fmt.Printf("Friend Request from: %v\n", friendRequest.UserInfo.Username)
-			// Recieve an invite, cache it
-			c.Cache.FriendRequests[uuid.MustParse(friendRequest.InviteId)] = friendRequest
 
-			_, err := c.Pstatements.SaveFriendRequest.ExecContext(context.TODO(), friendRequest.UserInfo.UserId, "inbound")
+			_, err := c.Pstatements.SaveFriendRequest.ExecContext(context.TODO(), friendRequest.UserInfo.UserId, friendRequest.UserInfo.Username, "inbound")
 			if err != nil {
-				fmt.Printf("failed to save save Friend Request")
+				fmt.Printf("failed to save Friend Request")
 				return err
 			}
 
@@ -209,8 +207,6 @@ func ProcessFriendResponse(ch <-chan *pb.FriendResponse, c *types.ClientInfo, id
 			}
 			fmt.Printf("Friend Response from: %v\n", friendRes.UserInfo.Username)
 
-			delete(c.Cache.FriendRequests, uuid.MustParse(friendRes.InviteId))
-
 			if friendRes.State {
 				_, err := c.Pstatements.SaveUserDetails.ExecContext(context.TODO(), friendRes.UserInfo.UserId, friendRes.UserInfo.Username, friendRes.UserInfo.EncryptionPublicKey, friendRes.UserInfo.SigningPublicKey)
 				if err != nil {
@@ -221,7 +217,7 @@ func ProcessFriendResponse(ch <-chan *pb.FriendResponse, c *types.ClientInfo, id
 				InitiateKeyExchange(context.TODO(), c, uuid.MustParse(friendRes.UserInfo.UserId))
 			}
 
-			_, err := c.Pstatements.DeleteFriendRequest.ExecContext(context.TODO(), c.UserID)
+			_, err := c.Pstatements.DeleteFriendRequest.ExecContext(context.TODO(), friendRes.UserInfo.UserId)
 			if err != nil {
 				fmt.Printf("failed deleting friend request: %v", err)
 				return err
