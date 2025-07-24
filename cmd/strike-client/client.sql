@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS addressbook (
 
 CREATE TABLE IF NOT EXISTS friendrequests (
     friendId TEXT NOT NULL,
-    direction TEXT NOT NULL,
+    username TEXT NOT NULL,
+    direction TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS messages (

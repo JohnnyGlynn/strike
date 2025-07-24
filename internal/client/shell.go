@@ -319,6 +319,7 @@ func shellFriendRequests(ctx context.Context, c *types.ClientInfo) error {
 		input = strings.TrimSpace(strings.ToLower(input))
 		accepted := input == "y"
 
+    //TODO: This is broken, sending an incorrect friend request into FriendResponse
 		pbfr := pb.FriendRequest{
 			Target: fr.FriendId.String(),
 			UserInfo: &pb.UserInfo{

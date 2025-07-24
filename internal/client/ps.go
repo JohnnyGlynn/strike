@@ -58,11 +58,11 @@ func PrepareStatements(ctx context.Context, db *sql.DB) (*types.ClientDB, error)
 		return nil, err
 	}
 
-	if statements.SaveFriendRequest, err = db.PrepareContext(ctx, `INSERT INTO friendrequests (friendId, username, direction) VALUES (?, ?)`); err != nil {
+	if statements.SaveFriendRequest, err = db.PrepareContext(ctx, `INSERT INTO friendrequests (friendId, username, direction) VALUES (?, ?, ?)`); err != nil {
 		return nil, err
 	}
 
-	if statements.GetFriendRequests, err = db.PrepareContext(ctx, `SELECT * FROM friendrequests WHERE friendId = ?`); err != nil {
+	if statements.GetFriendRequests, err = db.PrepareContext(ctx, `SELECT * FROM friendrequests`); err != nil {
 		return nil, err
 	}
 
