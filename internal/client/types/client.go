@@ -49,9 +49,12 @@ type MessageStruct struct {
 	Timestamp int64
 }
 
+//TODO:User?
 type FriendRequest struct {
 	FriendId  uuid.UUID
 	Username  string
+	Enckey []byte
+	Sigkey []byte
 	Direction string
 }
 

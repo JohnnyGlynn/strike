@@ -319,14 +319,14 @@ func shellFriendRequests(ctx context.Context, c *types.ClientInfo) error {
 		input = strings.TrimSpace(strings.ToLower(input))
 		accepted := input == "y"
 
-    //TODO: This is broken, sending an incorrect friend request into FriendResponse
+		//TODO: reconstructing the freind request like this is messy
 		pbfr := pb.FriendRequest{
-			Target: fr.FriendId.String(),
+			Target: c.UserID.String(),
 			UserInfo: &pb.UserInfo{
-				UserId:              c.UserID.String(),
-				Username:            c.Username,
-				EncryptionPublicKey: c.Keys["EncryptionPublicKey"],
-				SigningPublicKey:    c.Keys["SigningPublicKey"],
+				UserId:              fr.FriendId.String(),
+				Username:            fr.Username,
+				EncryptionPublicKey: fr.Enckey,
+				SigningPublicKey:    fr.Sigkey,
 			},
 		}
 
@@ -555,7 +555,7 @@ func loadFriendRequests(c *types.ClientInfo) ([]*types.FriendRequest, error) {
 	for rows.Next() {
 		// usr := &pb.UserInfo{}
 		found = true
-		if err := rows.Scan(&fr.FriendId, &fr.Username, &fr.Direction); err != nil {
+		if err := rows.Scan(&fr.FriendId, &fr.Username, &fr.Enckey, &fr.Sigkey, &fr.Direction); err != nil {
 			log.Printf("error scanning row: %v", err)
 			return nil, err
 		}

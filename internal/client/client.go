@@ -123,7 +123,7 @@ func FriendRequest(ctx context.Context, c *types.ClientInfo, target *pb.UserInfo
 		return fmt.Errorf("failed to confirm chat: %v", err)
 	}
 
-	_, err = c.Pstatements.SaveFriendRequest.ExecContext(context.TODO(), target.UserId, target.Username, "outbound")
+	_, err = c.Pstatements.SaveFriendRequest.ExecContext(context.TODO(), target.UserId, target.Username, nil, nil, "outbound")
 	if err != nil {
 		fmt.Printf("failed to save Friend Request")
 		return err

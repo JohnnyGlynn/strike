@@ -179,7 +179,7 @@ func ProcessFriendRequests(ch <-chan *pb.FriendRequest, c *types.ClientInfo, idl
 			}
 			fmt.Printf("Friend Request from: %v\n", friendRequest.UserInfo.Username)
 
-			_, err := c.Pstatements.SaveFriendRequest.ExecContext(context.TODO(), friendRequest.UserInfo.UserId, friendRequest.UserInfo.Username, "inbound")
+			_, err := c.Pstatements.SaveFriendRequest.ExecContext(context.TODO(), friendRequest.UserInfo.UserId, friendRequest.UserInfo.Username, friendRequest.UserInfo.EncryptionPublicKey, friendRequest.UserInfo.SigningPublicKey, "inbound")
 			if err != nil {
 				fmt.Printf("failed to save Friend Request")
 				return err
