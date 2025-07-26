@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -166,11 +165,11 @@ func FriendResponse(ctx context.Context, c *types.ClientInfo, friendReq *pb.Frie
 		}
 	}
 
-  _, err = c.Pstatements.DeleteFriendRequest.ExecContext(context.TODO(), friendReq.UserInfo.UserId)
-  if err != nil {
-    fmt.Printf("failed deleting friend request: %v", err)
-    return err
-  }
+	_, err = c.Pstatements.DeleteFriendRequest.ExecContext(context.TODO(), friendReq.UserInfo.UserId)
+	if err != nil {
+		fmt.Printf("failed deleting friend request: %v", err)
+		return err
+	}
 
 	fmt.Printf("Friend request acknowledged: %+v\n", resp)
 
@@ -224,38 +223,24 @@ func Login(c *types.ClientInfo, password string) error {
 
 	// Retrieve UUID
 	var userID uuid.UUID
+	localIdentity := false
+
 	row := c.Pstatements.GetID.QueryRowContext(context.TODO(), c.Username)
 	err := row.Scan(&userID)
+	if err == nil {
+		c.UserID = userID
+		localIdentity = true
+	} else if err != sql.ErrNoRows {
+		return err
+	}
+
+	dbsync, err := c.Pbclient.UserRequest(context.TODO(), &pb.UserInfo{Username: c.Username})
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			dbsync, err := c.Pbclient.UserRequest(context.TODO(), &pb.UserInfo{Username: c.Username})
-			if err != nil {
-				log.Printf("error syncing: %v\n", err)
-				return err
-			}
-
-			_, err = c.Pstatements.SaveID.ExecContext(ctx, c.UserID.String(), c.Username, c.Keys["EncryptionPublicKey"], c.Keys["SigningPublicKey"])
-			if err != nil {
-				return fmt.Errorf("failed adding to address book: %v", err)
-			}
-
-			userID = uuid.MustParse(dbsync.UserId)
-		} else {
-			log.Printf("an error occured while logging in: %v\n", err)
-			return err
-		}
+		log.Printf("error syncing: %v\n", err)
+		return err
 	}
 
-	c.UserID = userID
-
-	userInfo := pb.UserInfo{
-		Username:            c.Username,
-		UserId:              c.UserID.String(),
-		EncryptionPublicKey: c.Keys["EncryptionPublicKey"],
-		SigningPublicKey:    c.Keys["SigningPublicKey"],
-	}
-
-	salt, err := c.Pbclient.SaltMine(ctx, &userInfo)
+	salt, err := c.Pbclient.SaltMine(ctx, &pb.UserInfo{Username: c.Username})
 	if err != nil {
 		log.Printf("Salt retrieval failed: %v\n", err)
 		return err
@@ -266,18 +251,28 @@ func Login(c *types.ClientInfo, password string) error {
 		return fmt.Errorf("password input error: %v", err)
 	}
 
-	loginUP := pb.LoginVerify{
+	loginResp, err := c.Pbclient.Login(ctx, &pb.LoginVerify{
 		Username:     c.Username,
 		PasswordHash: passwordHash,
-	}
-
-	loginReq, err := c.Pbclient.Login(ctx, &loginUP)
+	})
 	if err != nil {
 		log.Printf("login failed: %v\n", err)
 		return err
 	}
+	if !loginResp.Success {
+		return fmt.Errorf("login failed: %v", loginResp.Message)
+	}
 
-	fmt.Printf("%v:%s\n", loginReq.Success, loginReq.Message)
+	c.UserID = uuid.MustParse(dbsync.UserId)
+
+	if !localIdentity {
+		_, err = c.Pstatements.SaveID.ExecContext(ctx, c.UserID.String(), c.Username, c.Keys["EncryptionPublicKey"], c.Keys["SigningPublicKey"])
+		if err != nil {
+			return fmt.Errorf("failed adding to address book: %v", err)
+		}
+	}
+
+	fmt.Printf("%v:%s\n", loginResp.Success, loginResp.Message)
 	return nil
 
 }
