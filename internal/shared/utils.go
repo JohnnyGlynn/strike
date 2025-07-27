@@ -1,6 +1,7 @@
 package shared
 
 import (
+	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
@@ -33,4 +34,23 @@ func VerifyPassword(password string, storedHash string) (bool, error) {
 		return false, fmt.Errorf("failed to verify password")
 	}
 
+}
+
+func GenerateSalt(len int) ([]byte, error) {
+	salt := make([]byte, len)
+	// add salt
+	if _, err := rand.Read(salt); err != nil {
+		return nil, fmt.Errorf("failed to generate salt: %v", err)
+	}
+
+	return salt, nil
+}
+
+func GenerateNonce(len int) ([]byte, error) {
+	nonce := make([]byte, len)
+	if _, err := rand.Read(nonce); err != nil {
+		return nil, fmt.Errorf("failed to generate nonce: %v", err)
+	}
+
+	return nonce, nil
 }

@@ -3,7 +3,6 @@ package client
 import (
 	"bufio"
 	"context"
-	"crypto/rand"
 	"database/sql"
 	"fmt"
 	"io"
@@ -59,6 +58,105 @@ func ConnectPayloadStream(ctx context.Context, c *types.ClientInfo) error {
 			demux.Dispatcher(msg)
 		}
 	}
+}
+
+func Signup(c *types.ClientInfo, password string, curve25519key []byte, ed25519key []byte) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	salt, err := shared.GenerateSalt(16)
+	if err != nil {
+		return fmt.Errorf("salt generator: %v", err)
+	}
+
+	passwordHash, err := shared.HashPassword(password, salt)
+	if err != nil {
+		return fmt.Errorf("password input error: %v", err)
+	}
+
+	initUser := pb.InitUser{
+		Username:            c.Username,
+		UserId:              c.UserID.String(),
+		PasswordHash:        passwordHash,
+		Salt:                &pb.Salt{Salt: salt},
+		EncryptionPublicKey: curve25519key,
+		SigningPublicKey:    ed25519key,
+	}
+
+	serverRes, err := c.Pbclient.Signup(ctx, &initUser)
+	if err != nil {
+		log.Printf("signup failed: %v\n", err)
+		return err
+	}
+
+	// Save users own details to local client db
+	_, err = c.Pstatements.SaveID.ExecContext(ctx, c.UserID.String(), c.Username, curve25519key, ed25519key)
+	if err != nil {
+		return fmt.Errorf("failed adding to address book: %v", err)
+	}
+
+	fmt.Printf("Server Response: %v\n", serverRes.Success)
+	return nil
+}
+
+func Login(c *types.ClientInfo, password string) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Retrieve UUID
+	var userID uuid.UUID
+	localIdentity := false
+
+	row := c.Pstatements.GetID.QueryRowContext(context.TODO(), c.Username)
+	err := row.Scan(&userID)
+	if err == nil {
+		c.UserID = userID
+		localIdentity = true
+	} else if err != sql.ErrNoRows {
+		return err
+	}
+
+	dbsync, err := c.Pbclient.UserRequest(context.TODO(), &pb.UserInfo{Username: c.Username})
+	if err != nil {
+		log.Printf("error syncing: %v\n", err)
+		return err
+	}
+
+	salt, err := c.Pbclient.SaltMine(ctx, &pb.UserInfo{Username: c.Username})
+	if err != nil {
+		log.Printf("Salt retrieval failed: %v\n", err)
+		return err
+	}
+
+	passwordHash, err := shared.HashPassword(password, salt.Salt)
+	if err != nil {
+		return fmt.Errorf("password input error: %v", err)
+	}
+
+	loginResp, err := c.Pbclient.Login(ctx, &pb.LoginVerify{
+		Username:     c.Username,
+		PasswordHash: passwordHash,
+	})
+	if err != nil {
+		log.Printf("login failed: %v\n", err)
+		return err
+	}
+	if !loginResp.Success {
+		return fmt.Errorf("login failed: %v", loginResp.Message)
+	}
+
+	c.UserID = uuid.MustParse(dbsync.UserId)
+
+	if !localIdentity {
+		_, err = c.Pstatements.SaveID.ExecContext(ctx, c.UserID.String(), c.Username, c.Keys["EncryptionPublicKey"], c.Keys["SigningPublicKey"])
+		if err != nil {
+			return fmt.Errorf("failed adding to address book: %v", err)
+		}
+	}
+
+	fmt.Printf("%v:%s\n", loginResp.Success, loginResp.Message)
+	return nil
+
 }
 
 func SendMessage(c *types.ClientInfo, message string) error {
@@ -174,107 +272,6 @@ func FriendResponse(ctx context.Context, c *types.ClientInfo, friendReq *pb.Frie
 	fmt.Printf("Friend request acknowledged: %+v\n", resp)
 
 	return nil
-}
-
-func ClientSignup(c *types.ClientInfo, password string, curve25519key []byte, ed25519key []byte) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	salt := make([]byte, 16)
-	// add salt
-	_, err := rand.Read(salt)
-	if err != nil {
-		return fmt.Errorf("failed to generate salt: %w", err)
-	}
-
-	passwordHash, err := shared.HashPassword(password, salt)
-	if err != nil {
-		return fmt.Errorf("password input error: %v", err)
-	}
-
-	initUser := pb.InitUser{
-		Username:            c.Username,
-		UserId:              c.UserID.String(),
-		PasswordHash:        passwordHash,
-		Salt:                &pb.Salt{Salt: salt},
-		EncryptionPublicKey: curve25519key,
-		SigningPublicKey:    ed25519key,
-	}
-
-	serverRes, err := c.Pbclient.Signup(ctx, &initUser)
-	if err != nil {
-		log.Printf("signup failed: %v\n", err)
-		return err
-	}
-
-	// Save users own details to local client db
-	_, err = c.Pstatements.SaveID.ExecContext(ctx, c.UserID.String(), c.Username, curve25519key, ed25519key)
-	if err != nil {
-		return fmt.Errorf("failed adding to address book: %v", err)
-	}
-
-	fmt.Printf("Server Response: %v\n", serverRes.Success)
-	return nil
-}
-
-func Login(c *types.ClientInfo, password string) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Retrieve UUID
-	var userID uuid.UUID
-	localIdentity := false
-
-	row := c.Pstatements.GetID.QueryRowContext(context.TODO(), c.Username)
-	err := row.Scan(&userID)
-	if err == nil {
-		c.UserID = userID
-		localIdentity = true
-	} else if err != sql.ErrNoRows {
-		return err
-	}
-
-	dbsync, err := c.Pbclient.UserRequest(context.TODO(), &pb.UserInfo{Username: c.Username})
-	if err != nil {
-		log.Printf("error syncing: %v\n", err)
-		return err
-	}
-
-	salt, err := c.Pbclient.SaltMine(ctx, &pb.UserInfo{Username: c.Username})
-	if err != nil {
-		log.Printf("Salt retrieval failed: %v\n", err)
-		return err
-	}
-
-	passwordHash, err := shared.HashPassword(password, salt.Salt)
-	if err != nil {
-		return fmt.Errorf("password input error: %v", err)
-	}
-
-	loginResp, err := c.Pbclient.Login(ctx, &pb.LoginVerify{
-		Username:     c.Username,
-		PasswordHash: passwordHash,
-	})
-	if err != nil {
-		log.Printf("login failed: %v\n", err)
-		return err
-	}
-	if !loginResp.Success {
-		return fmt.Errorf("login failed: %v", loginResp.Message)
-	}
-
-	c.UserID = uuid.MustParse(dbsync.UserId)
-
-	if !localIdentity {
-		_, err = c.Pstatements.SaveID.ExecContext(ctx, c.UserID.String(), c.Username, c.Keys["EncryptionPublicKey"], c.Keys["SigningPublicKey"])
-		if err != nil {
-			return fmt.Errorf("failed adding to address book: %v", err)
-		}
-	}
-
-	fmt.Printf("%v:%s\n", loginResp.Success, loginResp.Message)
-	return nil
-
 }
 
 func RegisterStatus(c *types.ClientInfo) error {

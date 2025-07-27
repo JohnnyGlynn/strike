@@ -266,7 +266,7 @@ func handleSignup(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
 		return fmt.Errorf("missing required public keys for signup")
 	}
 
-	err = client.ClientSignup(clientInfo, password, encKey, sigKey)
+	err = client.Signup(clientInfo, password, encKey, sigKey)
 	if err != nil {
 		return fmt.Errorf("error connecting: %v", err)
 	}
