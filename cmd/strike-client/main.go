@@ -105,7 +105,7 @@ func main() {
 	}
 
 	if err := launchREPL(clientInfo); err != nil {
-		fmt.Printf("authHandler error: %v\n", err)
+		fmt.Printf("repl error: %v\n", err)
 		return
 	}
 }
@@ -213,7 +213,7 @@ func handleLogin(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
 
 	password, err := client.LoginInput("Password > ", reader)
 	if err != nil {
-		return fmt.Errorf("error reading username: %v", err)
+		return fmt.Errorf("error reading password: %v", err)
 	}
 
 	if username == "" || password == "" {
@@ -224,17 +224,10 @@ func handleLogin(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
 
 	err = client.Login(clientInfo, password)
 	if err != nil {
-		return fmt.Errorf("error during login: %v", err)
+		return err
 	}
 
-	go func() {
-		if err = client.RegisterStatus(clientInfo); err != nil {
-			fmt.Printf("error connecting stream: %v\n", err)
-			return
-		}
-	}()
-
-	fmt.Printf("Welcome back %s!\n", clientInfo.Username)
+	
 
 	return nil
 }
@@ -290,8 +283,10 @@ func launchREPL(c *types.ClientInfo) error {
 	fmt.Println("Type /signup to signup to the Strike Messaging service")
 	fmt.Println("Type /exit to quit.")
 
+	loggedin := false
+
 	for {
-		if c.Username == "" {
+		if loggedin != true {
 			fmt.Print("> ")
 			input, err := inputReader.ReadString('\n')
 			if err != nil {
@@ -308,13 +303,15 @@ func launchREPL(c *types.ClientInfo) error {
 			case "/login":
 				if err := handleLogin(inputReader, c); err != nil {
 					fmt.Printf("login error: %v\n", err)
-					continue
+          continue
 				}
+				loggedin = true
 			case "/signup":
 				if err := handleSignup(inputReader, c); err != nil {
 					fmt.Printf("signup error: %v\n", err)
-					continue
+          continue
 				}
+				loggedin = true
 			case "/exit":
 				fmt.Println("Strike Client shutting down")
 				return nil
@@ -323,7 +320,17 @@ func launchREPL(c *types.ClientInfo) error {
 			}
 
 		} else {
-			if err := client.MShell(c); err != nil {
+      go func() {
+        if err := client.RegisterStatus(c); err != nil {
+          fmt.Printf("error connecting stream: %v\n", err)
+          return
+        }
+      }()
+
+      fmt.Printf("Welcome back %s!\n", c.Username)
+
+
+      if err := client.MShell(c); err != nil {
 				return err
 			}
 		}

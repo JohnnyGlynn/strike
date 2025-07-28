@@ -103,24 +103,7 @@ func Login(c *types.ClientInfo, password string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Retrieve UUID
-	var userID uuid.UUID
 	localIdentity := false
-
-	row := c.Pstatements.GetID.QueryRowContext(context.TODO(), c.Username)
-	err := row.Scan(&userID)
-	if err == nil {
-		c.UserID = userID
-		localIdentity = true
-	} else if err != sql.ErrNoRows {
-		return err
-	}
-
-	dbsync, err := c.Pbclient.UserRequest(context.TODO(), &pb.UserInfo{Username: c.Username})
-	if err != nil {
-		log.Printf("error syncing: %v\n", err)
-		return err
-	}
 
 	salt, err := c.Pbclient.SaltMine(ctx, &pb.UserInfo{Username: c.Username})
 	if err != nil {
@@ -138,11 +121,28 @@ func Login(c *types.ClientInfo, password string) error {
 		PasswordHash: passwordHash,
 	})
 	if err != nil {
-		log.Printf("login failed: %v\n", err)
+		log.Printf("login error: %v\n", err)
 		return err
 	}
 	if !loginResp.Success {
 		return fmt.Errorf("login failed: %v", loginResp.Message)
+	}
+
+	var userID uuid.UUID
+  
+  row := c.Pstatements.GetID.QueryRowContext(context.TODO(), c.Username)
+	err = row.Scan(&userID)
+	if err == nil {
+		c.UserID = userID
+		localIdentity = true
+	} else if err != sql.ErrNoRows {
+		return err
+	}
+
+	dbsync, err := c.Pbclient.UserRequest(context.TODO(), &pb.UserInfo{Username: c.Username})
+	if err != nil {
+		log.Printf("error syncing: %v\n", err)
+		return err
 	}
 
 	c.UserID = uuid.MustParse(dbsync.UserId)
