@@ -30,6 +30,10 @@ func PrepareStatements(ctx context.Context, db *sql.DB) (*types.ClientDB, error)
 		return nil, err
 	}
 
+	if statements.GetUID, err = db.PrepareContext(ctx, `SELECT user_id FROM identity WHERE username = ?;`); err != nil {
+		return nil, err
+	}
+
 	if statements.SaveID, err = db.PrepareContext(ctx, `INSERT INTO identity (user_id, username, enc_pkey, sig_pkey) VALUES (?, ?, ?, ?);`); err != nil {
 		return nil, err
 	}
@@ -88,6 +92,7 @@ func CloseStatements(c *types.ClientDB) error {
 	closeStmt(c.GetUserId)
 	closeStmt(c.GetUser)
 	closeStmt(c.GetID)
+	closeStmt(c.GetUID)
 	closeStmt(c.SaveID)
 	closeStmt(c.GetFriends)
 	closeStmt(c.GetKeyEx)

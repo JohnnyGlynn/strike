@@ -49,12 +49,12 @@ type MessageStruct struct {
 	Timestamp int64
 }
 
-//TODO:User?
+// TODO:User?
 type FriendRequest struct {
 	FriendId  uuid.UUID
 	Username  string
-	Enckey []byte
-	Sigkey []byte
+	Enckey    []byte
+	Sigkey    []byte
 	Direction string
 }
 
@@ -63,6 +63,7 @@ type ClientDB struct {
 	GetUserId           *sql.Stmt
 	GetUser             *sql.Stmt
 	GetID               *sql.Stmt
+	GetUID              *sql.Stmt
 	SaveID              *sql.Stmt
 	GetFriends          *sql.Stmt
 	GetKeyEx            *sql.Stmt

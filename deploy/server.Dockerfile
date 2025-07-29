@@ -1,8 +1,8 @@
 #Strike Server
 
-FROM golang:tip-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
-RUN apk add --no-cache bash curl
+# RUN apk add --no-cache bash curl
 
 WORKDIR /go/strike
 
@@ -10,7 +10,8 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY ./ ./
-RUN rm -rf ./internal/client ./deploy ./config ./cmd/strike-client
+
+RUN go mod download
 
 RUN go build -o strike.bin ./cmd/strike-server/main.go 
 

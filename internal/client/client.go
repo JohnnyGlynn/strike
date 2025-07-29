@@ -129,8 +129,8 @@ func Login(c *types.ClientInfo, password string) error {
 	}
 
 	var userID uuid.UUID
-  
-  row := c.Pstatements.GetID.QueryRowContext(context.TODO(), c.Username)
+
+	row := c.Pstatements.GetUID.QueryRowContext(context.TODO(), c.Username)
 	err = row.Scan(&userID)
 	if err == nil {
 		c.UserID = userID
@@ -139,18 +139,19 @@ func Login(c *types.ClientInfo, password string) error {
 		return err
 	}
 
-	dbsync, err := c.Pbclient.UserRequest(context.TODO(), &pb.UserInfo{Username: c.Username})
-	if err != nil {
-		log.Printf("error syncing: %v\n", err)
-		return err
-	}
-
-	c.UserID = uuid.MustParse(dbsync.UserId)
-
 	if !localIdentity {
+
+		dbsync, err := c.Pbclient.UserRequest(context.TODO(), &pb.UserInfo{Username: c.Username})
+		if err != nil {
+			log.Printf("error syncing: %v\n", err)
+			return err
+		}
+
+		c.UserID = uuid.MustParse(dbsync.UserId)
+
 		_, err = c.Pstatements.SaveID.ExecContext(ctx, c.UserID.String(), c.Username, c.Keys["EncryptionPublicKey"], c.Keys["SigningPublicKey"])
 		if err != nil {
-			return fmt.Errorf("failed adding to address book: %v", err)
+			return fmt.Errorf("failed to rebuild identity: %v", err)
 		}
 	}
 

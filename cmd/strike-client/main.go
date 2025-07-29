@@ -227,8 +227,6 @@ func handleLogin(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
 		return err
 	}
 
-	
-
 	return nil
 }
 
@@ -301,15 +299,16 @@ func launchREPL(c *types.ClientInfo) error {
 
 			switch input {
 			case "/login":
-				if err := handleLogin(inputReader, c); err != nil {
+				err := handleLogin(inputReader, c)
+				if err != nil {
 					fmt.Printf("login error: %v\n", err)
-          continue
+					continue
 				}
 				loggedin = true
 			case "/signup":
 				if err := handleSignup(inputReader, c); err != nil {
 					fmt.Printf("signup error: %v\n", err)
-          continue
+					continue
 				}
 				loggedin = true
 			case "/exit":
@@ -320,17 +319,16 @@ func launchREPL(c *types.ClientInfo) error {
 			}
 
 		} else {
-      go func() {
-        if err := client.RegisterStatus(c); err != nil {
-          fmt.Printf("error connecting stream: %v\n", err)
-          return
-        }
-      }()
+			go func() {
+				if err := client.RegisterStatus(c); err != nil {
+					fmt.Printf("error connecting stream: %v\n", err)
+					return
+				}
+			}()
 
-      fmt.Printf("Welcome back %s!\n", c.Username)
+			fmt.Printf("Welcome back %s!\n", c.Username)
 
-
-      if err := client.MShell(c); err != nil {
+			if err := client.MShell(c); err != nil {
 				return err
 			}
 		}
