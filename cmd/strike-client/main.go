@@ -284,7 +284,7 @@ func launchREPL(c *types.ClientInfo) error {
 	loggedin := false
 
 	for {
-		if loggedin != true {
+		if !loggedin {
 			fmt.Print("> ")
 			input, err := inputReader.ReadString('\n')
 			if err != nil {

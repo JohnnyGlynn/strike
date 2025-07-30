@@ -192,8 +192,7 @@ func MShell(client *types.ClientInfo) error {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	go func() error {
-
+	err := func() error {
 		err := ConnectPayloadStream(ctx, client)
 		if err != nil {
 			fmt.Printf("Payload steam failure: %s\n", err)
@@ -202,6 +201,9 @@ func MShell(client *types.ClientInfo) error {
 
 		return nil
 	}()
+	if err != nil {
+		return err
+	}
 
 	reader := bufio.NewReader(os.Stdin)
 	commands, err := buildCommandMap()
@@ -361,7 +363,10 @@ func FriendList(c *types.ClientInfo) error {
 		input = strings.TrimSpace(strings.ToLower(input))
 		accepted := input == "y"
 		if accepted {
-			shellFriendRequests(context.TODO(), c)
+			err := shellFriendRequests(context.TODO(), c)
+			if err != nil {
+				return err
+			}
 			return nil
 		}
 
@@ -384,7 +389,10 @@ func FriendList(c *types.ClientInfo) error {
 	input = strings.TrimSpace(strings.ToLower(input))
 	accepted := input == "y"
 	if accepted {
-		shellFriendRequests(context.TODO(), c)
+		err := shellFriendRequests(context.TODO(), c)
+		if err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -455,12 +463,10 @@ func loadMessages(c *types.ClientInfo) ([]types.MessageStruct, error) {
 		return nil, fmt.Errorf("error querying messages: %v", err)
 	}
 
-	defer func() error {
+	defer func() {
 		if rowErr := rows.Close(); rowErr != nil {
 			fmt.Printf("error getting rows: %v\n", rowErr)
-			return err
 		}
-		return nil
 	}()
 
 	var messages []types.MessageStruct
@@ -493,13 +499,11 @@ func loadFriends(c *types.ClientInfo) ([]*types.User, error) {
 		return nil, fmt.Errorf("error querying friends: %v", err)
 	}
 
-	defer func() error {
+	defer func() {
 		if rowErr := rows.Close(); rowErr != nil {
 			fmt.Printf("error getting rows: %v\n", rowErr)
-			return rowErr
 		}
 
-		return nil
 	}()
 
 	var users []*types.User
@@ -539,13 +543,10 @@ func loadFriendRequests(c *types.ClientInfo) ([]*types.FriendRequest, error) {
 		return nil, fmt.Errorf("error querying friend requests: %v", err)
 	}
 
-	defer func() error {
+	defer func() {
 		if rowErr := rows.Close(); rowErr != nil {
 			fmt.Printf("error getting rows: %v\n", rowErr)
-			return rowErr
 		}
-
-		return nil
 	}()
 
 	var friendRequests []*types.FriendRequest

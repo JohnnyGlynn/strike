@@ -45,5 +45,5 @@ docker_build(
 )
 
 k8s_resource('strike-db', port_forwards=5432, resource_deps=['strike-db-env'])
-k8s_resource('strike-server', port_forwards=8080, resource_deps=['strike-server-env'])
+k8s_resource('strike-server', port_forwards=8080, resource_deps=['strike-server-env', 'strike-db'])
 
