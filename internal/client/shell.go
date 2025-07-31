@@ -192,18 +192,12 @@ func MShell(client *types.ClientInfo) error {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	err := func() error {
+	go func() {
 		err := ConnectPayloadStream(ctx, client)
 		if err != nil {
-			fmt.Printf("Payload steam failure: %s\n", err)
-			return err
+			fmt.Printf("Payload stream failure: %s\n", err)
 		}
-
-		return nil
 	}()
-	if err != nil {
-		return err
-	}
 
 	reader := bufio.NewReader(os.Stdin)
 	commands, err := buildCommandMap()

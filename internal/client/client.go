@@ -35,9 +35,9 @@ func ConnectPayloadStream(ctx context.Context, c *types.ClientInfo) error {
 
 	// Start our demultiplexer and baseline processor functions
 	demux := network.NewDemultiplexer(c)
+  defer demux.Shutdown()
 
 	// Start Monitoring
-	demux.StartMonitoring(c)
 
 	for {
 		select {
