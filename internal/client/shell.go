@@ -189,16 +189,6 @@ func buildCommandMap() (map[string]types.Command, error) {
 }
 
 func MShell(client *types.ClientInfo) error {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
-	go func() {
-		err := ConnectPayloadStream(ctx, client)
-		if err != nil {
-			fmt.Printf("Payload stream failure: %s\n", err)
-		}
-	}()
-
 	reader := bufio.NewReader(os.Stdin)
 	commands, err := buildCommandMap()
 	if err != nil {

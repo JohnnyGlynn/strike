@@ -262,19 +262,15 @@ func handleSignup(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
 		return fmt.Errorf("error connecting: %v", err)
 	}
 
-	go func() {
-		if err = client.RegisterStatus(clientInfo); err != nil {
-			fmt.Printf("error connecting stream: %v\n", err)
-			return
-		}
-	}()
-
 	fmt.Printf("Welcome %s!\n", username)
 
 	return nil
 }
 
 func launchREPL(c *types.ClientInfo) error {
+  ctx, cancel := context.WithCancel(context.TODO())
+  defer cancel()
+
 	inputReader := bufio.NewReader(os.Stdin)
 
 	fmt.Println("Type /login to log into the Strike Messaging service")
@@ -322,11 +318,15 @@ func launchREPL(c *types.ClientInfo) error {
 			go func() {
 				if err := client.RegisterStatus(c); err != nil {
 					fmt.Printf("error connecting stream: %v\n", err)
-					return
 				}
 			}()
 
-			fmt.Printf("Welcome back %s!\n", c.Username)
+      go func() {
+        err := client.ConnectPayloadStream(ctx, c)
+        if err != nil {
+          fmt.Printf("Payload stream failure: %s\n", err)
+        }
+      }()
 
 			if err := client.MShell(c); err != nil {
 				return err
