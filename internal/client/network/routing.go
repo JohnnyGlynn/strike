@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
-	// "time"
+	"time"
 
 	"github.com/JohnnyGlynn/strike/internal/client/crypto"
 	"github.com/JohnnyGlynn/strike/internal/client/types"
@@ -28,6 +28,16 @@ type Demultiplexer struct {
 
 	workers map[string]int
 	wrkMu   sync.Mutex
+}
+
+type routeBinding[T any] struct {
+	name        string
+	channel     <-chan T
+	threshold   int
+	maxWorkers  int
+	processor   func(msg T)
+	handler     func(ctx context.Context, ch <-chan T, c *types.ClientInfo)
+	idleTimeout time.Duration
 }
 
 func NewDemultiplexer(c *types.ClientInfo) *Demultiplexer {
@@ -283,18 +293,60 @@ func processKeyExchangeConfirmations(ctx context.Context, ch <-chan *pb.KeyExcha
 	}
 }
 
+func registerRoute[T any](d *Demultiplexer, binding routeBinding[T], c *types.ClientInfo) {
+	d.spawnWorker(binding.name, func() {
+		binding.handler(d.ctx, binding.channel, c) //runs "forever"
+	})
+
+	autoScaler(
+		d,
+		binding.name,
+		binding.channel,
+		binding.threshold,
+		binding.maxWorkers,
+		binding.processor,
+		binding.idleTimeout,
+	)
+}
+
+func autoScaler[T any](d *Demultiplexer, name string, ch <-chan T, threshold int, maxWorkers int, processor func(msg T), idleTimeout time.Duration) {
+	d.wg.Add(1)
+	go func() {
+		defer d.wg.Done()
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-d.ctx.Done():
+				log.Printf("%s payload monitor shutting down", name)
+				return
+			case <-ticker.C:
+				d.wrkMu.Lock()
+				workerCount := d.workers[name]
+				if len(ch) > threshold && workerCount < maxWorkers {
+					log.Printf("Spawning ephemeral worker %d (channel: %s)", len(ch), name)
+					//TODO: Spawn ephemeral
+				}
+				d.wrkMu.Unlock()
+			}
+		}
+
+	}()
+}
+
 // // Generic Channel monitor- Provide it any channel and respective processor function
 // func monitorChannel[T any](ch <-chan T, threshold, maxWorkers int, workerCount *int, mu *sync.Mutex, spawnWorker func() error) {
 // 	ticker := time.NewTicker(5 * time.Second) // Check channel every 5 seconds
 // 	defer ticker.Stop()
 // 	for range ticker.C {
 // 		mu.Lock()
-// 		if len(ch) > threshold && *workerCount < maxWorkers {
-// 			*workerCount++
-// 			log.Printf("Spawning new ephemeral worker; current workers: %d", *workerCount)
-// 			// Callback generic for any of the Process* functions
-// 			go spawnWorker()
-// 		}
+// if len(ch) > threshold && *workerCount < maxWorkers {
+// 	*workerCount++
+// 	log.Printf("Spawning new ephemeral worker; current workers: %d", *workerCount)
+// 	// Callback generic for any of the Process* functions
+// 	go spawnWorker()
+// }
 // 		mu.Unlock()
 // 	}
 // }
