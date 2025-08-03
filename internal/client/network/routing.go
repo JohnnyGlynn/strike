@@ -79,6 +79,45 @@ func (d *Demultiplexer) spawnWorker(name string, fn func()) {
 	}()
 }
 
+func spwanEphemeral[T any](d *Demultiplexer, name string, ch <-chan T, processor func(msg T), idleTimeout time.Duration) {
+	d.wrkMu.Lock()
+	d.workers[name]++
+	d.wg.Add(1)
+	d.wrkMu.Unlock()
+
+	go func() {
+		defer func() {
+			d.wrkMu.Lock()
+			d.workers[name]--
+			d.wrkMu.Unlock()
+			d.wg.Done()
+			log.Printf("ephemeral %s shutdown...", name)
+		}()
+
+		timer := time.NewTimer(idleTimeout)
+		defer timer.Stop()
+
+		for {
+			select {
+			case <-d.ctx.Done():
+				return
+			case msg, ok := <-ch:
+				if !ok {
+					return
+				}
+				if !timer.Stop() {
+					<-timer.C
+				}
+				timer.Reset(idleTimeout)
+				processor(msg)
+			case <-timer.C:
+				fmt.Println("time out")
+				return
+			}
+		}
+	}()
+}
+
 func (d *Demultiplexer) Shutdown() {
 	d.cancel()
 	d.wg.Wait()
@@ -326,7 +365,7 @@ func autoScaler[T any](d *Demultiplexer, name string, ch <-chan T, threshold int
 				workerCount := d.workers[name]
 				if len(ch) > threshold && workerCount < maxWorkers {
 					log.Printf("Spawning ephemeral worker %d (channel: %s)", len(ch), name)
-					//TODO: Spawn ephemeral
+					spwanEphemeral(d, name, ch, processor, idleTimeout)
 				}
 				d.wrkMu.Unlock()
 			}

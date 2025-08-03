@@ -268,8 +268,8 @@ func handleSignup(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
 }
 
 func launchREPL(c *types.ClientInfo) error {
-  ctx, cancel := context.WithCancel(context.TODO())
-  defer cancel()
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 
 	inputReader := bufio.NewReader(os.Stdin)
 
@@ -321,12 +321,12 @@ func launchREPL(c *types.ClientInfo) error {
 				}
 			}()
 
-      go func() {
-        err := client.ConnectPayloadStream(ctx, c)
-        if err != nil {
-          fmt.Printf("Payload stream failure: %s\n", err)
-        }
-      }()
+			go func() {
+				err := client.ConnectPayloadStream(ctx, c)
+				if err != nil {
+					fmt.Printf("Payload stream failure: %s\n", err)
+				}
+			}()
 
 			if err := client.MShell(c); err != nil {
 				return err
