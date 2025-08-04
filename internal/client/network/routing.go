@@ -56,12 +56,14 @@ func NewDemultiplexer(c *types.ClientInfo) *Demultiplexer {
 		keyExchangeConfirmationChannel: make(chan *pb.KeyExchangeConfirmation, 20),
 	}
 
-	d.spawnWorker("encenv", func() { processEnvelopes(d.ctx, d.encenvelopeChannel, c) })
-	d.spawnWorker("friendreq", func() { processFriendRequests(d.ctx, d.friendRequestChannel, c) })
-	d.spawnWorker("friendres", func() { processFriendResponse(d.ctx, d.friendResponseChannel, c) })
-	d.spawnWorker("keyEx", func() { processKeyExchangeRequests(d.ctx, d.keyExchangeChannel, c) })
-	d.spawnWorker("keyExRes", func() { processKeyExchangeResponses(d.ctx, d.keyExchangeResponseChannel, c) })
-	d.spawnWorker("keyExCon", func() { processKeyExchangeConfirmations(d.ctx, d.keyExchangeConfirmationChannel, c) })
+	// mux := demuxRoutes(d, c)
+
+	// d.spawnWorker("encenv", func() { processEnvelope(d.ctx, d.encenvelopeChannel, c) })
+	// d.spawnWorker("friendreq", func() { processFriendRequests(d.ctx, d.friendRequestChannel, c) })
+	// d.spawnWorker("friendres", func() { processFriendResponse(d.ctx, d.friendResponseChannel, c) })
+	// d.spawnWorker("keyEx", func() { processKeyExchangeRequests(d.ctx, d.keyExchangeChannel, c) })
+	// d.spawnWorker("keyExRes", func() { processKeyExchangeResponses(d.ctx, d.keyExchangeResponseChannel, c) })
+	// d.spawnWorker("keyExCon", func() { processKeyExchangeConfirmations(d.ctx, d.keyExchangeConfirmationChannel, c) })
 
 	return d
 }
@@ -168,34 +170,25 @@ func (d *Demultiplexer) Dispatcher(msg *pb.StreamPayload) {
 	}
 }
 
-func processEnvelopes(ctx context.Context, ch <-chan *pb.EncryptedEnvelope, c *types.ClientInfo) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case envelope, ok := <-ch:
-			if !ok {
-				return nil
-			}
-
-			msg, err := crypto.Decrypt(c, envelope.EncryptedMessage)
-			if err != nil {
-				fmt.Printf("Failed to decrypt sealed message")
-				return err
-			}
-
-			// TODO: Batch insert messages?
-			if c.Shell.Mode == types.ModeChat && envelope.FromUser == c.Cache.CurrentChat.User.Id.String() {
-				fmt.Printf("[%s]:%s\n", c.Cache.CurrentChat.User.Name, msg)
-			}
-
-			_, err = c.Pstatements.SaveMessage.ExecContext(ctx, uuid.New().String(), envelope.FromUser, "inbound", envelope.EncryptedMessage, envelope.SentAt.AsTime().UnixMilli())
-			if err != nil {
-				fmt.Printf("Failed to save message")
-				return err
-			}
-		}
+func processEnvelope(ctx context.Context, env *pb.EncryptedEnvelope, c *types.ClientInfo) error {
+	msg, err := crypto.Decrypt(c, env.EncryptedMessage)
+	if err != nil {
+		fmt.Printf("Failed to decrypt sealed message")
+		return err
 	}
+
+	// TODO: Batch insert messages?
+	if c.Shell.Mode == types.ModeChat && env.FromUser == c.Cache.CurrentChat.User.Id.String() {
+		fmt.Printf("[%s]:%s\n", c.Cache.CurrentChat.User.Name, msg)
+	}
+
+	_, err = c.Pstatements.SaveMessage.ExecContext(ctx, uuid.New().String(), env.FromUser, "inbound", env.EncryptedMessage, env.SentAt.AsTime().UnixMilli())
+	if err != nil {
+		fmt.Printf("Failed to save message")
+		return err
+	}
+
+	return nil
 }
 
 func processFriendRequests(ctx context.Context, ch <-chan *pb.FriendRequest, c *types.ClientInfo) error {
@@ -346,6 +339,31 @@ func registerRoute[T any](d *Demultiplexer, binding routeBinding[T], c *types.Cl
 		binding.processor,
 		binding.idleTimeout,
 	)
+}
+
+func demuxRoutes(d *Demultiplexer, c *types.ClientInfo) []any {
+	return []any{
+		routeBinding[*pb.EncryptedEnvelope]{
+			name:        "encenv",
+			channel:     d.encenvelopeChannel,
+			threshold:   20,
+			maxWorkers:  5,
+			idleTimeout: 10 * time.Second,
+			processor: func(msg *pb.EncryptedEnvelope) {
+				processEnvelope(d.ctx, msg, c)
+			},
+			handler: func(ctx context.Context, ch <-chan *pb.EncryptedEnvelope, c *types.ClientInfo) {
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case msg := <-ch:
+						processEnvelope(ctx, msg, c)
+					}
+				}
+			},
+		},
+	}
 }
 
 func autoScaler[T any](d *Demultiplexer, name string, ch <-chan T, threshold int, maxWorkers int, processor func(msg T), idleTimeout time.Duration) {
