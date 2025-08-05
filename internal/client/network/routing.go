@@ -56,16 +56,31 @@ func NewDemultiplexer(c *types.ClientInfo) *Demultiplexer {
 		keyExchangeConfirmationChannel: make(chan *pb.KeyExchangeConfirmation, 20),
 	}
 
-	// mux := demuxRoutes(d, c)
+	mux := demuxRoutes(d, c)
 
-	// d.spawnWorker("encenv", func() { processEnvelope(d.ctx, d.encenvelopeChannel, c) })
-	// d.spawnWorker("friendreq", func() { processFriendRequests(d.ctx, d.friendRequestChannel, c) })
-	// d.spawnWorker("friendres", func() { processFriendResponse(d.ctx, d.friendResponseChannel, c) })
-	// d.spawnWorker("keyEx", func() { processKeyExchangeRequests(d.ctx, d.keyExchangeChannel, c) })
-	// d.spawnWorker("keyExRes", func() { processKeyExchangeResponses(d.ctx, d.keyExchangeResponseChannel, c) })
-	// d.spawnWorker("keyExCon", func() { processKeyExchangeConfirmations(d.ctx, d.keyExchangeConfirmationChannel, c) })
+	//TODO: Make registerRoute generic?
+	for _, r := range mux {
+		switch rtype := r.(type) {
+		case routeBinding[*pb.EncryptedEnvelope]:
+			registerRoute(d, rtype, c)
+		case routeBinding[*pb.FriendRequest]:
+			registerRoute(d, rtype, c)
+		case routeBinding[*pb.FriendResponse]:
+			registerRoute(d, rtype, c)
+		case routeBinding[*pb.KeyExchangeRequest]:
+			registerRoute(d, rtype, c)
+		case routeBinding[*pb.KeyExchangeResponse]:
+			registerRoute(d, rtype, c)
+		case routeBinding[*pb.KeyExchangeConfirmation]:
+			registerRoute(d, rtype, c)
+		default:
+			fmt.Printf("route not found %T", r)
+		}
 
-	return d
+		return d
+	}
+
+	return nil
 }
 
 func (d *Demultiplexer) spawnWorker(name string, fn func()) {
@@ -191,138 +206,95 @@ func processEnvelope(ctx context.Context, env *pb.EncryptedEnvelope, c *types.Cl
 	return nil
 }
 
-func processFriendRequests(ctx context.Context, ch <-chan *pb.FriendRequest, c *types.ClientInfo) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case friendRequest, ok := <-ch:
-			if !ok {
-				return nil
-			}
-			fmt.Printf("Friend Request from: %v\n", friendRequest.UserInfo.Username)
+func processFriendRequest(ctx context.Context, fr *pb.FriendRequest, c *types.ClientInfo) error {
 
-			_, err := c.Pstatements.SaveFriendRequest.ExecContext(ctx, friendRequest.UserInfo.UserId, friendRequest.UserInfo.Username, friendRequest.UserInfo.EncryptionPublicKey, friendRequest.UserInfo.SigningPublicKey, "inbound")
-			if err != nil {
-				fmt.Printf("failed to save Friend Request")
-				return err
-			}
-		}
+	fmt.Printf("Friend Request from: %v\n", fr.UserInfo.Username)
+
+	_, err := c.Pstatements.SaveFriendRequest.ExecContext(ctx, fr.UserInfo.UserId, fr.UserInfo.Username, fr.UserInfo.EncryptionPublicKey, fr.UserInfo.SigningPublicKey, "inbound")
+	if err != nil {
+		fmt.Printf("failed to save Friend Request")
+		return err
 	}
+
+	return nil
+
 }
 
-func processFriendResponse(ctx context.Context, ch <-chan *pb.FriendResponse, c *types.ClientInfo) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case friendRes, ok := <-ch:
-			if !ok {
-				return nil
-			}
-			fmt.Printf("Friend Response from: %v\n", friendRes.UserInfo.Username)
+func processFriendResponse(ctx context.Context, fr *pb.FriendResponse, c *types.ClientInfo) error {
 
-			if friendRes.State {
-				_, err := c.Pstatements.SaveUserDetails.ExecContext(ctx, friendRes.UserInfo.UserId, friendRes.UserInfo.Username, friendRes.UserInfo.EncryptionPublicKey, friendRes.UserInfo.SigningPublicKey)
-				if err != nil {
-					fmt.Printf("failed adding to address book: %v", err)
-					return err
-				}
+	fmt.Printf("Friend Response from: %v\n", fr.UserInfo.Username)
 
-				InitiateKeyExchange(ctx, c, uuid.MustParse(friendRes.UserInfo.UserId))
-			}
-
-			_, err := c.Pstatements.DeleteFriendRequest.ExecContext(ctx, friendRes.UserInfo.UserId)
-			if err != nil {
-				fmt.Printf("failed deleting friend request: %v", err)
-				return err
-			}
-
+	if fr.State {
+		_, err := c.Pstatements.SaveUserDetails.ExecContext(ctx, fr.UserInfo.UserId, fr.UserInfo.Username, fr.UserInfo.EncryptionPublicKey, fr.UserInfo.SigningPublicKey)
+		if err != nil {
+			fmt.Printf("failed adding to address book: %v", err)
+			return err
 		}
+
+		InitiateKeyExchange(ctx, c, uuid.MustParse(fr.UserInfo.UserId))
 	}
+
+	_, err := c.Pstatements.DeleteFriendRequest.ExecContext(ctx, fr.UserInfo.UserId)
+	if err != nil {
+		fmt.Printf("failed deleting friend request: %v", err)
+		return err
+	}
+
+	return nil
 }
 
-func processKeyExchangeRequests(ctx context.Context, ch <-chan *pb.KeyExchangeRequest, c *types.ClientInfo) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case keyExReq, ok := <-ch:
-			if !ok {
-				return nil
-			}
+func processKeyExchangeRequest(ctx context.Context, kx *pb.KeyExchangeRequest, c *types.ClientInfo) error {
+	fmt.Printf("keyExReq: %v", kx)
 
-			fmt.Printf("keyExReq: %v", keyExReq)
+	senderId := uuid.MustParse(kx.SenderUserId)
 
-			senderId := uuid.MustParse(keyExReq.SenderUserId)
+	ReciprocateKeyExchange(ctx, c, senderId)
 
-			ReciprocateKeyExchange(ctx, c, senderId)
-		}
-	}
+	return nil
 }
 
-func processKeyExchangeResponses(ctx context.Context, ch <-chan *pb.KeyExchangeResponse, c *types.ClientInfo) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case keyExRes, ok := <-ch:
-			if !ok {
-				return nil
-			}
-
-			// TODO: Something fails so the confirmations can be false???
-			err := ConfirmKeyExchange(ctx, c, uuid.MustParse(keyExRes.ResponderUserId), true)
-			if err != nil {
-				fmt.Println("key exchange confirmation failed")
-				return err
-			}
-
-		}
+func processKeyExchangeResponse(ctx context.Context, kx *pb.KeyExchangeResponse, c *types.ClientInfo) error {
+	// TODO: Something fails so the confirmations can be false???
+	err := ConfirmKeyExchange(ctx, c, uuid.MustParse(kx.ResponderUserId), true)
+	if err != nil {
+		fmt.Println("key exchange confirmation failed")
+		return err
 	}
+
+	return nil
+
 }
 
-func processKeyExchangeConfirmations(ctx context.Context, ch <-chan *pb.KeyExchangeConfirmation, c *types.ClientInfo) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case keyExCon, ok := <-ch:
-			if !ok {
-				return nil
-			}
-
-			var confirmed int
-			err := c.Pstatements.GetKeyEx.QueryRowContext(ctx, keyExCon.ConfirmerUserId).Scan(&confirmed)
-			if err != nil && err != sql.ErrNoRows {
-				fmt.Printf("failed to query key exchange state")
-				return err
-			}
-
-			if confirmed != 0 {
-				fmt.Println("Keys have already been exchanged")
-				return nil
-			}
-
-			_, err = c.Pstatements.ConfirmKeyEx.ExecContext(ctx, true, keyExCon.ConfirmerUserId)
-			if err != nil {
-				fmt.Println("failed to confirm key exchange locally")
-				return err
-				//TODO: Retry mechanism?
-			}
-
-			err = ConfirmKeyExchange(ctx, c, uuid.MustParse(keyExCon.ConfirmerUserId), true)
-			if err != nil {
-				fmt.Println("key exchange confirmation failed")
-				return err
-			}
-
-			//Username
-			fmt.Printf("Keys have been exchanged with %s\n", keyExCon.ConfirmerUserId)
-
-			return nil
-		}
+func processKeyExchangeConfirmation(ctx context.Context, kx *pb.KeyExchangeConfirmation, c *types.ClientInfo) error {
+	var confirmed int
+	err := c.Pstatements.GetKeyEx.QueryRowContext(ctx, kx.ConfirmerUserId).Scan(&confirmed)
+	if err != nil && err != sql.ErrNoRows {
+		fmt.Printf("failed to query key exchange state")
+		return err
 	}
+
+	if confirmed != 0 {
+		fmt.Println("Keys have already been exchanged")
+		return nil
+	}
+
+	_, err = c.Pstatements.ConfirmKeyEx.ExecContext(ctx, true, kx.ConfirmerUserId)
+	if err != nil {
+		fmt.Println("failed to confirm key exchange locally")
+		return err
+		//TODO: Retry mechanism?
+	}
+
+	err = ConfirmKeyExchange(ctx, c, uuid.MustParse(kx.ConfirmerUserId), true)
+	if err != nil {
+		fmt.Println("key exchange confirmation failed")
+		return err
+	}
+
+	//Username
+	fmt.Printf("Keys have been exchanged with %s\n", kx.ConfirmerUserId)
+
+	return nil
 }
 
 func registerRoute[T any](d *Demultiplexer, binding routeBinding[T], c *types.ClientInfo) {
@@ -363,6 +335,127 @@ func demuxRoutes(d *Demultiplexer, c *types.ClientInfo) []any {
 				}
 			},
 		},
+		routeBinding[*pb.FriendRequest]{
+			name:        "friendreq",
+			channel:     d.friendRequestChannel,
+			threshold:   5,
+			maxWorkers:  2,
+			idleTimeout: 1 * time.Second,
+			processor: func(msg *pb.FriendRequest) {
+				processFriendRequest(d.ctx, msg, c)
+			},
+			handler: func(ctx context.Context, ch <-chan *pb.FriendRequest, c *types.ClientInfo) {
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case msg := <-ch:
+						processFriendRequest(ctx, msg, c)
+					}
+				}
+			},
+		},
+		routeBinding[*pb.FriendResponse]{
+			name:        "friendres",
+			channel:     d.friendResponseChannel,
+			threshold:   5,
+			maxWorkers:  2,
+			idleTimeout: 1 * time.Second,
+			processor: func(msg *pb.FriendResponse) {
+				processFriendResponse(d.ctx, msg, c)
+			},
+			handler: func(ctx context.Context, ch <-chan *pb.FriendResponse, c *types.ClientInfo) {
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case msg := <-ch:
+						processFriendResponse(ctx, msg, c)
+					}
+				}
+			},
+		},
+		routeBinding[*pb.KeyExchangeRequest]{
+			name:        "kxreq",
+			channel:     d.keyExchangeChannel,
+			threshold:   5,
+			maxWorkers:  2,
+			idleTimeout: 1 * time.Second,
+			processor: func(msg *pb.KeyExchangeRequest) {
+				processKeyExchangeRequest(d.ctx, msg, c)
+			},
+			handler: func(ctx context.Context, ch <-chan *pb.KeyExchangeRequest, c *types.ClientInfo) {
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case msg := <-ch:
+						processKeyExchangeRequest(ctx, msg, c)
+					}
+				}
+			},
+		},
+		routeBinding[*pb.KeyExchangeResponse]{
+			name:        "kxres",
+			channel:     d.keyExchangeResponseChannel,
+			threshold:   5,
+			maxWorkers:  2,
+			idleTimeout: 1 * time.Second,
+			processor: func(msg *pb.KeyExchangeResponse) {
+				processKeyExchangeResponse(d.ctx, msg, c)
+			},
+			handler: func(ctx context.Context, ch <-chan *pb.KeyExchangeResponse, c *types.ClientInfo) {
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case msg := <-ch:
+						processKeyExchangeResponse(ctx, msg, c)
+					}
+				}
+			},
+		},
+		routeBinding[*pb.KeyExchangeConfirmation]{
+			name:        "kxcon",
+			channel:     d.keyExchangeConfirmationChannel,
+			threshold:   5,
+			maxWorkers:  2,
+			idleTimeout: 1 * time.Second,
+			processor: func(msg *pb.KeyExchangeConfirmation) {
+				processKeyExchangeConfirmation(d.ctx, msg, c)
+			},
+			handler: func(ctx context.Context, ch <-chan *pb.KeyExchangeConfirmation, c *types.ClientInfo) {
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case msg := <-ch:
+						processKeyExchangeConfirmation(ctx, msg, c)
+					}
+				}
+			},
+		},
+		//Expansion
+		// routeBinding[*pb.]{
+		// 	name:        "",
+		// 	channel:     d.Channel,
+		// 	threshold:   5,
+		// 	maxWorkers:  2,
+		// 	idleTimeout: 1 * time.Second,
+		// 	processor: func(msg *pb.) {
+		// 		process(d.ctx, msg, c)
+		// 	},
+		// 	handler: func(ctx context.Context, ch <-chan *pb., c *types.ClientInfo) {
+		// 		for {
+		// 			select {
+		// 			case <-ctx.Done():
+		// 				return
+		// 			case msg := <-ch:
+		// 				process(ctx, msg, c)
+		// 			}
+		// 		}
+		// 	},
+		// },
 	}
 }
 
