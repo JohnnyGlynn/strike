@@ -20,13 +20,13 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func ConnectPayloadStream(ctx context.Context, c *types.ClientInfo) error {
+func ConnectPayloadStream(ctx context.Context, c *types.Client) error {
 	// Pass your own username to register your stream
-	stream, err := c.Pbclient.PayloadStream(ctx, &pb.UserInfo{
-		Username:            c.Username,
-		UserId:              c.UserID.String(),
-		EncryptionPublicKey: c.Keys["EncryptionPublicKey"],
-		SigningPublicKey:    c.Keys["SigningPublicKey"],
+	stream, err := c.PBC.PayloadStream(ctx, &pb.UserInfo{
+		Username:            c.Identity.Username,
+		UserId:              c.Identity.ID.String(),
+		EncryptionPublicKey: c.Identity.Keys["EncryptionPublicKey"],
+		SigningPublicKey:    c.Identity.Keys["SigningPublicKey"],
 	})
 	if err != nil {
 		log.Printf("MessageStream Failed: %v", err)
@@ -60,7 +60,7 @@ func ConnectPayloadStream(ctx context.Context, c *types.ClientInfo) error {
 	}
 }
 
-func Signup(c *types.ClientInfo, password string, curve25519key []byte, ed25519key []byte) error {
+func Signup(c *types.Client, password string, curve25519key []byte, ed25519key []byte) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -75,22 +75,22 @@ func Signup(c *types.ClientInfo, password string, curve25519key []byte, ed25519k
 	}
 
 	initUser := pb.InitUser{
-		Username:            c.Username,
-		UserId:              c.UserID.String(),
+		Username:            c.Identity.Username,
+		UserId:              c.Identity.ID.String(),
 		PasswordHash:        passwordHash,
 		Salt:                &pb.Salt{Salt: salt},
 		EncryptionPublicKey: curve25519key,
 		SigningPublicKey:    ed25519key,
 	}
 
-	serverRes, err := c.Pbclient.Signup(ctx, &initUser)
+	serverRes, err := c.PBC.Signup(ctx, &initUser)
 	if err != nil {
 		log.Printf("signup failed: %v\n", err)
 		return err
 	}
 
 	// Save users own details to local client db
-	_, err = c.Pstatements.SaveID.ExecContext(ctx, c.UserID.String(), c.Username, curve25519key, ed25519key)
+	_, err = c.DB.SaveID.ExecContext(ctx, c.Identity.ID.String(), c.Identity.Username, curve25519key, ed25519key)
 	if err != nil {
 		return fmt.Errorf("failed adding to address book: %v", err)
 	}
@@ -99,13 +99,13 @@ func Signup(c *types.ClientInfo, password string, curve25519key []byte, ed25519k
 	return nil
 }
 
-func Login(c *types.ClientInfo, password string) error {
+func Login(c *types.Client, password string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	localIdentity := false
 
-	salt, err := c.Pbclient.SaltMine(ctx, &pb.UserInfo{Username: c.Username})
+	salt, err := c.PBC.SaltMine(ctx, &pb.UserInfo{Username: c.Identity.Username})
 	if err != nil {
 		log.Printf("Salt retrieval failed: %v\n", err)
 		return err
@@ -116,8 +116,8 @@ func Login(c *types.ClientInfo, password string) error {
 		return fmt.Errorf("password input error: %v", err)
 	}
 
-	loginResp, err := c.Pbclient.Login(ctx, &pb.LoginVerify{
-		Username:     c.Username,
+	loginResp, err := c.PBC.Login(ctx, &pb.LoginVerify{
+		Username:     c.Identity.Username,
 		PasswordHash: passwordHash,
 	})
 	if err != nil {
@@ -130,10 +130,10 @@ func Login(c *types.ClientInfo, password string) error {
 
 	var userID uuid.UUID
 
-	row := c.Pstatements.GetUID.QueryRowContext(context.TODO(), c.Username)
+	row := c.DB.GetUID.QueryRowContext(context.TODO(), c.Identity.Username)
 	err = row.Scan(&userID)
 	if err == nil {
-		c.UserID = userID
+		c.Identity.ID = userID
 		localIdentity = true
 	} else if err != sql.ErrNoRows {
 		return err
@@ -141,15 +141,15 @@ func Login(c *types.ClientInfo, password string) error {
 
 	if !localIdentity {
 
-		dbsync, err := c.Pbclient.UserRequest(context.TODO(), &pb.UserInfo{Username: c.Username})
+		dbsync, err := c.PBC.UserRequest(context.TODO(), &pb.UserInfo{Username: c.Identity.Username})
 		if err != nil {
 			log.Printf("error syncing: %v\n", err)
 			return err
 		}
 
-		c.UserID = uuid.MustParse(dbsync.UserId)
+		c.Identity.ID = uuid.MustParse(dbsync.UserId)
 
-		_, err = c.Pstatements.SaveID.ExecContext(ctx, c.UserID.String(), c.Username, c.Keys["EncryptionPublicKey"], c.Keys["SigningPublicKey"])
+		_, err = c.DB.SaveID.ExecContext(ctx, c.Identity.ID.String(), c.Identity.Username, c.Identity.Keys["EncryptionPublicKey"], c.Identity.Keys["SigningPublicKey"])
 		if err != nil {
 			return fmt.Errorf("failed to rebuild identity: %v", err)
 		}
@@ -160,7 +160,7 @@ func Login(c *types.ClientInfo, password string) error {
 
 }
 
-func SendMessage(c *types.ClientInfo, message string) error {
+func SendMessage(c *types.Client, message string) error {
 	sealedMessage, err := crypto.Encrypt(c, []byte(message))
 	if err != nil {
 		log.Println("Couldnt encrypt message")
@@ -168,27 +168,27 @@ func SendMessage(c *types.ClientInfo, message string) error {
 	}
 
 	encenv := pb.EncryptedEnvelope{
-		SenderPublicKey:  c.Keys["SigningPublicKey"],
+		SenderPublicKey:  c.Identity.Keys["SigningPublicKey"],
 		SentAt:           timestamppb.Now(),
-		FromUser:         c.UserID.String(),
-		ToUser:           c.Cache.CurrentChat.User.Id.String(),
+		FromUser:         c.Identity.ID.String(),
+		ToUser:           c.State.Cache.CurrentChat.User.Id.String(),
 		EncryptedMessage: sealedMessage,
 	}
 
 	payloadEnvelope := pb.StreamPayload{
-		Target:  c.Cache.CurrentChat.User.Id.String(),
-		Sender:  c.UserID.String(),
+		Target:  c.State.Cache.CurrentChat.User.Id.String(),
+		Sender:  c.Identity.ID.String(),
 		Payload: &pb.StreamPayload_Encenv{Encenv: &encenv},
 		Info:    "Encrypted Payload",
 	}
 
-	_, err = c.Pbclient.SendPayload(context.Background(), &payloadEnvelope)
+	_, err = c.PBC.SendPayload(context.Background(), &payloadEnvelope)
 	if err != nil {
 		log.Println("Error sending payload")
 		return err
 	}
 
-	_, err = c.Pstatements.SaveMessage.ExecContext(context.TODO(), uuid.New().String(), c.Cache.CurrentChat.User.Id.String(), "outbound", sealedMessage, time.Now().UnixMilli())
+	_, err = c.DB.SaveMessage.ExecContext(context.TODO(), uuid.New().String(), c.State.Cache.CurrentChat.User.Id.String(), "outbound", sealedMessage, time.Now().UnixMilli())
 	if err != nil {
 		log.Println("Error saving message")
 		return err
@@ -197,31 +197,31 @@ func SendMessage(c *types.ClientInfo, message string) error {
 	return nil
 }
 
-func FriendRequest(ctx context.Context, c *types.ClientInfo, target *pb.UserInfo) error {
+func FriendRequest(ctx context.Context, c *types.Client, target *pb.UserInfo) error {
 
 	req := pb.FriendRequest{
 		Target: target.UserId,
 		UserInfo: &pb.UserInfo{
-			Username:            c.Username,
-			UserId:              c.UserID.String(),
-			EncryptionPublicKey: c.Keys["EncryptionPublicKey"],
-			SigningPublicKey:    c.Keys["SigningPublicKey"],
+			Username:            c.Identity.Username,
+			UserId:              c.Identity.ID.String(),
+			EncryptionPublicKey: c.Identity.Keys["EncryptionPublicKey"],
+			SigningPublicKey:    c.Identity.Keys["SigningPublicKey"],
 		},
 	}
 
 	payload := pb.StreamPayload{
 		Target:  target.UserId,
-		Sender:  c.UserID.String(),
+		Sender:  c.Identity.ID.String(),
 		Payload: &pb.StreamPayload_FriendRequest{FriendRequest: &req},
 		Info:    "Friend Request payload",
 	}
 
-	resp, err := c.Pbclient.SendPayload(ctx, &payload)
+	resp, err := c.PBC.SendPayload(ctx, &payload)
 	if err != nil {
 		return fmt.Errorf("failed to confirm chat: %v", err)
 	}
 
-	_, err = c.Pstatements.SaveFriendRequest.ExecContext(context.TODO(), target.UserId, target.Username, nil, nil, "outbound")
+	_, err = c.DB.SaveFriendRequest.ExecContext(context.TODO(), target.UserId, target.Username, nil, nil, "outbound")
 	if err != nil {
 		fmt.Printf("failed to save Friend Request")
 		return err
@@ -232,39 +232,39 @@ func FriendRequest(ctx context.Context, c *types.ClientInfo, target *pb.UserInfo
 	return nil
 }
 
-func FriendResponse(ctx context.Context, c *types.ClientInfo, friendReq *pb.FriendRequest, state bool) error {
+func FriendResponse(ctx context.Context, c *types.Client, friendReq *pb.FriendRequest, state bool) error {
 
 	res := pb.FriendResponse{
 		Target: friendReq.UserInfo.UserId,
 		UserInfo: &pb.UserInfo{
-			Username:            c.Username,
-			UserId:              c.UserID.String(),
-			EncryptionPublicKey: c.Keys["EncryptionPublicKey"],
-			SigningPublicKey:    c.Keys["SigningPublicKey"],
+			Username:            c.Identity.Username,
+			UserId:              c.Identity.ID.String(),
+			EncryptionPublicKey: c.Identity.Keys["EncryptionPublicKey"],
+			SigningPublicKey:    c.Identity.Keys["SigningPublicKey"],
 		},
 		State: state,
 	}
 
 	payload := pb.StreamPayload{
 		Target:  friendReq.UserInfo.UserId,
-		Sender:  c.UserID.String(),
+		Sender:  c.Identity.ID.String(),
 		Payload: &pb.StreamPayload_FriendResponse{FriendResponse: &res},
 		Info:    "Friend Response payload",
 	}
 
-	resp, err := c.Pbclient.SendPayload(ctx, &payload)
+	resp, err := c.PBC.SendPayload(ctx, &payload)
 	if err != nil {
 		return fmt.Errorf("failed to confirm chat: %v", err)
 	}
 
 	if state {
-		_, err = c.Pstatements.SaveUserDetails.ExecContext(ctx, friendReq.UserInfo.UserId, friendReq.UserInfo.Username, friendReq.UserInfo.EncryptionPublicKey, friendReq.UserInfo.SigningPublicKey)
+		_, err = c.DB.SaveUserDetails.ExecContext(ctx, friendReq.UserInfo.UserId, friendReq.UserInfo.Username, friendReq.UserInfo.EncryptionPublicKey, friendReq.UserInfo.SigningPublicKey)
 		if err != nil {
 			return fmt.Errorf("failed adding to address book: %v", err)
 		}
 	}
 
-	_, err = c.Pstatements.DeleteFriendRequest.ExecContext(context.TODO(), friendReq.UserInfo.UserId)
+	_, err = c.DB.DeleteFriendRequest.ExecContext(context.TODO(), friendReq.UserInfo.UserId)
 	if err != nil {
 		fmt.Printf("failed deleting friend request: %v", err)
 		return err
@@ -275,17 +275,17 @@ func FriendResponse(ctx context.Context, c *types.ClientInfo, friendReq *pb.Frie
 	return nil
 }
 
-func RegisterStatus(c *types.ClientInfo) error {
+func RegisterStatus(c *types.Client) error {
 
 	//TODO:Messy
 	userInfo := pb.UserInfo{
-		Username:            c.Username,
-		UserId:              c.UserID.String(),
-		EncryptionPublicKey: c.Keys["EncryptionPublicKey"],
-		SigningPublicKey:    c.Keys["SigningPublicKey"],
+		Username:            c.Identity.Username,
+		UserId:              c.Identity.ID.String(),
+		EncryptionPublicKey: c.Identity.Keys["EncryptionPublicKey"],
+		SigningPublicKey:    c.Identity.Keys["SigningPublicKey"],
 	}
 
-	stream, err := c.Pbclient.StatusStream(context.TODO(), &userInfo)
+	stream, err := c.PBC.StatusStream(context.TODO(), &userInfo)
 	if err != nil {
 		log.Printf("status failure: %v\n", err)
 		return err
@@ -298,13 +298,13 @@ func RegisterStatus(c *types.ClientInfo) error {
 			return err
 		}
 
-		fmt.Printf("%s Status: %s\n", c.Username, connectionStream.Message)
+		fmt.Printf("%s Status: %s\n", c.Identity.Username, connectionStream.Message)
 	}
 
 }
 
-func GetActiveUsers(c *types.ClientInfo, uinfo *pb.UserInfo) (*pb.Users, error) {
-	activeUsers, err := c.Pbclient.OnlineUsers(context.TODO(), uinfo)
+func GetActiveUsers(c *types.Client, uinfo *pb.UserInfo) (*pb.Users, error) {
+	activeUsers, err := c.PBC.OnlineUsers(context.TODO(), uinfo)
 	if err != nil {
 		log.Printf("error getting active users: %v\n", err)
 		return nil, err
@@ -313,12 +313,12 @@ func GetActiveUsers(c *types.ClientInfo, uinfo *pb.UserInfo) (*pb.Users, error) 
 	return activeUsers, nil
 }
 
-func PollServer(c *types.ClientInfo) (*pb.ServerInfo, error) {
-	sInfo, err := c.Pbclient.PollServer(context.TODO(), &pb.UserInfo{
-		Username:            c.Username,
-		UserId:              c.UserID.String(),
-		EncryptionPublicKey: c.Keys["EncryptionPublicKey"],
-		SigningPublicKey:    c.Keys["SigningPublicKeyu"],
+func PollServer(c *types.Client) (*pb.ServerInfo, error) {
+	sInfo, err := c.PBC.PollServer(context.TODO(), &pb.UserInfo{
+		Username:            c.Identity.Username,
+		UserId:              c.Identity.ID.String(),
+		EncryptionPublicKey: c.Identity.Keys["EncryptionPublicKey"],
+		SigningPublicKey:    c.Identity.Keys["SigningPublicKeyu"],
 	})
 	if err != nil {
 		log.Printf("error polling server: %v\n", err)

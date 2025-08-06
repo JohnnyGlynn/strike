@@ -14,7 +14,7 @@ import (
 	"github.com/JohnnyGlynn/strike/internal/client/types"
 )
 
-func DeriveKeys(c *types.ClientInfo, sct []byte) ([]byte, []byte, error) {
+func DeriveKeys(c *types.Client, sct []byte) ([]byte, []byte, error) {
 
 	const keyLen = 32 //256 bits
 
@@ -27,13 +27,13 @@ func DeriveKeys(c *types.ClientInfo, sct []byte) ([]byte, []byte, error) {
 		return nil, nil, err
 	}
 
-	c.Cache.CurrentChat.EncKey = encKey
+	c.State.Cache.CurrentChat.EncKey = encKey
 
 	if _, err := io.ReadFull(d, hmacKey); err != nil {
 		return nil, nil, err
 	}
 
-	c.Cache.CurrentChat.HmacKey = hmacKey
+	c.State.Cache.CurrentChat.HmacKey = hmacKey
 
 	return encKey, hmacKey, nil
 }
@@ -50,8 +50,8 @@ func VerifyEdSignatures(pubKey ed25519.PublicKey, nonce, CurvePublicKey []byte, 
 	return ed25519.Verify(pubKey, CurvePublicKey, sigs[1])
 }
 
-func Encrypt(c *types.ClientInfo, plaintext []byte) ([]byte, error) {
-	block, err := aes.NewCipher(c.Cache.CurrentChat.EncKey)
+func Encrypt(c *types.Client, plaintext []byte) ([]byte, error) {
+	block, err := aes.NewCipher(c.State.Cache.CurrentChat.EncKey)
 	if err != nil {
 		return nil, err
 	}
@@ -74,8 +74,8 @@ func Encrypt(c *types.ClientInfo, plaintext []byte) ([]byte, error) {
 	return sealedMessage, nil
 }
 
-func Decrypt(c *types.ClientInfo, sealedMessage []byte) ([]byte, error) {
-	block, err := aes.NewCipher(c.Cache.CurrentChat.EncKey)
+func Decrypt(c *types.Client, sealedMessage []byte) ([]byte, error) {
+	block, err := aes.NewCipher(c.State.Cache.CurrentChat.EncKey)
 	if err != nil {
 		return nil, err
 	}
