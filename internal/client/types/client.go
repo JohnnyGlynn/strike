@@ -42,18 +42,6 @@ type Client struct {
 	DB       *ClientDB
 }
 
-// type ClientInfo struct {
-// 	Config      *config.ClientConfig
-// 	Pbclient    pb.StrikeClient
-// 	Keys        map[string][]byte
-// 	Username    string
-// 	UserID      uuid.UUID
-// 	Cache       Cache
-// 	Pstatements *ClientDB
-// 	//TODO: Cache?
-// 	Shell *ShellState
-// }
-
 type User struct {
 	Id     uuid.UUID
 	Name   string
@@ -62,7 +50,7 @@ type User struct {
 	KeyEx  int
 }
 
-type MessageStruct struct {
+type Message struct {
 	Id        uuid.UUID
 	FriendId  uuid.UUID
 	Direction string
@@ -70,7 +58,6 @@ type MessageStruct struct {
 	Timestamp int64
 }
 
-// TODO:User?
 type FriendRequest struct {
 	FriendId  uuid.UUID
 	Username  string

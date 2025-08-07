@@ -91,17 +91,21 @@ func main() {
 
 	client := pb.NewStrikeClient(conn)
 
-	clientInfo := &types.ClientInfo{
-		Config: &clientCfg,
-		Keys:   loadedKeys,
-		Cache: types.Cache{
-			FriendRequests: make(map[uuid.UUID]*pb.FriendRequest),
+	clientInfo := &types.Client{
+		Identity: &types.ClientIdentity{
+			Username: "",
+			ID:       uuid.Nil,
+			Keys:     loadedKeys,
+			Config:   &clientCfg,
 		},
-		Username:    "",
-		UserID:      uuid.Nil,
-		Pbclient:    client,
-		Pstatements: statements,
-		Shell:       &types.ShellState{},
+		State: &types.ClientState{
+			Cache: types.Cache{
+				FriendRequests: make(map[uuid.UUID]*pb.FriendRequest),
+			},
+			Shell: &types.ShellState{},
+		},
+		PBC: client,
+		DB:  statements,
 	}
 
 	if err := launchREPL(clientInfo); err != nil {
@@ -204,7 +208,7 @@ func grpcSetup(cfg config.ClientConfig) (*grpc.ClientConn, error) {
 	return conn, nil
 }
 
-func handleLogin(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
+func handleLogin(reader *bufio.Reader, clientInfo *types.Client) error {
 	username, err := client.LoginInput("Username > ", reader)
 	if err != nil {
 		return fmt.Errorf("error reading username: %v", err)
@@ -220,7 +224,7 @@ func handleLogin(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
 		return fmt.Errorf("username and password cannot be empty")
 	}
 
-	clientInfo.Username = username
+	clientInfo.Identity.Username = username
 
 	err = client.Login(clientInfo, password)
 	if err != nil {
@@ -230,7 +234,7 @@ func handleLogin(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
 	return nil
 }
 
-func handleSignup(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
+func handleSignup(reader *bufio.Reader, clientInfo *types.Client) error {
 	username, err := client.LoginInput("Username > ", reader)
 	if err != nil {
 		return fmt.Errorf("error reading username: %v", err)
@@ -246,12 +250,12 @@ func handleSignup(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
 	}
 
 	// Create a new UUID
-	clientInfo.UserID = uuid.New()
-	clientInfo.Username = username
+	clientInfo.Identity.ID = uuid.New()
+	clientInfo.Identity.Username = username
 	//TODO: Handle Keyloading here?
 
-	encKey, ok1 := clientInfo.Keys["EncryptionPublicKey"]
-	sigKey, ok2 := clientInfo.Keys["SigningPublicKey"]
+	encKey, ok1 := clientInfo.Identity.Keys["EncryptionPublicKey"]
+	sigKey, ok2 := clientInfo.Identity.Keys["SigningPublicKey"]
 
 	if !ok1 || !ok2 {
 		return fmt.Errorf("missing required public keys for signup")
@@ -267,7 +271,7 @@ func handleSignup(reader *bufio.Reader, clientInfo *types.ClientInfo) error {
 	return nil
 }
 
-func launchREPL(c *types.ClientInfo) error {
+func launchREPL(c *types.Client) error {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 

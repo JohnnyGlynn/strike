@@ -440,7 +440,7 @@ func shellAddFriend(inputReader *bufio.Reader, c *types.Client) error {
 }
 
 // TODO: Need to figure out the best way to display these
-func loadMessages(c *types.Client) ([]types.MessageStruct, error) {
+func loadMessages(c *types.Client) ([]types.Message, error) {
 	rows, err := c.DB.GetMessages.QueryContext(context.TODO(), c.State.Cache.CurrentChat.User)
 	if err != nil {
 
@@ -453,10 +453,10 @@ func loadMessages(c *types.Client) ([]types.MessageStruct, error) {
 		}
 	}()
 
-	var messages []types.MessageStruct
+	var messages []types.Message
 
 	for rows.Next() {
-		var msg types.MessageStruct
+		var msg types.Message
 		if err := rows.Scan(&msg.Id, &msg.FriendId, &msg.Direction, &msg.Content, &msg.Timestamp); err != nil {
 			log.Printf("error scanning row: %v", err)
 			return nil, err
