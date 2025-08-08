@@ -231,7 +231,7 @@ func enterChat(c *types.Client, target string) error {
 
 	//Useful?
 	var created time.Time
-	row := c.DB.GetUser.QueryRowContext(context.TODO(), target)
+	row := c.DB.Friends.GetUser.QueryRowContext(context.TODO(), target)
 	err := row.Scan(&u.Id, &u.Name, &u.Enckey, &u.Sigkey, &u.KeyEx, &created)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -441,7 +441,7 @@ func shellAddFriend(inputReader *bufio.Reader, c *types.Client) error {
 
 // TODO: Need to figure out the best way to display these
 func loadMessages(c *types.Client) ([]types.Message, error) {
-	rows, err := c.DB.GetMessages.QueryContext(context.TODO(), c.State.Cache.CurrentChat.User)
+	rows, err := c.DB.Messages.GetMessages.QueryContext(context.TODO(), c.State.Cache.CurrentChat.User)
 	if err != nil {
 
 		return nil, fmt.Errorf("error querying messages: %v", err)
@@ -478,7 +478,7 @@ func loadMessages(c *types.Client) ([]types.Message, error) {
 
 // TODO: Generic loading function?
 func loadFriends(c *types.Client) ([]*types.User, error) {
-	rows, err := c.DB.GetFriends.QueryContext(context.TODO())
+	rows, err := c.DB.Friends.GetFriends.QueryContext(context.TODO())
 	if err != nil {
 		return nil, fmt.Errorf("error querying friends: %v", err)
 	}
@@ -522,7 +522,7 @@ func loadFriends(c *types.Client) ([]*types.User, error) {
 
 // TODO: DRY?
 func loadFriendRequests(c *types.Client) ([]*types.FriendRequest, error) {
-	rows, err := c.DB.GetFriendRequests.QueryContext(context.TODO())
+	rows, err := c.DB.FriendRequest.GetFriendRequests.QueryContext(context.TODO())
 	if err != nil {
 		return nil, fmt.Errorf("error querying friend requests: %v", err)
 	}

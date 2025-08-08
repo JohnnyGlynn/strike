@@ -17,7 +17,7 @@ type ClientIdentity struct {
 }
 
 type ClientState struct {
-	Cache      Cache
+	Cache Cache
 	Shell *ShellState
 }
 
@@ -66,21 +66,33 @@ type FriendRequest struct {
 	Direction string
 }
 
+// Prepared statemnt groups
 type ClientDB struct {
-	SaveUserDetails     *sql.Stmt
-	GetUserId           *sql.Stmt
-	GetUser             *sql.Stmt
-	GetID               *sql.Stmt
-	GetUID              *sql.Stmt
-	SaveID              *sql.Stmt
-	GetFriends          *sql.Stmt
-	GetKeyEx            *sql.Stmt
-	ConfirmKeyEx        *sql.Stmt
-	SaveMessage         *sql.Stmt
-	GetMessages         *sql.Stmt
-	SaveFriendRequest   *sql.Stmt
-	GetFriendRequests   *sql.Stmt
-	DeleteFriendRequest *sql.Stmt
+	Friends struct {
+		SaveUserDetails *sql.Stmt
+		GetUserId       *sql.Stmt
+		GetUser         *sql.Stmt
+		GetFriends      *sql.Stmt
+		GetKeyEx        *sql.Stmt
+		ConfirmKeyEx    *sql.Stmt
+	}
+
+	ID struct {
+		GetID  *sql.Stmt
+		GetUID *sql.Stmt
+		SaveID *sql.Stmt
+	}
+
+	Messages struct {
+		SaveMessage *sql.Stmt
+		GetMessages *sql.Stmt
+	}
+
+	FriendRequest struct {
+		SaveFriendRequest   *sql.Stmt
+		GetFriendRequests   *sql.Stmt
+		DeleteFriendRequest *sql.Stmt
+	}
 }
 
 type ShellMode int

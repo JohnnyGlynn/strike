@@ -197,7 +197,7 @@ func processEnvelope(ctx context.Context, env *pb.EncryptedEnvelope, c *types.Cl
 		fmt.Printf("[%s]:%s\n", c.State.Cache.CurrentChat.User.Name, msg)
 	}
 
-	_, err = c.DB.SaveMessage.ExecContext(ctx, uuid.New().String(), env.FromUser, "inbound", env.EncryptedMessage, env.SentAt.AsTime().UnixMilli())
+	_, err = c.DB.Messages.SaveMessage.ExecContext(ctx, uuid.New().String(), env.FromUser, "inbound", env.EncryptedMessage, env.SentAt.AsTime().UnixMilli())
 	if err != nil {
 		fmt.Printf("Failed to save message")
 		return err
@@ -210,7 +210,7 @@ func processFriendRequest(ctx context.Context, fr *pb.FriendRequest, c *types.Cl
 
 	fmt.Printf("Friend Request from: %v\n", fr.UserInfo.Username)
 
-	_, err := c.DB.SaveFriendRequest.ExecContext(ctx, fr.UserInfo.UserId, fr.UserInfo.Username, fr.UserInfo.EncryptionPublicKey, fr.UserInfo.SigningPublicKey, "inbound")
+	_, err := c.DB.FriendRequest.SaveFriendRequest.ExecContext(ctx, fr.UserInfo.UserId, fr.UserInfo.Username, fr.UserInfo.EncryptionPublicKey, fr.UserInfo.SigningPublicKey, "inbound")
 	if err != nil {
 		fmt.Printf("failed to save Friend Request")
 		return err
@@ -225,7 +225,7 @@ func processFriendResponse(ctx context.Context, fr *pb.FriendResponse, c *types.
 	fmt.Printf("Friend Response from: %v\n", fr.UserInfo.Username)
 
 	if fr.State {
-		_, err := c.DB.SaveUserDetails.ExecContext(ctx, fr.UserInfo.UserId, fr.UserInfo.Username, fr.UserInfo.EncryptionPublicKey, fr.UserInfo.SigningPublicKey)
+		_, err := c.DB.Friends.SaveUserDetails.ExecContext(ctx, fr.UserInfo.UserId, fr.UserInfo.Username, fr.UserInfo.EncryptionPublicKey, fr.UserInfo.SigningPublicKey)
 		if err != nil {
 			fmt.Printf("failed adding to address book: %v", err)
 			return err
@@ -234,7 +234,7 @@ func processFriendResponse(ctx context.Context, fr *pb.FriendResponse, c *types.
 		InitiateKeyExchange(ctx, c, uuid.MustParse(fr.UserInfo.UserId))
 	}
 
-	_, err := c.DB.DeleteFriendRequest.ExecContext(ctx, fr.UserInfo.UserId)
+	_, err := c.DB.FriendRequest.DeleteFriendRequest.ExecContext(ctx, fr.UserInfo.UserId)
 	if err != nil {
 		fmt.Printf("failed deleting friend request: %v", err)
 		return err
@@ -267,7 +267,7 @@ func processKeyExchangeResponse(ctx context.Context, kx *pb.KeyExchangeResponse,
 
 func processKeyExchangeConfirmation(ctx context.Context, kx *pb.KeyExchangeConfirmation, c *types.Client) error {
 	var confirmed int
-	err := c.DB.GetKeyEx.QueryRowContext(ctx, kx.ConfirmerUserId).Scan(&confirmed)
+	err := c.DB.Friends.GetKeyEx.QueryRowContext(ctx, kx.ConfirmerUserId).Scan(&confirmed)
 	if err != nil && err != sql.ErrNoRows {
 		fmt.Printf("failed to query key exchange state")
 		return err
@@ -278,7 +278,7 @@ func processKeyExchangeConfirmation(ctx context.Context, kx *pb.KeyExchangeConfi
 		return nil
 	}
 
-	_, err = c.DB.ConfirmKeyEx.ExecContext(ctx, true, kx.ConfirmerUserId)
+	_, err = c.DB.Friends.ConfirmKeyEx.ExecContext(ctx, true, kx.ConfirmerUserId)
 	if err != nil {
 		fmt.Println("failed to confirm key exchange locally")
 		return err

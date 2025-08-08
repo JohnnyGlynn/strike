@@ -90,7 +90,7 @@ func Signup(c *types.Client, password string, curve25519key []byte, ed25519key [
 	}
 
 	// Save users own details to local client db
-	_, err = c.DB.SaveID.ExecContext(ctx, c.Identity.ID.String(), c.Identity.Username, curve25519key, ed25519key)
+	_, err = c.DB.ID.SaveID.ExecContext(ctx, c.Identity.ID.String(), c.Identity.Username, curve25519key, ed25519key)
 	if err != nil {
 		return fmt.Errorf("failed adding to address book: %v", err)
 	}
@@ -130,7 +130,7 @@ func Login(c *types.Client, password string) error {
 
 	var userID uuid.UUID
 
-	row := c.DB.GetUID.QueryRowContext(context.TODO(), c.Identity.Username)
+	row := c.DB.ID.GetUID.QueryRowContext(context.TODO(), c.Identity.Username)
 	err = row.Scan(&userID)
 	if err == nil {
 		c.Identity.ID = userID
@@ -149,7 +149,7 @@ func Login(c *types.Client, password string) error {
 
 		c.Identity.ID = uuid.MustParse(dbsync.UserId)
 
-		_, err = c.DB.SaveID.ExecContext(ctx, c.Identity.ID.String(), c.Identity.Username, c.Identity.Keys["EncryptionPublicKey"], c.Identity.Keys["SigningPublicKey"])
+		_, err = c.DB.ID.SaveID.ExecContext(ctx, c.Identity.ID.String(), c.Identity.Username, c.Identity.Keys["EncryptionPublicKey"], c.Identity.Keys["SigningPublicKey"])
 		if err != nil {
 			return fmt.Errorf("failed to rebuild identity: %v", err)
 		}
@@ -188,7 +188,7 @@ func SendMessage(c *types.Client, message string) error {
 		return err
 	}
 
-	_, err = c.DB.SaveMessage.ExecContext(context.TODO(), uuid.New().String(), c.State.Cache.CurrentChat.User.Id.String(), "outbound", sealedMessage, time.Now().UnixMilli())
+	_, err = c.DB.Messages.SaveMessage.ExecContext(context.TODO(), uuid.New().String(), c.State.Cache.CurrentChat.User.Id.String(), "outbound", sealedMessage, time.Now().UnixMilli())
 	if err != nil {
 		log.Println("Error saving message")
 		return err
@@ -221,7 +221,7 @@ func FriendRequest(ctx context.Context, c *types.Client, target *pb.UserInfo) er
 		return fmt.Errorf("failed to confirm chat: %v", err)
 	}
 
-	_, err = c.DB.SaveFriendRequest.ExecContext(context.TODO(), target.UserId, target.Username, nil, nil, "outbound")
+	_, err = c.DB.FriendRequest.SaveFriendRequest.ExecContext(context.TODO(), target.UserId, target.Username, nil, nil, "outbound")
 	if err != nil {
 		fmt.Printf("failed to save Friend Request")
 		return err
@@ -258,13 +258,13 @@ func FriendResponse(ctx context.Context, c *types.Client, friendReq *pb.FriendRe
 	}
 
 	if state {
-		_, err = c.DB.SaveUserDetails.ExecContext(ctx, friendReq.UserInfo.UserId, friendReq.UserInfo.Username, friendReq.UserInfo.EncryptionPublicKey, friendReq.UserInfo.SigningPublicKey)
+		_, err = c.DB.Friends.SaveUserDetails.ExecContext(ctx, friendReq.UserInfo.UserId, friendReq.UserInfo.Username, friendReq.UserInfo.EncryptionPublicKey, friendReq.UserInfo.SigningPublicKey)
 		if err != nil {
 			return fmt.Errorf("failed adding to address book: %v", err)
 		}
 	}
 
-	_, err = c.DB.DeleteFriendRequest.ExecContext(context.TODO(), friendReq.UserInfo.UserId)
+	_, err = c.DB.FriendRequest.DeleteFriendRequest.ExecContext(context.TODO(), friendReq.UserInfo.UserId)
 	if err != nil {
 		fmt.Printf("failed deleting friend request: %v", err)
 		return err
