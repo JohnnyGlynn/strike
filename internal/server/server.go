@@ -59,7 +59,7 @@ func (s *StrikeServer) SaltMine(ctx context.Context, userInfo *pb.UserInfo) (*pb
 	var salt []byte
 
 	// TODO: ERROR this fails after server has been running long
-	err := s.DBpool.QueryRow(ctx, s.PStatements.SaltMine, userInfo.Username).Scan(&salt)
+	err := s.DBpool.QueryRow(ctx, s.PStatements.User.SaltMine, userInfo.Username).Scan(&salt)
 	if err != nil {
 		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
 			fmt.Printf("Unable mine salt: %v", err)
@@ -75,7 +75,7 @@ func (s *StrikeServer) SaltMine(ctx context.Context, userInfo *pb.UserInfo) (*pb
 func (s *StrikeServer) Login(ctx context.Context, clientLogin *pb.LoginVerify) (*pb.ServerResponse, error) {
 	var storedHash string
 
-	err := s.DBpool.QueryRow(ctx, s.PStatements.LoginUser, clientLogin.Username).Scan(&storedHash)
+	err := s.DBpool.QueryRow(ctx, s.PStatements.User.LoginUser, clientLogin.Username).Scan(&storedHash)
 	if err != nil {
 		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
 			fmt.Printf("Unable to verify user: %v", err)
@@ -101,13 +101,13 @@ func (s *StrikeServer) Login(ctx context.Context, clientLogin *pb.LoginVerify) (
 
 func (s *StrikeServer) Signup(ctx context.Context, userInit *pb.InitUser) (*pb.ServerResponse, error) {
 	// user: uuid, username, password_hash, salt
-	_, err := s.DBpool.Exec(ctx, s.PStatements.CreateUser, uuid.MustParse(userInit.UserId), userInit.Username, userInit.PasswordHash, userInit.Salt.Salt)
+	_, err := s.DBpool.Exec(ctx, s.PStatements.User.CreateUser, uuid.MustParse(userInit.UserId), userInit.Username, userInit.PasswordHash, userInit.Salt.Salt)
 	if err != nil {
 		return &pb.ServerResponse{Success: false, Message: "failed to register user"}, err
 	}
 
 	// keys: uuid, encryption, signing
-	_, err = s.DBpool.Exec(ctx, s.PStatements.CreatePublicKeys, uuid.MustParse(userInit.UserId), userInit.EncryptionPublicKey, userInit.SigningPublicKey)
+	_, err = s.DBpool.Exec(ctx, s.PStatements.Keys.CreatePublicKeys, uuid.MustParse(userInit.UserId), userInit.EncryptionPublicKey, userInit.SigningPublicKey)
 	if err != nil {
 		return &pb.ServerResponse{Success: false, Message: "failed to register user keys"}, err
 	}
@@ -172,7 +172,7 @@ func (s *StrikeServer) UserRequest(ctx context.Context, userInfo *pb.UserInfo) (
 	var userid uuid.UUID
 	var encryptionPubKey, signingPubKey []byte
 
-	err := s.DBpool.QueryRow(ctx, s.PStatements.GetUser, userInfo.Username).Scan(&userid)
+	err := s.DBpool.QueryRow(ctx, s.PStatements.User.GetUser, userInfo.Username).Scan(&userid)
 	if err != nil {
 		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
 			fmt.Printf("Unable get username: %v", err)
@@ -182,7 +182,7 @@ func (s *StrikeServer) UserRequest(ctx context.Context, userInfo *pb.UserInfo) (
 		return nil, nil
 	}
 
-	row := s.DBpool.QueryRow(ctx, s.PStatements.GetPublicKeys, userid)
+	row := s.DBpool.QueryRow(ctx, s.PStatements.Keys.GetPublicKeys, userid)
 	if err := row.Scan(&encryptionPubKey, &signingPubKey); err != nil {
 		fmt.Println("Failed to get keys")
 		return nil, err
