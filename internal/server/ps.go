@@ -21,6 +21,19 @@ type ServerDB struct {
 	}
 }
 
+const (
+
+	//User
+	sqlCreateUser = "INSERT INTO users (user_id, username, password_hash, salt) VALUES ($1, $2, $3, $4)"
+	sqlLoginUser  = "SELECT password_hash FROM users WHERE username = $1"
+	sqlGetUser    = "SELECT user_id FROM users WHERE username = $1"
+	sqlSaltMine   = "SELECT salt FROM users WHERE username = $1"
+
+	//Keys
+	sqlCreatePublicKeys = "INSERT INTO user_keys (user_id, encryption_public_key, signing_public_key) VALUES ($1, $2, $3)"
+	sqlGetPublicKeys    = "SELECT encryption_public_key, signing_public_key FROM user_keys WHERE user_id = $1"
+)
+
 func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*ServerDB, error) {
 	poolConnection, err := dbpool.Acquire(ctx)
 	if err != nil {
@@ -41,30 +54,23 @@ func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*ServerDB, er
 
 	conn := poolConnection.Conn()
 
-	// User
-	if _, err := conn.Prepare(ctx, statements.User.CreateUser, "INSERT INTO users (user_id, username, password_hash, salt) VALUES ($1, $2, $3, $4)"); err != nil {
-		return nil, err
+	pq := []struct {
+		name  string
+		query string
+	}{
+		{statements.User.CreateUser, sqlCreateUser},
+		{statements.User.LoginUser, sqlLoginUser},
+		{statements.User.GetUser, sqlGetUser},
+		{statements.User.SaltMine, sqlSaltMine},
+
+		{statements.Keys.CreatePublicKeys, sqlCreatePublicKeys},
+		{statements.Keys.GetPublicKeys, sqlGetPublicKeys},
 	}
 
-	if _, err := conn.Prepare(ctx, statements.User.GetUser, "SELECT user_id FROM users WHERE username = $1;"); err != nil {
-		return nil, err
-	}
-
-	if _, err := conn.Prepare(ctx, statements.User.LoginUser, "SELECT password_hash FROM users WHERE username = $1"); err != nil {
-		return nil, err
-	}
-
-	if _, err := conn.Prepare(ctx, statements.User.SaltMine, "SELECT salt FROM users WHERE username = $1"); err != nil {
-		return nil, err
-	}
-
-	// Keys
-	if _, err := conn.Prepare(ctx, statements.Keys.CreatePublicKeys, "INSERT INTO user_keys (user_id, encryption_public_key, signing_public_key) VALUES ($1, $2, $3)"); err != nil {
-		return nil, err
-	}
-
-	if _, err := conn.Prepare(ctx, statements.Keys.GetPublicKeys, "SELECT encryption_public_key, signing_public_key FROM user_keys  WHERE user_id = $1;"); err != nil {
-		return nil, err
+	for _, p := range pq {
+		if _, err := conn.Prepare(ctx, p.name, p.query); err != nil {
+			return nil, fmt.Errorf("failed to prepare statement %s: %v", p.name, err)
+		}
 	}
 
 	return statements, nil
