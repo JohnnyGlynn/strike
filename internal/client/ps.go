@@ -8,71 +8,65 @@ import (
 	"github.com/JohnnyGlynn/strike/internal/client/types"
 )
 
+const (
+	//Friends
+	sqlGetFriends      = `SELECT * FROM addressbook`
+	sqlSaveUserDetails = `
+    INSERT INTO addressbook (user_id, username, enc_pkey, sig_pkey) 
+    VALUES (?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET 
+    username=excluded.username, 
+    enc_pkey=excluded.enc_pkey, 
+    sig_pkey=excluded.sig_pkey
+  `
+	sqlGetUserId    = "SELECT user_id FROM addressbook WHERE username = ?"
+	sqlGetUser      = "SELECT * FROM addressbook WHERE username = ?"
+	sqlGetKeyEx     = "SELECT keyex FROM addressbook WHERE user_id = ?"
+	sqlConfirmKeyEx = "UPDATE addressbook SET keyex = ? WHERE user_id = ?"
+
+	//ID
+	sqlGetID  = "SELECT * FROM identity WHERE username = ?"
+	sqlGetUID = "SELECT user_id FROM identity WHERE username = ?"
+	sqlSaveID = "INSERT INTO identity (user_id, username, enc_pkey, sig_pkey) VALUES (?, ?, ?, ?)"
+
+	//Messages
+	sqlSaveMessage = "INSERT INTO messages (id, friendId, direction, content, timestamp) VALUES (?, ?, ?, ?, ?)"
+	sqlGetMessages = "SELECT * FROM messages WHERE friendId = ? ORDER BY timestamp ASC, id ASC"
+
+	//Friend Requests
+	sqlSaveFriendRequest   = "INSERT INTO friendrequests (friendId, username, enc_pkey, sig_pkey, direction) VALUES (?, ?, ?, ?, ?)"
+	sqlGetFriendRequests   = "SELECT * FROM friendrequests"
+	sqlDeleteFriendRequest = "DELETE FROM friendrequests WHERE friendId = ?"
+)
+
 func PrepareStatements(ctx context.Context, db *sql.DB) (*types.ClientDB, error) {
-	var err error
 	statements := &types.ClientDB{}
 
-	// Friends
-	if statements.Friends.GetFriends, err = db.PrepareContext(ctx, `SELECT * FROM addressbook`); err != nil {
-		return nil, err
+	pq := []struct {
+		ps    **sql.Stmt
+		query string
+	}{
+		{&statements.Friends.GetFriends, sqlGetFriends},
+		{&statements.Friends.SaveUserDetails, sqlSaveUserDetails},
+		{&statements.Friends.GetUserId, sqlGetUserId},
+		{&statements.Friends.GetUser, sqlGetUser},
+		{&statements.Friends.GetKeyEx, sqlGetKeyEx},
+		{&statements.Friends.ConfirmKeyEx, sqlConfirmKeyEx},
+		{&statements.ID.GetID, sqlGetID},
+		{&statements.ID.GetUID, sqlGetUID},
+		{&statements.ID.SaveID, sqlSaveID},
+		{&statements.Messages.SaveMessage, sqlSaveMessage},
+		{&statements.Messages.GetMessages, sqlGetMessages},
+		{&statements.FriendRequest.SaveFriendRequest, sqlSaveFriendRequest},
+		{&statements.FriendRequest.GetFriendRequests, sqlGetFriendRequests},
+		{&statements.FriendRequest.DeleteFriendRequest, sqlDeleteFriendRequest},
 	}
 
-	if statements.Friends.SaveUserDetails, err = db.PrepareContext(ctx, `INSERT INTO addressbook (user_id, username, enc_pkey, sig_pkey) VALUES (?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET username=excluded.username, enc_pkey=excluded.enc_pkey, sig_pkey=excluded.sig_pkey;`); err != nil {
-		return nil, err
-	}
-
-	// Get User Id
-	if statements.Friends.GetUserId, err = db.PrepareContext(ctx, `SELECT user_id FROM addressbook WHERE username = ?;`); err != nil {
-		return nil, err
-	}
-
-	if statements.Friends.GetUser, err = db.PrepareContext(ctx, `SELECT * FROM addressbook WHERE username = ?;`); err != nil {
-		return nil, err
-	}
-
-	// Key exchange check
-	if statements.Friends.GetKeyEx, err = db.PrepareContext(ctx, `SELECT keyex FROM addressbook WHERE user_id = ?;`); err != nil {
-		return nil, err
-	}
-
-	// Key exchange confirm
-	if statements.Friends.ConfirmKeyEx, err = db.PrepareContext(ctx, `UPDATE addressbook SET keyex = ? WHERE user_id = ?`); err != nil {
-		return nil, err
-	}
-
-	// ID
-	if statements.ID.GetID, err = db.PrepareContext(ctx, `SELECT * FROM identity WHERE username = ?;`); err != nil {
-		return nil, err
-	}
-
-	if statements.ID.GetUID, err = db.PrepareContext(ctx, `SELECT user_id FROM identity WHERE username = ?;`); err != nil {
-		return nil, err
-	}
-
-	if statements.ID.SaveID, err = db.PrepareContext(ctx, `INSERT INTO identity (user_id, username, enc_pkey, sig_pkey) VALUES (?, ?, ?, ?);`); err != nil {
-		return nil, err
-	}
-
-	// Messages
-	if statements.Messages.SaveMessage, err = db.PrepareContext(ctx, `INSERT INTO messages (id, friendId, direction, content, timestamp) VALUES (?, ?, ?, ?, ?)`); err != nil {
-		return nil, err
-	}
-
-	if statements.Messages.GetMessages, err = db.PrepareContext(ctx, `SELECT * FROM messages WHERE friendId = ? ORDER BY timestamp ASC, id ASC;`); err != nil {
-		return nil, err
-	}
-
-	// Friend requests
-	if statements.FriendRequest.SaveFriendRequest, err = db.PrepareContext(ctx, `INSERT INTO friendrequests (friendId, username, enc_pkey, sig_pkey, direction) VALUES (?, ?, ?, ?, ?)`); err != nil {
-		return nil, err
-	}
-
-	if statements.FriendRequest.GetFriendRequests, err = db.PrepareContext(ctx, `SELECT * FROM friendrequests`); err != nil {
-		return nil, err
-	}
-
-	if statements.FriendRequest.DeleteFriendRequest, err = db.PrepareContext(ctx, `DELETE FROM friendrequests WHERE friendId = ?`); err != nil {
-		return nil, err
+	for _, p := range pq {
+		stmt, err := db.PrepareContext(ctx, p.query)
+		if err != nil {
+			return nil, err
+		}
+		*p.ps = stmt
 	}
 
 	return statements, nil
@@ -89,27 +83,33 @@ func CloseStatements(c *types.ClientDB) error {
 		}
 	}
 
-	// Friends
-	closeStmt(c.Friends.SaveUserDetails)
-	closeStmt(c.Friends.GetFriends)
-	closeStmt(c.Friends.GetKeyEx)
-	closeStmt(c.Friends.ConfirmKeyEx)
-	closeStmt(c.Friends.GetUserId)
-	closeStmt(c.Friends.GetUser)
+	statements := []*sql.Stmt{
+		// Friends
+		c.Friends.SaveUserDetails,
+		c.Friends.GetFriends,
+		c.Friends.GetKeyEx,
+		c.Friends.ConfirmKeyEx,
+		c.Friends.GetUserId,
+		c.Friends.GetUser,
 
-	// Identity
-	closeStmt(c.ID.GetID)
-	closeStmt(c.ID.GetUID)
-	closeStmt(c.ID.SaveID)
+		// Identity
+		c.ID.GetID,
+		c.ID.GetUID,
+		c.ID.SaveID,
 
-	// Messages
-	closeStmt(c.Messages.SaveMessage)
-	closeStmt(c.Messages.GetMessages)
+		// Messages
+		c.Messages.SaveMessage,
+		c.Messages.GetMessages,
 
-	// Friend requests
-	closeStmt(c.FriendRequest.SaveFriendRequest)
-	closeStmt(c.FriendRequest.GetFriendRequests)
-	closeStmt(c.FriendRequest.DeleteFriendRequest)
+		// Friend requests
+		c.FriendRequest.SaveFriendRequest,
+		c.FriendRequest.GetFriendRequests,
+		c.FriendRequest.DeleteFriendRequest,
+	}
+
+	for _, stmt := range statements {
+		closeStmt(stmt)
+	}
 
 	if len(errs) > 0 {
 		return fmt.Errorf("error closing statements: %v", errs)

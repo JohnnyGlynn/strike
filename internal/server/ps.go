@@ -55,7 +55,7 @@ func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*ServerDB, er
 	conn := poolConnection.Conn()
 
 	pq := []struct {
-		name  string
+		ps    string
 		query string
 	}{
 		{statements.User.CreateUser, sqlCreateUser},
@@ -68,8 +68,8 @@ func PrepareStatements(ctx context.Context, dbpool *pgxpool.Pool) (*ServerDB, er
 	}
 
 	for _, p := range pq {
-		if _, err := conn.Prepare(ctx, p.name, p.query); err != nil {
-			return nil, fmt.Errorf("failed to prepare statement %s: %v", p.name, err)
+		if _, err := conn.Prepare(ctx, p.ps, p.query); err != nil {
+			return nil, fmt.Errorf("failed to prepare statement %s: %v", p.ps, err)
 		}
 	}
 
