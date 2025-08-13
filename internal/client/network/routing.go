@@ -231,7 +231,11 @@ func processFriendResponse(ctx context.Context, fr *pb.FriendResponse, c *types.
 			return err
 		}
 
-		InitiateKeyExchange(ctx, c, uuid.MustParse(fr.UserInfo.UserId))
+    err = InitiateKeyExchange(ctx, c, uuid.MustParse(fr.UserInfo.UserId))
+    if err != nil {
+      return err
+    }
+
 	}
 
 	_, err := c.DB.FriendRequest.DeleteFriendRequest.ExecContext(ctx, fr.UserInfo.UserId)
@@ -248,7 +252,10 @@ func processKeyExchangeRequest(ctx context.Context, kx *pb.KeyExchangeRequest, c
 
 	senderId := uuid.MustParse(kx.SenderUserId)
 
-	ReciprocateKeyExchange(ctx, c, senderId)
+  err := ReciprocateKeyExchange(ctx, c, senderId)
+  if err != nil {
+    return err
+  }
 
 	return nil
 }
@@ -322,7 +329,10 @@ func demuxRoutes(d *Demultiplexer, c *types.Client) []any {
 			maxWorkers:  5,
 			idleTimeout: 10 * time.Second,
 			processor: func(msg *pb.EncryptedEnvelope) {
-				processEnvelope(d.ctx, msg, c)
+        err := processEnvelope(d.ctx, msg, c)
+        if err != nil {
+          return
+        }
 			},
 			handler: func(ctx context.Context, ch <-chan *pb.EncryptedEnvelope, c *types.Client) {
 				for {
@@ -330,7 +340,10 @@ func demuxRoutes(d *Demultiplexer, c *types.Client) []any {
 					case <-ctx.Done():
 						return
 					case msg := <-ch:
-						processEnvelope(ctx, msg, c)
+            err := processEnvelope(ctx, msg, c)
+            if err != nil {
+              return
+            }
 					}
 				}
 			},
@@ -342,7 +355,10 @@ func demuxRoutes(d *Demultiplexer, c *types.Client) []any {
 			maxWorkers:  2,
 			idleTimeout: 1 * time.Second,
 			processor: func(msg *pb.FriendRequest) {
-				processFriendRequest(d.ctx, msg, c)
+        err := processFriendRequest(d.ctx, msg, c)
+        if err != nil {
+          return
+        }
 			},
 			handler: func(ctx context.Context, ch <-chan *pb.FriendRequest, c *types.Client) {
 				for {
@@ -350,7 +366,10 @@ func demuxRoutes(d *Demultiplexer, c *types.Client) []any {
 					case <-ctx.Done():
 						return
 					case msg := <-ch:
-						processFriendRequest(ctx, msg, c)
+            err := processFriendRequest(ctx, msg, c)
+            if err != nil {
+              return
+            }
 					}
 				}
 			},
@@ -362,7 +381,10 @@ func demuxRoutes(d *Demultiplexer, c *types.Client) []any {
 			maxWorkers:  2,
 			idleTimeout: 1 * time.Second,
 			processor: func(msg *pb.FriendResponse) {
-				processFriendResponse(d.ctx, msg, c)
+        err := processFriendResponse(d.ctx, msg, c)
+        if err != nil {
+          return
+        }
 			},
 			handler: func(ctx context.Context, ch <-chan *pb.FriendResponse, c *types.Client) {
 				for {
@@ -370,7 +392,10 @@ func demuxRoutes(d *Demultiplexer, c *types.Client) []any {
 					case <-ctx.Done():
 						return
 					case msg := <-ch:
-						processFriendResponse(ctx, msg, c)
+            err := processFriendResponse(ctx, msg, c)
+            if err != nil {
+              return
+            }
 					}
 				}
 			},
@@ -382,7 +407,10 @@ func demuxRoutes(d *Demultiplexer, c *types.Client) []any {
 			maxWorkers:  2,
 			idleTimeout: 1 * time.Second,
 			processor: func(msg *pb.KeyExchangeRequest) {
-				processKeyExchangeRequest(d.ctx, msg, c)
+        err :=  processKeyExchangeRequest(d.ctx, msg, c)
+        if err != nil {
+          return
+        }
 			},
 			handler: func(ctx context.Context, ch <-chan *pb.KeyExchangeRequest, c *types.Client) {
 				for {
@@ -390,7 +418,10 @@ func demuxRoutes(d *Demultiplexer, c *types.Client) []any {
 					case <-ctx.Done():
 						return
 					case msg := <-ch:
-						processKeyExchangeRequest(ctx, msg, c)
+            err := processKeyExchangeRequest(ctx, msg, c)
+            if err != nil {
+              return
+            }
 					}
 				}
 			},
@@ -402,7 +433,10 @@ func demuxRoutes(d *Demultiplexer, c *types.Client) []any {
 			maxWorkers:  2,
 			idleTimeout: 1 * time.Second,
 			processor: func(msg *pb.KeyExchangeResponse) {
-				processKeyExchangeResponse(d.ctx, msg, c)
+				err := processKeyExchangeResponse(d.ctx, msg, c)
+        if err != nil {
+          return
+        }
 			},
 			handler: func(ctx context.Context, ch <-chan *pb.KeyExchangeResponse, c *types.Client) {
 				for {
@@ -410,7 +444,10 @@ func demuxRoutes(d *Demultiplexer, c *types.Client) []any {
 					case <-ctx.Done():
 						return
 					case msg := <-ch:
-						processKeyExchangeResponse(ctx, msg, c)
+            err := processKeyExchangeResponse(ctx, msg, c)
+            if err != nil {
+              return
+            }
 					}
 				}
 			},
@@ -422,7 +459,10 @@ func demuxRoutes(d *Demultiplexer, c *types.Client) []any {
 			maxWorkers:  2,
 			idleTimeout: 1 * time.Second,
 			processor: func(msg *pb.KeyExchangeConfirmation) {
-				processKeyExchangeConfirmation(d.ctx, msg, c)
+				err := processKeyExchangeConfirmation(d.ctx, msg, c)
+        if err != nil {
+          return
+        }
 			},
 			handler: func(ctx context.Context, ch <-chan *pb.KeyExchangeConfirmation, c *types.Client) {
 				for {
@@ -430,7 +470,10 @@ func demuxRoutes(d *Demultiplexer, c *types.Client) []any {
 					case <-ctx.Done():
 						return
 					case msg := <-ch:
-						processKeyExchangeConfirmation(ctx, msg, c)
+            err := processKeyExchangeConfirmation(ctx, msg, c)
+            if err != nil {
+              return
+            }
 					}
 				}
 			},

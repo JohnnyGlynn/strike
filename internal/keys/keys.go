@@ -214,13 +214,13 @@ func GetKeyFromPath(path string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error opening key file: %v", err)
 	}
-	defer func() error {
+
+	defer func()  {
 		if fileError := keyFile.Close(); fileError != nil {
 			fmt.Printf("error reading file: %v\n", fileError)
-			return fileError
 		}
-		return nil
 	}()
+
 	key, err := io.ReadAll(keyFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading key file: %v", err)

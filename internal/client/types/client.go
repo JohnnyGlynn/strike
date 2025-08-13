@@ -2,7 +2,7 @@ package types
 
 import (
 	"database/sql"
-	"sync"
+	// "sync"
 
 	"github.com/JohnnyGlynn/strike/internal/config"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
@@ -22,7 +22,7 @@ type ClientState struct {
 }
 
 type Cache struct {
-	mu             sync.RWMutex
+	// mu             sync.RWMutex
 	FriendRequests map[uuid.UUID]*pb.FriendRequest
 	CurrentChat    ChatSession
 }
