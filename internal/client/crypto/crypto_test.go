@@ -2,6 +2,8 @@ package crypto
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
 	"testing"
 
 	"github.com/JohnnyGlynn/strike/internal/client/types"
@@ -31,6 +33,12 @@ func TestDeriveKeys(t *testing.T) {
 			sharedsecret: []byte(""),
 			tparams:      tparams{error: true},
 		},
+		"no-cache": {
+			c:            &types.Client{State: &types.ClientState{}},
+			c2:           nil,
+			sharedsecret: []byte(""),
+			tparams:      tparams{error: true},
+		},
 	}
 
 	for name, tc := range cases {
@@ -53,10 +61,14 @@ func TestDeriveKeys(t *testing.T) {
 				t.Error("keys inconsistent: length not 32 byte")
 			}
 
+			if !bytes.Equal(enc, tc.c.State.Cache.CurrentChat.EncKey) || !bytes.Equal(hmac, tc.c.State.Cache.CurrentChat.HmacKey) {
+				t.Fatalf("error: cache values !=")
+			}
+
 			if tc.c2 != nil {
 				enc2, hmac2, err2 := DeriveKeys(tc.c2, tc.sharedsecret)
 
-				if err2 == nil {
+				if err2 != nil {
 					t.Fatalf("derive error 2: %v", err2)
 				}
 
@@ -66,6 +78,81 @@ func TestDeriveKeys(t *testing.T) {
 
 			}
 
+		})
+	}
+}
+
+func TestEncryptDecrypt(t *testing.T) {
+	type tparams struct {
+		error bool
+	}
+
+	cases := map[string]struct {
+		c       *types.Client
+		message []byte
+		tparams tparams
+	}{
+		"valid": {
+			c: &types.Client{
+				State: &types.ClientState{
+					Cache: types.Cache{
+						CurrentChat: types.ChatSession{
+							EncKey: []byte("0123456789abcdef0123456789abcdef"),
+						},
+					},
+				},
+			},
+			message: []byte("message to be sealed"),
+			tparams: tparams{error: false},
+		},
+		"short-key": {
+			c: &types.Client{
+				State: &types.ClientState{
+					Cache: types.Cache{
+						CurrentChat: types.ChatSession{
+							EncKey: []byte("short"),
+						},
+					},
+				},
+			},
+			message: []byte("message to be sealed"),
+			tparams: tparams{error: true},
+		},
+	}
+
+	for name, tc := range cases {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			sealedMessage, err := Encrypt(tc.c, tc.message)
+			if tc.tparams.error {
+				if err == nil {
+					t.Fatal("error: no error")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("encrypt error: %v", err)
+			}
+
+			block, _ := aes.NewCipher(tc.c.State.Cache.CurrentChat.EncKey)
+			gcm, _ := cipher.NewGCM(block)
+
+			packedLen := gcm.NonceSize() + len(tc.message) + gcm.Overhead()
+			if len(sealedMessage) != packedLen {
+				t.Errorf("sealed message too short")
+			}
+
+			plaintext, err := Decrypt(tc.c, sealedMessage)
+			if err != nil {
+				t.Fatalf("decpryt error: %v", err)
+			}
+
+			if !bytes.Equal(plaintext, tc.message) {
+				t.Errorf("message mismatch after decrypt")
+			}
 		})
 	}
 }

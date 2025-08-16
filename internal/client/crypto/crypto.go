@@ -16,6 +16,10 @@ import (
 
 func DeriveKeys(c *types.Client, sct []byte) ([]byte, []byte, error) {
 
+	if len(sct) == 0 {
+		return nil, nil, fmt.Errorf("shared secret cannot be empty")
+	}
+
 	const keyLen = 32 //256 bits
 
 	d := hkdf.New(sha256.New, sct, nil, nil)
