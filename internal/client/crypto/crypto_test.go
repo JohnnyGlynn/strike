@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/ed25519"
+	"crypto/rand"
 	"testing"
 
 	"github.com/JohnnyGlynn/strike/internal/client/types"
@@ -155,4 +157,68 @@ func TestEncryptDecrypt(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestVerifyEdSignatures(t *testing.T) {
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal()
+	}
+
+	nonce := []byte("nonce")
+	curve := []byte("curve-public")
+
+	sigNonce := ed25519.Sign(priv, nonce)
+	sigCurve := ed25519.Sign(priv, curve)
+
+	cases := map[string]struct {
+		pub   ed25519.PublicKey
+		nonce []byte
+		curve []byte
+		sigs  [][]byte
+		valid bool
+	}{
+		"valid": {
+			pub:   pub,
+			nonce: nonce,
+			curve: curve,
+			sigs:  [][]byte{sigNonce, sigCurve},
+			valid: true,
+		},
+		"1-sig": {
+			pub:   pub,
+			nonce: nonce,
+			curve: curve,
+			sigs:  [][]byte{sigCurve},
+			valid: false,
+		},
+		"bad-nonce": {
+			pub:   pub,
+			nonce: []byte("incorrect"),
+			curve: curve,
+			sigs:  [][]byte{sigNonce, sigCurve},
+			valid: false,
+		},
+		"bad-curve": {
+			pub:   pub,
+			nonce: nonce,
+			curve: []byte("incorrect-key"),
+			sigs:  [][]byte{sigNonce, sigCurve},
+			valid: false,
+		},
+	}
+
+	for name, tc := range cases {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			ret := VerifyEdSignatures(tc.pub, tc.nonce, tc.curve, tc.sigs)
+			if ret != tc.valid {
+				t.Errorf("VerifyEdSignatures() = %v, wanted %v", ret, tc.valid)
+			}
+
+		})
+	}
+
 }
