@@ -1,5 +1,26 @@
 # Strike
-Distributed End-to-End Encrypted Messaging service, built on gRPC.
+End-to-End Encrypted Messaging service, built on gRPC.
+
+## Implementation status
+
+Implemented:
+- Key generation for Client/Server
+- Relay server
+- Crude stdlib Client REPL
+- Client side persistence
+- Encrypted messaging
+
+Not implemented:
+- Message signing
+- Offline sending
+- "Account" backup/recovery
+- Better key management
+- Server to Server communication
+- Federation
+- Message recovery from friends
+- Client TUI
+- Install/Deployment procedure
+- Message routing based on Load/Geography
 
 ## Configuration
 
@@ -25,30 +46,20 @@ Currently, Strike will generate directories in the Users home directory during k
 
 Strike is secured with TLS, so your server's certicate file will need to be distributed to users.
 
-All Kubernetes configuration is present in `config/k8s/`.
 
 ## Usage
 
-Currently there are two methods of running Strike locally:
-Containers locally on the host machine.
-K8s deployment of the Server and Database, accessable to client containers on the host machine.
-
-### Containers
-
-Using the provided make targets and service (db/server/client):
-
-`make *-build` - Build the service.
-`make *-run` - Run the latest image on the machine, name the container, and provide the relevant config.
-`make *-start` - Restart an existing container.
-
-`make another-client-run` will run an additional client with the same keys to provide a secondary user to chat with.
-
 ### Kubernetes
+
+All Kubernetes configuration is present in `config/k8s/`.
 
 `make strike-cluster-start` - Build a local cluster, deploy Server and DB.
 `make strike-cluster-stop` - Stop all services and teardown the cluster.
 
-`make client-run` - Use this to create a client and connect it to the cluster via Config.
+`make bingen` - Builds the client binary, then withing `./build`, creates client1/2, it then executes client1.
+`make 2bin` - Runs client2
+
+`make run-client*` - Runs an existing build and db instance of a client within `./build`.
 
 ## Commands
 
@@ -58,17 +69,13 @@ Using the provided make targets and service (db/server/client):
 
 Once the user is logged in:
 
-`/msgshell` will enable an interactive messaging shell, from here you will be able to send messages to yourself or other clients message streams.
+`/addfriend` shows a list of active users on the server, and prompts to send the selected a friend request.
 
-This however, requires an active Chat.
-
-`/beginchat` will allow you to send a chat invite to another user, you will be prompted for a username, and if they are online an invite will be sent.
+`/friends` shows the user's friend list, also prompting if they would like to see friend requests they have recieved.
 
 `/invites` will list any pending invites that you have recieved and not responded to. `y` will accept an invite, `n` will decline.
 
-`/chats` will list chats that you have joined via Invite, and will allow you to set one as active. This active chat will allow you to send messages.
-
-Inputting `<target username>:<message>` will deliver a message to the targetted user (i.e. `client0:Hello World!`)
+`/chat <username>` enables a chat shell with the given username, retrieving any previous messages in that chat.
 
 ## Dependencies
 [Docker](https://www.docker.com)/[Podman](https://podman.io)- Container runtimes
