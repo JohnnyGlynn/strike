@@ -1,5 +1,6 @@
 # Strike
 End-to-End Encrypted Messaging service, built on gRPC.
+Strike aims to povide a secure Client-to-Client messaging, with servers acting as relays. With the exception of future User federation, data will be persisted client side.
 
 ## Implementation status
 
@@ -10,7 +11,7 @@ Implemented:
 - Client side persistence
 - Encrypted messaging
 
-Not implemented:
+Planned:
 - Message signing
 - Offline sending
 - "Account" backup/recovery
@@ -26,26 +27,31 @@ Not implemented:
 
 Example configuration for Strike can be found in `config/`.
 
-Configuration can be supplied via JSON or Environment variables.
-`env.<service>` files and `*Config.json` provide primarily paths to key files required to secure communication for the Strike service.
-JSON config must be supplied with `--config=<path to config file>`.
+Configuration can be supplied via: 
+- JSON (`--config=<path/to/config.json>`) 
+- Environment variables (`env.<service>` files)
 
-### Keys and Server Certificate
-Signing: ED25519 key pair for message origin authenticity via signing messages.
-Encryption: Curve25519 key pair used in key exchange to facilitate encryption via shared secret.
-Shared secrets: Diffie-Hellman Key Exchange shared secret used between clients for chat encryption.
+Config files primarily specify key/cert files paths.
 
-Key generation can be carried out with the `--keygen` flag for both client and server.
-Server key generation will also generate a certificate with its newly generated key pair.
+### Keys & Certificates
 
-There are Makefile targets for key generation, use `keygen-<client/server>`.
+- Signing: ED25519 key pair for message origin authenticity
+- Encryption: Curve25519 key pair used for Diffie-Hellman key exchange
+- Shared secrets: Derived per-chat for confidentiality
+
+Key generation:
+
+```sh
+# client
+make keygen-client
+
+#server (also generates Cert)
+make keygen-server
+```
 
 Currently, Strike will generate directories in the Users home directory during key generation, storing it's keys there.
 `~/strike-keys` - Client specific keys
 `~/strike-server` - Server specific keys + Server's Certificate
-
-Strike is secured with TLS, so your server's certicate file will need to be distributed to users.
-
 
 ## Usage
 
