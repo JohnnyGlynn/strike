@@ -24,6 +24,27 @@ keygen-server:
 
 # === keygen ===
 
+.PHONY: server-run
+server-run:
+	mkdir -p $(BUILD_DIR)/server
+	go build -o $(BUILD_DIR)/server/$(APP_NAME)-server ./cmd/strike-server/main.go
+	cp ./config/server/serverConfig.json ./$(BUILD_DIR)/server/
+	cd $(BUILD_DIR)/server/
+	./$(APP_NAME)-server --config=./serverConfig.json
+
+
+.PHONY: db-build
+db-build:
+	docker build -t strike_db -f deploy/db.Dockerfile .
+
+.PHONY: db-run
+db-run:
+	docker run --env-file=./config/db/env.db --name strike_db --network=strikenw -p 5432:5432 localhost/strike_db:latest
+
+.PHONY: db-start
+db-start:
+	docker start strike_db
+
 
 .PHONY: bingen
 bingen:
