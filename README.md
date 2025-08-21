@@ -55,7 +55,22 @@ Currently, Strike will generate directories in the Users home directory during k
 
 ## Usage
 
+After key generation, Strike can be run locally with default config by using the following instructions.
+
+### Local Strike (without k8s)
+
+`make db-build` - Build a Postgres image, and create the relevant tables using `./config/db/init.sql` 
+`make db-run` - Run the Postgres container created in the previous step
+
+`make server-run` - Builds and runs a Strike server, using the sample configuration found in `./config/server/serverConfig.json`,
+
+`make bingen` - Builds and runs client binary, making a second client available in `./build/`
+`make 2bin` - Runs the Second client binary, allowing for another user to test chat functionality
+
 ### Kubernetes
+
+If you would like a more fluid development experience, you can make use of the k3d/Tilt Kubernetes deployment of the Strike Server and DB.
+It handles reloading the Server if changes are detected, without you needing to manually intervene.
 
 All Kubernetes configuration is present in `config/k8s/`.
 
