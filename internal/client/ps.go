@@ -19,7 +19,7 @@ const (
     sig_pkey=excluded.sig_pkey
   `
 	sqlGetUserId    = "SELECT user_id FROM addressbook WHERE username = ?"
-	sqlGetUser      = "SELECT * FROM addressbook WHERE username = ?"
+	sqlGetUser      = "SELECT * FROM addressbook WHERE user_id = ?"
 	sqlGetKeyEx     = "SELECT keyex FROM addressbook WHERE user_id = ?"
 	sqlConfirmKeyEx = "UPDATE addressbook SET keyex = ? WHERE user_id = ?"
 

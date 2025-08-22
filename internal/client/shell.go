@@ -229,10 +229,17 @@ func enterChat(c *types.Client, target string) error {
 
 	u := types.User{}
 
+  var targetid string
+	idrow := c.DB.ID.GetUID.QueryRowContext(context.TODO(), c.Identity.Username)
+  err := idrow.Scan(&targetid)
+	if err != nil {
+		return err
+	}
+
 	//Useful?
 	var created time.Time
-	row := c.DB.Friends.GetUser.QueryRowContext(context.TODO(), target)
-	err := row.Scan(&u.Id, &u.Name, &u.Enckey, &u.Sigkey, &u.KeyEx, &created)
+	row := c.DB.Friends.GetUser.QueryRowContext(context.TODO(), targetid)
+	err = row.Scan(&u.Id, &u.Name, &u.Enckey, &u.Sigkey, &u.KeyEx, &created)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			fmt.Printf("Friend: %s, not found", target)

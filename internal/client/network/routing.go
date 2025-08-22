@@ -248,11 +248,23 @@ func processFriendResponse(ctx context.Context, fr *pb.FriendResponse, c *types.
 }
 
 func processKeyExchangeRequest(ctx context.Context, kx *pb.KeyExchangeRequest, c *types.Client) error {
-	fmt.Printf("keyExReq: %v", kx)
+
+	u := types.User{}
+
+	var created time.Time
+	row := c.DB.Friends.GetUser.QueryRowContext(context.TODO(), kx.SenderUserId)
+  err := row.Scan(&u.Id, &u.Name, &u.Enckey, &u.Sigkey, &u.KeyEx, &created)
+	if err != nil {
+		return fmt.Errorf("an error occured: %v", err)
+	}
+
+  if !crypto.VerifyEdSignatures(u.Sigkey, kx.Nonce, kx.CurvePublicKey, kx.Signatures){
+    return fmt.Errorf("failed to verify signatures")
+  }
 
 	senderId := uuid.MustParse(kx.SenderUserId)
 
-  err := ReciprocateKeyExchange(ctx, c, senderId)
+  err = ReciprocateKeyExchange(ctx, c, senderId)
   if err != nil {
     return err
   }
@@ -261,8 +273,21 @@ func processKeyExchangeRequest(ctx context.Context, kx *pb.KeyExchangeRequest, c
 }
 
 func processKeyExchangeResponse(ctx context.Context, kx *pb.KeyExchangeResponse, c *types.Client) error {
-	// TODO: Something fails so the confirmations can be false???
-	err := ConfirmKeyExchange(ctx, c, uuid.MustParse(kx.ResponderUserId), true)
+
+	u := types.User{}
+
+	var created time.Time
+	row := c.DB.Friends.GetUser.QueryRowContext(context.TODO(), kx.ResponderUserId)
+  err := row.Scan(&u.Id, &u.Name, &u.Enckey, &u.Sigkey, &u.KeyEx, &created)
+	if err != nil {
+		return fmt.Errorf("an error occured: %v", err)
+	}
+
+  if !crypto.VerifyEdSignatures(u.Sigkey, kx.Nonce, kx.CurvePublicKey, kx.Signatures){
+    return fmt.Errorf("failed to verify signatures")
+  }
+
+	err = ConfirmKeyExchange(ctx, c, uuid.MustParse(kx.ResponderUserId), true)
 	if err != nil {
 		fmt.Println("key exchange confirmation failed")
 		return err
@@ -528,43 +553,3 @@ func autoScaler[T any](d *Demultiplexer, name string, ch <-chan T, threshold int
 	}()
 }
 
-// // Generic Channel monitor- Provide it any channel and respective processor function
-// func monitorChannel[T any](ch <-chan T, threshold, maxWorkers int, workerCount *int, mu *sync.Mutex, spawnWorker func() error) {
-// 	ticker := time.NewTicker(5 * time.Second) // Check channel every 5 seconds
-// 	defer ticker.Stop()
-// 	for range ticker.C {
-// 		mu.Lock()
-// if len(ch) > threshold && *workerCount < maxWorkers {
-// 	*workerCount++
-// 	log.Printf("Spawning new ephemeral worker; current workers: %d", *workerCount)
-// 	// Callback generic for any of the Process* functions
-// 	go spawnWorker()
-// }
-// 		mu.Unlock()
-// 	}
-// }
-
-// func (d *Demultiplexer) StartMonitoring(c *types.Client) {
-// 	const ephemeralTimeout = 5 * time.Second
-
-// 	// Monitor our channels - spawn workers if needed - more for messages obviously
-// 	go monitorChannel(d.encenvelopeChannel, 20, 5, &d.envelopeWorkerCount, &d.mu,
-// 		func() error {
-// 			err := ProcessEnvelopes(d.encenvelopeChannel, c, ephemeralTimeout, &d.envelopeWorkerCount, &d.mu)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			return nil
-// 		},
-// 	)
-
-// 	go monitorChannel(d.keyExchangeChannel, 10, 3, &d.keyExchangeRequestWorkerCount, &d.mu,
-// 		func() error {
-// 			err := ProcessKeyExchangeRequests(c, d.keyExchangeChannel, ephemeralTimeout, &d.keyExchangeRequestWorkerCount, &d.mu)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			return nil
-// 		},
-// 	)
-// }
