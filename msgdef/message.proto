@@ -138,10 +138,9 @@ message EncryptedEnvelope {
   bytes recipient_public_key = 2; // public Curve25519 recipient
   string to_user = 3;
   string from_user = 4;
-  bytes signature = 5; // sender ED25519 signature of encrypted_payload
-  bytes nonce = 7; // number once - encryption
-  bytes encrypted_message = 8; // encrypted message content
-  google.protobuf.Timestamp sent_at = 9; // timestamp
+  bytes nonce = 5; // number once - encryption
+  bytes encrypted_message = 6; // encrypted message content
+  google.protobuf.Timestamp sent_at = 7; // timestamp
 }
 
 // -----------------------------------Key Exchange---------------------------------------------

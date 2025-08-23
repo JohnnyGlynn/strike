@@ -12,7 +12,6 @@ Implemented:
 - Encrypted messaging
 
 Planned:
-- Message signing
 - Offline sending
 - "Account" backup/recovery
 - Better key management
