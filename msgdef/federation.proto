@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package federation;
+
+option go_package="./federation";
+
+service Federation {
+  rpc Ping(UserAddress) returns (Bundle)
+  rpc RoutePayload (FedPayload) returns (FedAck)
+}
+
+message UserAddress {
+  string username = 1;
+  string domain = 2;
+  bytes id = 3;//?
+}
