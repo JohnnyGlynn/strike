@@ -7,8 +7,14 @@ package federation;
 option go_package="./federation";
 
 service Federation {
-  rpc Ping(UserAddress) returns (Bundle)
+  rpc Ping(Heartbeat) returns (FedAck)
+  rpc FetchUser(UserAddress) returns (Bundle)
   rpc RoutePayload (FedPayload) returns (FedAck)
+}
+
+message Heartbeat {
+  string origin_domain = 1;
+  string origin_server_id = 2;
 }
 
 message UserAddress {
@@ -16,3 +22,30 @@ message UserAddress {
   string domain = 2;
   bytes id = 3;//?
 }
+
+message FedAck {
+  string message_id = 1;
+  bool ok = 2;
+  string server_id = 3;
+  string domain = 4;
+  google.protobuf.Timestamp server_time = 5; 
+  repeated string info = 6;
+}
+
+message FedPayload {
+  string message_id = 1;
+  string from_domain = 2;
+  string to_domain = 3;
+  UserAddress from_user = 4;
+  UserAddress to_user = 5;
+  bytes payload = 6;//Copy Client/Server payload type?
+  google.protobuf.Timestamp sent_at = 7; 
+}
+
+message Bundle {
+  UserAddress user = 1;
+  bytes id_key = 2;
+  bytes curve_key = 3;
+  google.protobuf.Timestamp created_at = 5; 
+}
+
