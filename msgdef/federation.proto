@@ -7,9 +7,9 @@ package federation;
 option go_package="./federation";
 
 service Federation {
-  rpc Ping(Heartbeat) returns (FedAck)
-  rpc FetchUser(UserAddress) returns (Bundle)
-  rpc RoutePayload (FedPayload) returns (FedAck)
+  rpc Ping(Heartbeat) returns (FedAck);
+  rpc FetchUser(UserAddress) returns (Bundle);
+  rpc RoutePayload (FedPayload) returns (FedAck);
 }
 
 message Heartbeat {

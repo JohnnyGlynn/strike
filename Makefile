@@ -97,7 +97,9 @@ fmt:
 # Protobuf generate
 .PHONY: proto
 proto:
-	cd msgdef && protoc --go_out=. --go-grpc_out=. message.proto && cd -
+	cd msgdef && protoc --go_out=. \
+		--go-grpc_out=. \
+		message.proto federation.proto && cd -
 
 # Lint code
 .PHONY: lint
