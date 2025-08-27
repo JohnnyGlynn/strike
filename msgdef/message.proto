@@ -25,6 +25,8 @@ service Strike {
   rpc PayloadStream(UserInfo) returns (stream StreamPayload) {}
 
   rpc PollServer(UserInfo) returns (ServerInfo) {}
+
+  rpc DeliveryReceipt(Receipt) returns (ServerResponse) {}
 }
 
 //TODO: Lots of cleaning
@@ -99,6 +101,7 @@ message ServerResponse {
   bool success = 1;
   string message = 2;
   //TODO: Have server sign this?
+  string message_id = 3;
 }
 
 message StatusUpdate {
@@ -165,3 +168,9 @@ message KeyExchangeConfirmation {
   string confirmer_user_id = 2;
 }
 
+message Receipt {
+  string message_id = 1;
+  string to = 2;
+  bytes sig = 3;
+  google.protobuf.Timestamp timestamp = 4;
+}

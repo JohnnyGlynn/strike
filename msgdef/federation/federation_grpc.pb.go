@@ -20,17 +20,17 @@ const _ = grpc.SupportPackageIsVersion8
 
 const (
 	Federation_Ping_FullMethodName         = "/federation.Federation/Ping"
-	Federation_FetchUser_FullMethodName    = "/federation.Federation/FetchUser"
 	Federation_RoutePayload_FullMethodName = "/federation.Federation/RoutePayload"
+	Federation_Ack_FullMethodName          = "/federation.Federation/Ack"
 )
 
 // FederationClient is the client API for Federation service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type FederationClient interface {
-	Ping(ctx context.Context, in *Heartbeat, opts ...grpc.CallOption) (*FedAck, error)
-	FetchUser(ctx context.Context, in *UserAddress, opts ...grpc.CallOption) (*Bundle, error)
+	Ping(ctx context.Context, in *PingReq, opts ...grpc.CallOption) (*FedAck, error)
 	RoutePayload(ctx context.Context, in *FedPayload, opts ...grpc.CallOption) (*FedAck, error)
+	Ack(ctx context.Context, in *FedAck, opts ...grpc.CallOption) (*AckResponse, error)
 }
 
 type federationClient struct {
@@ -41,20 +41,10 @@ func NewFederationClient(cc grpc.ClientConnInterface) FederationClient {
 	return &federationClient{cc}
 }
 
-func (c *federationClient) Ping(ctx context.Context, in *Heartbeat, opts ...grpc.CallOption) (*FedAck, error) {
+func (c *federationClient) Ping(ctx context.Context, in *PingReq, opts ...grpc.CallOption) (*FedAck, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(FedAck)
 	err := c.cc.Invoke(ctx, Federation_Ping_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *federationClient) FetchUser(ctx context.Context, in *UserAddress, opts ...grpc.CallOption) (*Bundle, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(Bundle)
-	err := c.cc.Invoke(ctx, Federation_FetchUser_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -71,13 +61,23 @@ func (c *federationClient) RoutePayload(ctx context.Context, in *FedPayload, opt
 	return out, nil
 }
 
+func (c *federationClient) Ack(ctx context.Context, in *FedAck, opts ...grpc.CallOption) (*AckResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AckResponse)
+	err := c.cc.Invoke(ctx, Federation_Ack_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FederationServer is the server API for Federation service.
 // All implementations must embed UnimplementedFederationServer
 // for forward compatibility
 type FederationServer interface {
-	Ping(context.Context, *Heartbeat) (*FedAck, error)
-	FetchUser(context.Context, *UserAddress) (*Bundle, error)
+	Ping(context.Context, *PingReq) (*FedAck, error)
 	RoutePayload(context.Context, *FedPayload) (*FedAck, error)
+	Ack(context.Context, *FedAck) (*AckResponse, error)
 	mustEmbedUnimplementedFederationServer()
 }
 
@@ -85,14 +85,14 @@ type FederationServer interface {
 type UnimplementedFederationServer struct {
 }
 
-func (UnimplementedFederationServer) Ping(context.Context, *Heartbeat) (*FedAck, error) {
+func (UnimplementedFederationServer) Ping(context.Context, *PingReq) (*FedAck, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
-}
-func (UnimplementedFederationServer) FetchUser(context.Context, *UserAddress) (*Bundle, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method FetchUser not implemented")
 }
 func (UnimplementedFederationServer) RoutePayload(context.Context, *FedPayload) (*FedAck, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RoutePayload not implemented")
+}
+func (UnimplementedFederationServer) Ack(context.Context, *FedAck) (*AckResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Ack not implemented")
 }
 func (UnimplementedFederationServer) mustEmbedUnimplementedFederationServer() {}
 
@@ -108,7 +108,7 @@ func RegisterFederationServer(s grpc.ServiceRegistrar, srv FederationServer) {
 }
 
 func _Federation_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Heartbeat)
+	in := new(PingReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -120,25 +120,7 @@ func _Federation_Ping_Handler(srv interface{}, ctx context.Context, dec func(int
 		FullMethod: Federation_Ping_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FederationServer).Ping(ctx, req.(*Heartbeat))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Federation_FetchUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UserAddress)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(FederationServer).FetchUser(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Federation_FetchUser_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FederationServer).FetchUser(ctx, req.(*UserAddress))
+		return srv.(FederationServer).Ping(ctx, req.(*PingReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -161,6 +143,24 @@ func _Federation_RoutePayload_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Federation_Ack_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FedAck)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FederationServer).Ack(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Federation_Ack_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FederationServer).Ack(ctx, req.(*FedAck))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Federation_ServiceDesc is the grpc.ServiceDesc for Federation service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -173,12 +173,12 @@ var Federation_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Federation_Ping_Handler,
 		},
 		{
-			MethodName: "FetchUser",
-			Handler:    _Federation_FetchUser_Handler,
-		},
-		{
 			MethodName: "RoutePayload",
 			Handler:    _Federation_RoutePayload_Handler,
+		},
+		{
+			MethodName: "Ack",
+			Handler:    _Federation_Ack_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

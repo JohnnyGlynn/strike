@@ -7,14 +7,13 @@ package federation;
 option go_package="./federation";
 
 service Federation {
-  rpc Ping(Heartbeat) returns (FedAck);
-  rpc FetchUser(UserAddress) returns (Bundle);
+  rpc Ping(PingReq) returns (FedAck);
   rpc RoutePayload (FedPayload) returns (FedAck);
+  rpc Ack(FedAck) returns (AckResponse);
 }
 
-message Heartbeat {
-  string origin_domain = 1;
-  string origin_server_id = 2;
+message PingReq {
+  string origin__id = 2;
 }
 
 message UserAddress {
@@ -24,28 +23,31 @@ message UserAddress {
 }
 
 message FedAck {
-  string message_id = 1;
-  bool ok = 2;
-  string server_id = 3;
-  string domain = 4;
-  google.protobuf.Timestamp server_time = 5; 
-  repeated string info = 6;
+  string payload_id = 1;
+  UserAddress ack_by = 2;
+  string origin = 3;
+  bool accepted = 4; //accepted by server
+  bool delivered = 5; //delivered to client
+  bool failed = 6; 
+  string info = 7; //info/error
+  google.protobuf.Timestamp timestamp = 8; 
+  bytes pubkey = 9;
+  bytes sig = 10;
 }
 
 message FedPayload {
-  string message_id = 1;
-  string from_domain = 2;
-  string to_domain = 3;
-  UserAddress from_user = 4;
-  UserAddress to_user = 5;
-  bytes payload = 6;//Copy Client/Server payload type?
+  string payload_id = 1;
+  UserAddress sender = 2;
+  UserAddress recipient = 3;
+  string origin = 4;
+  bytes payload = 5;//Copy Client/Server payload type?
+  bytes nonce = 6;
   google.protobuf.Timestamp sent_at = 7; 
+  bytes pubkey = 9;
+  bytes sig = 10;
 }
 
-message Bundle {
-  UserAddress user = 1;
-  bytes id_key = 2;
-  bytes curve_key = 3;
-  google.protobuf.Timestamp created_at = 5; 
+message AckResponse {
+  bool ok = 1;
+  string message = 2;
 }
-

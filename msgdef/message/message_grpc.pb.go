@@ -19,15 +19,16 @@ import (
 const _ = grpc.SupportPackageIsVersion8
 
 const (
-	Strike_Signup_FullMethodName        = "/message.Strike/Signup"
-	Strike_Login_FullMethodName         = "/message.Strike/Login"
-	Strike_SaltMine_FullMethodName      = "/message.Strike/SaltMine"
-	Strike_UserRequest_FullMethodName   = "/message.Strike/UserRequest"
-	Strike_OnlineUsers_FullMethodName   = "/message.Strike/OnlineUsers"
-	Strike_StatusStream_FullMethodName  = "/message.Strike/StatusStream"
-	Strike_SendPayload_FullMethodName   = "/message.Strike/SendPayload"
-	Strike_PayloadStream_FullMethodName = "/message.Strike/PayloadStream"
-	Strike_PollServer_FullMethodName    = "/message.Strike/PollServer"
+	Strike_Signup_FullMethodName          = "/message.Strike/Signup"
+	Strike_Login_FullMethodName           = "/message.Strike/Login"
+	Strike_SaltMine_FullMethodName        = "/message.Strike/SaltMine"
+	Strike_UserRequest_FullMethodName     = "/message.Strike/UserRequest"
+	Strike_OnlineUsers_FullMethodName     = "/message.Strike/OnlineUsers"
+	Strike_StatusStream_FullMethodName    = "/message.Strike/StatusStream"
+	Strike_SendPayload_FullMethodName     = "/message.Strike/SendPayload"
+	Strike_PayloadStream_FullMethodName   = "/message.Strike/PayloadStream"
+	Strike_PollServer_FullMethodName      = "/message.Strike/PollServer"
+	Strike_DeliveryReceipt_FullMethodName = "/message.Strike/DeliveryReceipt"
 )
 
 // StrikeClient is the client API for Strike service.
@@ -44,6 +45,7 @@ type StrikeClient interface {
 	SendPayload(ctx context.Context, in *StreamPayload, opts ...grpc.CallOption) (*ServerResponse, error)
 	PayloadStream(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (Strike_PayloadStreamClient, error)
 	PollServer(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (*ServerInfo, error)
+	DeliveryReceipt(ctx context.Context, in *Receipt, opts ...grpc.CallOption) (*ServerResponse, error)
 }
 
 type strikeClient struct {
@@ -190,6 +192,16 @@ func (c *strikeClient) PollServer(ctx context.Context, in *UserInfo, opts ...grp
 	return out, nil
 }
 
+func (c *strikeClient) DeliveryReceipt(ctx context.Context, in *Receipt, opts ...grpc.CallOption) (*ServerResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ServerResponse)
+	err := c.cc.Invoke(ctx, Strike_DeliveryReceipt_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // StrikeServer is the server API for Strike service.
 // All implementations must embed UnimplementedStrikeServer
 // for forward compatibility
@@ -204,6 +216,7 @@ type StrikeServer interface {
 	SendPayload(context.Context, *StreamPayload) (*ServerResponse, error)
 	PayloadStream(*UserInfo, Strike_PayloadStreamServer) error
 	PollServer(context.Context, *UserInfo) (*ServerInfo, error)
+	DeliveryReceipt(context.Context, *Receipt) (*ServerResponse, error)
 	mustEmbedUnimplementedStrikeServer()
 }
 
@@ -237,6 +250,9 @@ func (UnimplementedStrikeServer) PayloadStream(*UserInfo, Strike_PayloadStreamSe
 }
 func (UnimplementedStrikeServer) PollServer(context.Context, *UserInfo) (*ServerInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PollServer not implemented")
+}
+func (UnimplementedStrikeServer) DeliveryReceipt(context.Context, *Receipt) (*ServerResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeliveryReceipt not implemented")
 }
 func (UnimplementedStrikeServer) mustEmbedUnimplementedStrikeServer() {}
 
@@ -419,6 +435,24 @@ func _Strike_PollServer_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Strike_DeliveryReceipt_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Receipt)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StrikeServer).DeliveryReceipt(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Strike_DeliveryReceipt_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StrikeServer).DeliveryReceipt(ctx, req.(*Receipt))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Strike_ServiceDesc is the grpc.ServiceDesc for Strike service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -453,6 +487,10 @@ var Strike_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PollServer",
 			Handler:    _Strike_PollServer_Handler,
+		},
+		{
+			MethodName: "DeliveryReceipt",
+			Handler:    _Strike_DeliveryReceipt_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
