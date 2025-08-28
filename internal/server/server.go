@@ -12,13 +12,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/JohnnyGlynn/strike/internal/server/types"
 	"github.com/JohnnyGlynn/strike/internal/shared"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 )
 
 type StrikeServer struct {
 	pb.UnimplementedStrikeServer
-	Env         []*pb.EncryptedEnvelope
+
 	DBpool      *pgxpool.Pool
 	PStatements *ServerDB
 	Name        string
@@ -28,7 +29,24 @@ type StrikeServer struct {
 	Connected       map[uuid.UUID]*pb.UserInfo
 	PayloadStreams  map[uuid.UUID]pb.Strike_PayloadStreamServer
 	PayloadChannels map[uuid.UUID]chan *pb.StreamPayload
-	mu              sync.Mutex
+	Pending         map[uuid.UUID]*types.PendingMsg
+
+	mu sync.Mutex
+}
+
+func (s *StrikeServer) mapInit() {
+	if s.Connected == nil {
+		s.Connected = make(map[uuid.UUID]*pb.UserInfo)
+	}
+	if s.PayloadChannels == nil {
+		s.PayloadChannels = make(map[uuid.UUID]chan *pb.StreamPayload)
+	}
+	if s.PayloadStreams == nil {
+		s.PayloadStreams = make(map[uuid.UUID]pb.Strike_PayloadStreamServer)
+	}
+	if s.Pending == nil {
+		s.Pending = make(map[uuid.UUID]*types.PendingMsg)
+	}
 }
 
 func (s *StrikeServer) SendPayload(ctx context.Context, payload *pb.StreamPayload) (*pb.ServerResponse, error) {
@@ -119,10 +137,6 @@ func (s *StrikeServer) Signup(ctx context.Context, userInit *pb.InitUser) (*pb.S
 }
 
 func (s *StrikeServer) StatusStream(req *pb.UserInfo, stream pb.Strike_StatusStreamServer) error {
-	// TODO: cleaner map initilization
-	if s.Connected == nil {
-		s.Connected = make(map[uuid.UUID]*pb.UserInfo)
-	}
 
 	// TODO: Parse function
 	parsedId, err := uuid.Parse(req.UserId)
@@ -195,6 +209,7 @@ func (s *StrikeServer) OnlineUsers(ctx context.Context, userInfo *pb.UserInfo) (
 	//TODO: Log user making request userInfo
 	log.Printf("%s (%s) requested active user list\n", userInfo.Username, userInfo.UserId)
 
+	//TODO: revisit
 	s.mu.Lock()
 	users := make([]*pb.UserInfo, 0, len(s.Connected))
 	for _, v := range s.Connected {
@@ -236,11 +251,6 @@ func (s *StrikeServer) PollServer(ctx context.Context, userInfo *pb.UserInfo) (*
 func (s *StrikeServer) PayloadStream(user *pb.UserInfo, stream pb.Strike_PayloadStreamServer) error {
 	log.Printf("Stream Established: %v online \n", user.Username)
 
-	// TODO: cleaner map initilization
-	if s.PayloadStreams == nil {
-		s.PayloadStreams = make(map[uuid.UUID]pb.Strike_PayloadStreamServer)
-	}
-
 	parsedId, err := uuid.Parse(user.UserId)
 	if err != nil {
 		return fmt.Errorf("failed to parse user id: %v", err)
@@ -249,10 +259,6 @@ func (s *StrikeServer) PayloadStream(user *pb.UserInfo, stream pb.Strike_Payload
 	s.mu.Lock()
 	s.PayloadStreams[parsedId] = stream
 	s.mu.Unlock()
-
-	if s.PayloadChannels == nil {
-		s.PayloadChannels = make(map[uuid.UUID]chan *pb.StreamPayload)
-	}
 
 	// create a channel for each connected client
 	payloadChannel := make(chan *pb.StreamPayload, 100)
