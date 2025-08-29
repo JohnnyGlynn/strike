@@ -14,6 +14,7 @@ import (
 
 	"github.com/JohnnyGlynn/strike/internal/server/types"
 	"github.com/JohnnyGlynn/strike/internal/shared"
+	"github.com/JohnnyGlynn/strike/msgdef/message"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 )
 
@@ -29,7 +30,7 @@ type StrikeServer struct {
 	Connected       map[uuid.UUID]*pb.UserInfo
 	PayloadStreams  map[uuid.UUID]pb.Strike_PayloadStreamServer
 	PayloadChannels map[uuid.UUID]chan *pb.StreamPayload
-	Pending         map[uuid.UUID]*types.PendingMsg
+  Pending         map[uuid.UUID]*types.PendingMsg //TODO: Memory constraint
 
 	mu sync.Mutex
 }
@@ -71,6 +72,46 @@ func (s *StrikeServer) SendPayload(ctx context.Context, payload *pb.StreamPayloa
 	default:
 		return &pb.ServerResponse{Success: false}, fmt.Errorf("%s's channel is full", payload.Target)
 	}
+}
+
+func (s *StrikeServer) attemptDelivery(messageID uuid.UUID) {
+  const maxAttempts = 5
+
+  for {
+    s.mu.Lock()
+    pmsg, ok := s.Pending[messageID]
+    s.mu.Unlock()
+    if !ok {
+      //not Pending
+      return
+    }
+
+    s.mu.Lock()
+    ch, ok2 := s.PayloadChannels[pmsg.To]
+    s.mu.Unlock()
+
+    if ok2 && ch != nil {
+      select{
+      case ch <- pmsg.Payload://proto.Clone?
+        fmt.Print("Delivered: sent to local channel for %s", pmsg.To)
+        return
+      }
+      //TODO: Timeout case
+    } else {
+      //handle federated delivery
+    }
+    s.mu.Lock()
+    pmsg.Attempts++
+    att := pmsg.Attempts
+    s.mu.Unlock()
+
+    if att >= maxAttempts {
+      // failure to deliver case
+    }
+
+    //sleep
+  }
+
 }
 
 func (s *StrikeServer) SaltMine(ctx context.Context, userInfo *pb.UserInfo) (*pb.Salt, error) {
