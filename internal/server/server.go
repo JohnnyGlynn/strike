@@ -14,7 +14,6 @@ import (
 
 	"github.com/JohnnyGlynn/strike/internal/server/types"
 	"github.com/JohnnyGlynn/strike/internal/shared"
-	"github.com/JohnnyGlynn/strike/msgdef/message"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 )
 
@@ -30,7 +29,7 @@ type StrikeServer struct {
 	Connected       map[uuid.UUID]*pb.UserInfo
 	PayloadStreams  map[uuid.UUID]pb.Strike_PayloadStreamServer
 	PayloadChannels map[uuid.UUID]chan *pb.StreamPayload
-  Pending         map[uuid.UUID]*types.PendingMsg //TODO: Memory constraint
+	Pending         map[uuid.UUID]*types.PendingMsg //TODO: Memory constraint
 
 	mu sync.Mutex
 }
@@ -51,66 +50,87 @@ func (s *StrikeServer) mapInit() {
 }
 
 func (s *StrikeServer) SendPayload(ctx context.Context, payload *pb.StreamPayload) (*pb.ServerResponse, error) {
-	// TODO: Work out the most effecient Syncing for mutexs, this is a lot of locking and unlocking
 
-	parsedId := uuid.MustParse(payload.Target)
+	if payload == nil {
+		return &pb.ServerResponse{Success: false, Message: "payload empty"}, fmt.Errorf("send payload: empty payload")
+	}
+
+	if payload.Target == "" {
+		return &pb.ServerResponse{Success: false, Message: "missing target"}, fmt.Errorf("send payload: missing target")
+	}
+
+	parsedTarget, err := uuid.Parse(payload.Target)
+	if err != nil {
+		return &pb.ServerResponse{Success: false, Message: "invalid target id"}, fmt.Errorf("send payload: invalid target")
+	}
+
+	parsedSender, err := uuid.Parse(payload.Sender)
+	if err != nil {
+		return &pb.ServerResponse{Success: false, Message: "invalid sender id"}, fmt.Errorf("send payload: sender target")
+	}
+
+	//TODO: Handle some federated origin tracking here?
+
+	messageID := uuid.New()
 
 	s.mu.Lock()
-	channel, ok := s.PayloadChannels[parsedId]
+	s.mapInit()
+	pmsg := &types.PendingMsg{
+		MessageID: messageID,
+		From:      parsedSender,
+		To:        parsedTarget,
+		Payload:   payload,
+		Created:   time.Now(),
+		Attempts:  3,
+	}
+
+	s.Pending[messageID] = pmsg
 	s.mu.Unlock()
 
-	if !ok {
-		fmt.Printf("%s is not able to recieve messages.\n", payload.Target)
-		return &pb.ServerResponse{Success: false}, fmt.Errorf("no message channel available for: %s", payload.Target)
-	}
+	go s.attemptDelivery(messageID)
 
-	// Push Message into Channel TODO: handle full channel case
-	select {
-	case channel <- payload:
-		log.Printf("Payload sent to: %s From: %v\n", payload.Target, payload.Sender)
-		return &pb.ServerResponse{Success: true, Message: "PAYLOAD OK"}, nil
-	default:
-		return &pb.ServerResponse{Success: false}, fmt.Errorf("%s's channel is full", payload.Target)
-	}
+	return &pb.ServerResponse{Success: true, Message: fmt.Sprintf("relay-OK: %s", messageID.String())}, nil
+
 }
 
 func (s *StrikeServer) attemptDelivery(messageID uuid.UUID) {
-  const maxAttempts = 5
+	const maxAttempts = 5
 
-  for {
-    s.mu.Lock()
-    pmsg, ok := s.Pending[messageID]
-    s.mu.Unlock()
-    if !ok {
-      //not Pending
-      return
-    }
+	for {
+		s.mu.Lock()
+		pmsg, ok := s.Pending[messageID]
+		s.mu.Unlock()
+		if !ok {
+			//not Pending
+			return
+		}
 
-    s.mu.Lock()
-    ch, ok2 := s.PayloadChannels[pmsg.To]
-    s.mu.Unlock()
+		s.mu.Lock()
+		ch, ok2 := s.PayloadChannels[pmsg.To]
+		s.mu.Unlock()
 
-    if ok2 && ch != nil {
-      select{
-      case ch <- pmsg.Payload://proto.Clone?
-        fmt.Print("Delivered: sent to local channel for %s", pmsg.To)
-        return
-      }
-      //TODO: Timeout case
-    } else {
-      //handle federated delivery
-    }
-    s.mu.Lock()
-    pmsg.Attempts++
-    att := pmsg.Attempts
-    s.mu.Unlock()
+		if ok2 && ch != nil {
+			select {
+			case ch <- pmsg.Payload: //proto.Clone?
+				//TODO: Delivery receipt?
+				fmt.Printf("Delivered: sent to local channel for %s", pmsg.To)
+				return
+			}
+			//TODO: Timeout case
+		} else {
+			//handle federated delivery
+		}
+		s.mu.Lock()
+		pmsg.Attempts++
+		att := pmsg.Attempts
+		s.mu.Unlock()
 
-    if att >= maxAttempts {
-      // failure to deliver case
-    }
+		if att >= maxAttempts {
+			// failure to deliver case
+		}
 
-    //sleep
-  }
+		//sleep
+	}
 
 }
 
