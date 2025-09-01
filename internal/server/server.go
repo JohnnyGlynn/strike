@@ -93,6 +93,10 @@ func (s *StrikeServer) SendPayload(ctx context.Context, payload *pb.StreamPayloa
 
 }
 
+func (s *StrikeServer) RoutePayload(pmsg *types.PendingMsg) (bool, error) {
+  return false, nil
+}
+
 func (s *StrikeServer) attemptDelivery(messageID uuid.UUID) {
 	const maxAttempts = 5
 
