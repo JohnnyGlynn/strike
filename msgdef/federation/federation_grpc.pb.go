@@ -19,9 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion8
 
 const (
-	Federation_Ping_FullMethodName         = "/federation.Federation/Ping"
-	Federation_RoutePayload_FullMethodName = "/federation.Federation/RoutePayload"
-	Federation_Ack_FullMethodName          = "/federation.Federation/Ack"
+	Federation_Ping_FullMethodName           = "/federation.Federation/Ping"
+	Federation_RoutePayload_FullMethodName   = "/federation.Federation/RoutePayload"
+	Federation_Ack_FullMethodName            = "/federation.Federation/Ack"
+	Federation_AnnounceStatus_FullMethodName = "/federation.Federation/AnnounceStatus"
 )
 
 // FederationClient is the client API for Federation service.
@@ -31,6 +32,7 @@ type FederationClient interface {
 	Ping(ctx context.Context, in *PingReq, opts ...grpc.CallOption) (*FedAck, error)
 	RoutePayload(ctx context.Context, in *FedPayload, opts ...grpc.CallOption) (*FedAck, error)
 	Ack(ctx context.Context, in *FedAck, opts ...grpc.CallOption) (*AckResponse, error)
+	AnnounceStatus(ctx context.Context, in *UserAddress, opts ...grpc.CallOption) (*FedAck, error)
 }
 
 type federationClient struct {
@@ -71,6 +73,16 @@ func (c *federationClient) Ack(ctx context.Context, in *FedAck, opts ...grpc.Cal
 	return out, nil
 }
 
+func (c *federationClient) AnnounceStatus(ctx context.Context, in *UserAddress, opts ...grpc.CallOption) (*FedAck, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FedAck)
+	err := c.cc.Invoke(ctx, Federation_AnnounceStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FederationServer is the server API for Federation service.
 // All implementations must embed UnimplementedFederationServer
 // for forward compatibility
@@ -78,6 +90,7 @@ type FederationServer interface {
 	Ping(context.Context, *PingReq) (*FedAck, error)
 	RoutePayload(context.Context, *FedPayload) (*FedAck, error)
 	Ack(context.Context, *FedAck) (*AckResponse, error)
+	AnnounceStatus(context.Context, *UserAddress) (*FedAck, error)
 	mustEmbedUnimplementedFederationServer()
 }
 
@@ -93,6 +106,9 @@ func (UnimplementedFederationServer) RoutePayload(context.Context, *FedPayload) 
 }
 func (UnimplementedFederationServer) Ack(context.Context, *FedAck) (*AckResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Ack not implemented")
+}
+func (UnimplementedFederationServer) AnnounceStatus(context.Context, *UserAddress) (*FedAck, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AnnounceStatus not implemented")
 }
 func (UnimplementedFederationServer) mustEmbedUnimplementedFederationServer() {}
 
@@ -161,6 +177,24 @@ func _Federation_Ack_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Federation_AnnounceStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UserAddress)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FederationServer).AnnounceStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Federation_AnnounceStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FederationServer).AnnounceStatus(ctx, req.(*UserAddress))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Federation_ServiceDesc is the grpc.ServiceDesc for Federation service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -179,6 +213,10 @@ var Federation_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Ack",
 			Handler:    _Federation_Ack_Handler,
+		},
+		{
+			MethodName: "AnnounceStatus",
+			Handler:    _Federation_AnnounceStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

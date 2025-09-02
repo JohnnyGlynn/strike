@@ -10,6 +10,7 @@ service Federation {
   rpc Ping(PingReq) returns (FedAck);
   rpc RoutePayload (FedPayload) returns (FedAck);
   rpc Ack(FedAck) returns (AckResponse);
+  rpc AnnounceStatus(UserAddress) returns (FedAck);//TODO: Common proto types 
 }
 
 message PingReq {
