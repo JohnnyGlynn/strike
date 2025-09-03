@@ -10,7 +10,7 @@ service Federation {
   rpc Ping(PingReq) returns (FedAck);
   rpc RoutePayload (FedPayload) returns (FedAck);
   rpc Ack(FedAck) returns (AckResponse);
-  rpc AnnounceStatus(UserAddress) returns (FedAck);//TODO: Common proto types 
+  rpc Presence(Status) returns (stream FedAck);//TODO: Common proto types 
 }
 
 message PingReq {
@@ -21,6 +21,13 @@ message UserAddress {
   string username = 1;
   string domain = 2;
   bytes id = 3;//?
+}
+
+message Status {
+  //Session??
+  string origin = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  UserAddress user = 3;
 }
 
 message FedAck {

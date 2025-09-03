@@ -19,10 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion8
 
 const (
-	Federation_Ping_FullMethodName           = "/federation.Federation/Ping"
-	Federation_RoutePayload_FullMethodName   = "/federation.Federation/RoutePayload"
-	Federation_Ack_FullMethodName            = "/federation.Federation/Ack"
-	Federation_AnnounceStatus_FullMethodName = "/federation.Federation/AnnounceStatus"
+	Federation_Ping_FullMethodName         = "/federation.Federation/Ping"
+	Federation_RoutePayload_FullMethodName = "/federation.Federation/RoutePayload"
+	Federation_Ack_FullMethodName          = "/federation.Federation/Ack"
+	Federation_Presence_FullMethodName     = "/federation.Federation/Presence"
 )
 
 // FederationClient is the client API for Federation service.
@@ -32,7 +32,7 @@ type FederationClient interface {
 	Ping(ctx context.Context, in *PingReq, opts ...grpc.CallOption) (*FedAck, error)
 	RoutePayload(ctx context.Context, in *FedPayload, opts ...grpc.CallOption) (*FedAck, error)
 	Ack(ctx context.Context, in *FedAck, opts ...grpc.CallOption) (*AckResponse, error)
-	AnnounceStatus(ctx context.Context, in *UserAddress, opts ...grpc.CallOption) (*FedAck, error)
+	Presence(ctx context.Context, in *Status, opts ...grpc.CallOption) (Federation_PresenceClient, error)
 }
 
 type federationClient struct {
@@ -73,14 +73,37 @@ func (c *federationClient) Ack(ctx context.Context, in *FedAck, opts ...grpc.Cal
 	return out, nil
 }
 
-func (c *federationClient) AnnounceStatus(ctx context.Context, in *UserAddress, opts ...grpc.CallOption) (*FedAck, error) {
+func (c *federationClient) Presence(ctx context.Context, in *Status, opts ...grpc.CallOption) (Federation_PresenceClient, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(FedAck)
-	err := c.cc.Invoke(ctx, Federation_AnnounceStatus_FullMethodName, in, out, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &Federation_ServiceDesc.Streams[0], Federation_Presence_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &federationPresenceClient{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Federation_PresenceClient interface {
+	Recv() (*FedAck, error)
+	grpc.ClientStream
+}
+
+type federationPresenceClient struct {
+	grpc.ClientStream
+}
+
+func (x *federationPresenceClient) Recv() (*FedAck, error) {
+	m := new(FedAck)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // FederationServer is the server API for Federation service.
@@ -90,7 +113,7 @@ type FederationServer interface {
 	Ping(context.Context, *PingReq) (*FedAck, error)
 	RoutePayload(context.Context, *FedPayload) (*FedAck, error)
 	Ack(context.Context, *FedAck) (*AckResponse, error)
-	AnnounceStatus(context.Context, *UserAddress) (*FedAck, error)
+	Presence(*Status, Federation_PresenceServer) error
 	mustEmbedUnimplementedFederationServer()
 }
 
@@ -107,8 +130,8 @@ func (UnimplementedFederationServer) RoutePayload(context.Context, *FedPayload) 
 func (UnimplementedFederationServer) Ack(context.Context, *FedAck) (*AckResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Ack not implemented")
 }
-func (UnimplementedFederationServer) AnnounceStatus(context.Context, *UserAddress) (*FedAck, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method AnnounceStatus not implemented")
+func (UnimplementedFederationServer) Presence(*Status, Federation_PresenceServer) error {
+	return status.Errorf(codes.Unimplemented, "method Presence not implemented")
 }
 func (UnimplementedFederationServer) mustEmbedUnimplementedFederationServer() {}
 
@@ -177,22 +200,25 @@ func _Federation_Ack_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Federation_AnnounceStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UserAddress)
-	if err := dec(in); err != nil {
-		return nil, err
+func _Federation_Presence_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(Status)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(FederationServer).AnnounceStatus(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Federation_AnnounceStatus_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FederationServer).AnnounceStatus(ctx, req.(*UserAddress))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(FederationServer).Presence(m, &federationPresenceServer{ServerStream: stream})
+}
+
+type Federation_PresenceServer interface {
+	Send(*FedAck) error
+	grpc.ServerStream
+}
+
+type federationPresenceServer struct {
+	grpc.ServerStream
+}
+
+func (x *federationPresenceServer) Send(m *FedAck) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 // Federation_ServiceDesc is the grpc.ServiceDesc for Federation service.
@@ -214,11 +240,13 @@ var Federation_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Ack",
 			Handler:    _Federation_Ack_Handler,
 		},
+	},
+	Streams: []grpc.StreamDesc{
 		{
-			MethodName: "AnnounceStatus",
-			Handler:    _Federation_AnnounceStatus_Handler,
+			StreamName:    "Presence",
+			Handler:       _Federation_Presence_Handler,
+			ServerStreams: true,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
 	Metadata: "federation.proto",
 }
