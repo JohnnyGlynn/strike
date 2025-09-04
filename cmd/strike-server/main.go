@@ -99,6 +99,8 @@ func main() {
 
 	log.Println("Loaded TLS credentials")
 
+  // orchestrator := server.NewFederationOrchestrator()
+
 	strikeServerConfig := &server.StrikeServer{
 		Name: serverCfg.ServerName,
 		//TODO: Persistent identity

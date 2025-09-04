@@ -32,6 +32,9 @@ type StrikeServer struct {
 	Pending         map[uuid.UUID]*types.PendingMsg //TODO: Memory constraint
 
 	mu sync.Mutex
+
+  //Federation
+  Federation *FederationOrchestrator
 }
 
 func (s *StrikeServer) mapInit() {
@@ -123,6 +126,7 @@ func (s *StrikeServer) attemptDelivery(messageID uuid.UUID) {
 			//TODO: Timeout case
 		} else {
 			//handle federated delivery
+      
 		}
 		s.mu.Lock()
 		pmsg.Attempts++

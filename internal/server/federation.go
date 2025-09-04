@@ -1,10 +1,12 @@
 package server
 
 import (
+	"os"
 	"sync"
 
 	"github.com/JohnnyGlynn/strike/internal/server/types"
 	"github.com/google/uuid"
+	"gopkg.in/yaml.v3"
 )
 
 type FederationOrchestrator struct {
@@ -39,4 +41,18 @@ func (fo *FederationOrchestrator) Lookup(user uuid.UUID) (string, bool) {
 	defer fo.mu.RUnlock()
 	origin, ok := fo.presence[user]
 	return origin, ok
+}
+
+func LoadPeers(path string) ([]types.PeerConfig, error) {
+	peerConfig, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg []types.PeerConfig
+	if err := yaml.Unmarshal(peerConfig, &cfg); err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
 }
