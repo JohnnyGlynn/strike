@@ -1,8 +1,10 @@
 federation:
   - id: "endpoint0-UUID"
+    name: "endpoint0"
     addr: "endpoint1.strike.domain:8443"
     pubkey: "signing-key"
     # cert? /
   - id: "federated-server-UUID"
+    name: "endpoint1"
     addr: "federated1.strike.domain:8443"
     pubkey: "signing-key-federated"

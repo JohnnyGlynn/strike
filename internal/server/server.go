@@ -33,8 +33,8 @@ type StrikeServer struct {
 
 	mu sync.Mutex
 
-  //Federation
-  Federation *FederationOrchestrator
+	//Federation
+	Federation *FederationOrchestrator
 }
 
 func (s *StrikeServer) mapInit() {
@@ -97,7 +97,7 @@ func (s *StrikeServer) SendPayload(ctx context.Context, payload *pb.StreamPayloa
 }
 
 func (s *StrikeServer) RoutePayload(pmsg *types.PendingMsg) (bool, error) {
-  return false, nil
+	return false, nil
 }
 
 func (s *StrikeServer) attemptDelivery(messageID uuid.UUID) {
@@ -126,7 +126,7 @@ func (s *StrikeServer) attemptDelivery(messageID uuid.UUID) {
 			//TODO: Timeout case
 		} else {
 			//handle federated delivery
-      
+
 		}
 		s.mu.Lock()
 		pmsg.Attempts++

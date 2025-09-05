@@ -19,18 +19,18 @@ type PendingMsg struct {
 }
 
 type PeerConfig struct {
-  ID string
-  Name string
-  Address string
-  PubKey []byte
-  // TLS bool
-  //Cert
+	ID      string `yaml:"id"`
+	Name    string `yaml:"name"`
+	Address string `yaml:"addr"`
+	PubKey  []byte `yaml:"pubkey"`
+	// TLS bool
+	//Cert
 }
 
 type Peer struct {
-  Config PeerConfig
-  Mu *sync.Mutex
-  Conn *grpc.ClientConn
+	Config PeerConfig
+	Mu     *sync.Mutex
+	Conn   *grpc.ClientConn
 
-  LastComms time.Time
+	LastComms time.Time
 }

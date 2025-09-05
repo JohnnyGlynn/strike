@@ -99,7 +99,13 @@ func main() {
 
 	log.Println("Loaded TLS credentials")
 
-  // orchestrator := server.NewFederationOrchestrator()
+	federationPeers, err := server.LoadPeers(serverCfg.FederationPeers)
+	if err != nil {
+		fmt.Printf("error loading peers: %v", err)
+		return
+	}
+
+	orchestrator := server.NewFederationOrchestrator(federationPeers)
 
 	strikeServerConfig := &server.StrikeServer{
 		Name: serverCfg.ServerName,
@@ -107,6 +113,7 @@ func main() {
 		ID:          uuid.New(),
 		DBpool:      pool,
 		PStatements: statements,
+		Federation:  orchestrator,
 	}
 
 	// GRPC server prep
