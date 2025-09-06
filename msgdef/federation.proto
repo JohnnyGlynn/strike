@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
+import "common.proto";
 
 package federation;
 
@@ -16,23 +17,16 @@ service Federation {
 message PingReq {
   string origin__id = 2;
 }
-
-message UserAddress {
-  string username = 1;
-  string domain = 2;
-  bytes id = 3;//?
-}
-
 message Status {
   //Session??
   string origin = 1;
   google.protobuf.Timestamp timestamp = 2;
-  UserAddress user = 3;
+  common.UserAddress user = 3;
 }
 
 message FedAck {
   string payload_id = 1;
-  UserAddress ack_by = 2;
+  common.UserAddress ack_by = 2;
   string origin = 3;
   bool accepted = 4; //accepted by server
   bool delivered = 5; //delivered to client
@@ -45,10 +39,10 @@ message FedAck {
 
 message FedPayload {
   string payload_id = 1;
-  UserAddress sender = 2;
-  UserAddress recipient = 3;
+  common.UserAddress sender = 2;
+  common.UserAddress recipient = 3;
   string origin = 4;
-  bytes payload = 5;//Copy Client/Server payload type?
+  common.EncryptedEnvelope payload = 5;
   bytes nonce = 6;
   google.protobuf.Timestamp sent_at = 7; 
   bytes pubkey = 9;

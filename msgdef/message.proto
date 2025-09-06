@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
+import "common.proto";
 
 package message;
 
@@ -12,40 +13,32 @@ service Strike {
 
   rpc Login(LoginVerify) returns (ServerResponse) {}
 
-  rpc SaltMine(UserInfo) returns (Salt) {}
+  rpc SaltMine(common.UserInfo) returns (Salt) {}
 
-  rpc UserRequest(UserInfo) returns (UserInfo) {}
+  rpc UserRequest(common.UserInfo) returns (common.UserInfo) {}
 
-  rpc OnlineUsers(UserInfo) returns (Users) {}
+  rpc OnlineUsers(common.UserInfo) returns (Users) {}
 
-  rpc StatusStream(UserInfo) returns (stream StatusUpdate) {}
+  rpc StatusStream(common.UserInfo) returns (stream StatusUpdate) {}
 
   rpc SendPayload(StreamPayload) returns (ServerResponse) {}
 
-  rpc PayloadStream(UserInfo) returns (stream StreamPayload) {}
+  rpc PayloadStream(common.UserInfo) returns (stream StreamPayload) {}
 
-  rpc PollServer(UserInfo) returns (ServerInfo) {}
+  rpc PollServer(common.UserInfo) returns (ServerInfo) {}
 
   rpc DeliveryReceipt(Receipt) returns (ServerResponse) {}
 }
 
 //TODO: Lots of cleaning
-message UserInfo {
-    string username = 1;
-    //UUID as String
-    string user_id = 2;
-    bytes encryption_public_key = 3;
-    bytes signing_public_key = 4;
-}
-
 message ServerInfo {
   string server_id = 1;
   string server_name = 2;
-  repeated UserInfo users = 3;
+  repeated common.UserInfo users = 3;
 }
 
 message Users {
-  repeated UserInfo users = 1;
+  repeated common.UserInfo users = 1;
 }
 
 //TODO: Getting very verbose here, prune
@@ -55,12 +48,12 @@ message Salt {
 
 message FriendRequest {
   string target = 2;
-  UserInfo user_info = 4;
+  common.UserInfo user_info = 4;
 }
 
 message FriendResponse {
   string target = 2;
-  UserInfo user_info = 4;
+  common.UserInfo user_info = 4;
   bool state = 5;
 }
 
@@ -77,24 +70,6 @@ message InitUser {
 message LoginVerify {
   string username = 1;
   string password_hash = 2;
-}
-
-message Chat {
-  string id = 1;
-  string name = 2;
-  
-  enum State {
-    DEFAULT = 0;
-    INIT = 1;
-    KEY_EXCHANGE_PENDING = 2;
-    KEYS_EXCHANGED = 3;
-    ENCRYPTED = 4;
-  }
-
-  State state = 5;
-  repeated string participants = 6;
-  google.protobuf.Timestamp created_at = 7;
-  google.protobuf.Timestamp updated_at = 8;
 }
 
 message ServerResponse {
@@ -114,8 +89,7 @@ message StreamPayload {
   string target = 1;
   string sender = 2;
   oneof payload {
-    Envelope envelope = 5;
-    EncryptedEnvelope encenv = 6;
+    common.EncryptedEnvelope encenv = 6;
     KeyExchangeRequest key_exch_request = 7;
     KeyExchangeResponse key_exch_response = 8;
     KeyExchangeConfirmation key_exch_confirm = 9;
@@ -125,26 +99,6 @@ message StreamPayload {
   string info = 12;
 }
 
-// -----------------------------------Messages---------------------------------------------
-message Envelope {
-  bytes Sender_public_key = 1;
-  google.protobuf.Timestamp sent_at = 2;
-  string to_user = 3;
-  string from_user = 4;
-  Chat chat = 5;
-  string message = 6;
-
-}
-
-message EncryptedEnvelope {
-  bytes sender_public_key = 1; // public Curve25519 sender
-  bytes recipient_public_key = 2; // public Curve25519 recipient
-  string to_user = 3;
-  string from_user = 4;
-  bytes nonce = 5; // number once - encryption
-  bytes encrypted_message = 6; // encrypted message content
-  google.protobuf.Timestamp sent_at = 7; // timestamp
-}
 
 // -----------------------------------Key Exchange---------------------------------------------
 // TODO: these could proably be a single type

@@ -99,7 +99,7 @@ fmt:
 proto:
 	cd msgdef && protoc --go_out=. \
 		--go-grpc_out=. \
-		message.proto federation.proto && cd -
+		message.proto federation.proto common.proto && cd -
 
 # Lint code
 .PHONY: lint

@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package common;
+
+option go_package = "./common";
+
+message EncryptedEnvelope {
+  bytes sender_public_key = 1; // public Curve25519 sender
+  bytes recipient_public_key = 2; // public Curve25519 recipient
+  string to_user = 3;
+  string from_user = 4;
+  bytes nonce = 5; // number once - encryption
+  bytes encrypted_message = 6; // encrypted message content
+  google.protobuf.Timestamp sent_at = 7; // timestamp
+}
+
+message UserAddress {
+  string username = 1;
+  string domain = 2;
+  bytes id = 3;//?
+  UserInfo uInfo = 4;
+}
+
+message UserInfo {
+    string username = 1;//redundant?
+    string user_id = 2;
+    bytes encryption_public_key = 3;
+    bytes signing_public_key = 4;
+}
+

@@ -127,6 +127,11 @@ func (s *StrikeServer) attemptDelivery(messageID uuid.UUID) {
 		} else {
 			//handle federated delivery
 
+      //check for my pending messages destination domain.
+      // s.Federation.peers[pmsg.To]
+      //begin acquiring a client, then sending a grpc message to Federation RoutePayload rpc
+      //Unlock Fedreration and server?
+
 		}
 		s.mu.Lock()
 		pmsg.Attempts++
