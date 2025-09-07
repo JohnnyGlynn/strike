@@ -14,6 +14,7 @@ import (
 
 	"github.com/JohnnyGlynn/strike/internal/server/types"
 	"github.com/JohnnyGlynn/strike/internal/shared"
+	common_pb "github.com/JohnnyGlynn/strike/msgdef/common"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 )
 
@@ -26,7 +27,7 @@ type StrikeServer struct {
 	ID          uuid.UUID
 
 	// TODO: Package the stream better
-	Connected       map[uuid.UUID]*pb.UserInfo
+	Connected       map[uuid.UUID]*common_pb.UserInfo
 	PayloadStreams  map[uuid.UUID]pb.Strike_PayloadStreamServer
 	PayloadChannels map[uuid.UUID]chan *pb.StreamPayload
 	Pending         map[uuid.UUID]*types.PendingMsg //TODO: Memory constraint
@@ -39,7 +40,7 @@ type StrikeServer struct {
 
 func (s *StrikeServer) mapInit() {
 	if s.Connected == nil {
-		s.Connected = make(map[uuid.UUID]*pb.UserInfo)
+		s.Connected = make(map[uuid.UUID]*common_pb.UserInfo)
 	}
 	if s.PayloadChannels == nil {
 		s.PayloadChannels = make(map[uuid.UUID]chan *pb.StreamPayload)
@@ -127,10 +128,10 @@ func (s *StrikeServer) attemptDelivery(messageID uuid.UUID) {
 		} else {
 			//handle federated delivery
 
-      //check for my pending messages destination domain.
-      // s.Federation.peers[pmsg.To]
-      //begin acquiring a client, then sending a grpc message to Federation RoutePayload rpc
-      //Unlock Fedreration and server?
+			//check for my pending messages destination domain.
+			// s.Federation.peers[pmsg.To]
+			//begin acquiring a client, then sending a grpc message to Federation RoutePayload rpc
+			//Unlock Fedreration and server?
 
 		}
 		s.mu.Lock()
@@ -147,7 +148,7 @@ func (s *StrikeServer) attemptDelivery(messageID uuid.UUID) {
 
 }
 
-func (s *StrikeServer) SaltMine(ctx context.Context, userInfo *pb.UserInfo) (*pb.Salt, error) {
+func (s *StrikeServer) SaltMine(ctx context.Context, userInfo *common_pb.UserInfo) (*pb.Salt, error) {
 	var salt []byte
 
 	// TODO: ERROR this fails after server has been running long
@@ -210,7 +211,7 @@ func (s *StrikeServer) Signup(ctx context.Context, userInit *pb.InitUser) (*pb.S
 	}, nil
 }
 
-func (s *StrikeServer) StatusStream(req *pb.UserInfo, stream pb.Strike_StatusStreamServer) error {
+func (s *StrikeServer) StatusStream(req *common_pb.UserInfo, stream pb.Strike_StatusStreamServer) error {
 
 	// TODO: Parse function
 	parsedId, err := uuid.Parse(req.UserId)
@@ -219,7 +220,7 @@ func (s *StrikeServer) StatusStream(req *pb.UserInfo, stream pb.Strike_StatusStr
 	}
 	// Register the user as online
 	s.mu.Lock()
-	s.Connected[parsedId] = &pb.UserInfo{
+	s.Connected[parsedId] = &common_pb.UserInfo{
 		Username:            req.Username,
 		UserId:              req.UserId,
 		EncryptionPublicKey: req.EncryptionPublicKey,
@@ -256,7 +257,7 @@ func (s *StrikeServer) StatusStream(req *pb.UserInfo, stream pb.Strike_StatusStr
 	}
 }
 
-func (s *StrikeServer) UserRequest(ctx context.Context, userInfo *pb.UserInfo) (*pb.UserInfo, error) {
+func (s *StrikeServer) UserRequest(ctx context.Context, userInfo *common_pb.UserInfo) (*common_pb.UserInfo, error) {
 	var userid uuid.UUID
 	var encryptionPubKey, signingPubKey []byte
 
@@ -276,18 +277,18 @@ func (s *StrikeServer) UserRequest(ctx context.Context, userInfo *pb.UserInfo) (
 		return nil, err
 	}
 
-	return &pb.UserInfo{UserId: userid.String(), Username: userInfo.Username, EncryptionPublicKey: encryptionPubKey, SigningPublicKey: signingPubKey}, nil
+	return &common_pb.UserInfo{UserId: userid.String(), Username: userInfo.Username, EncryptionPublicKey: encryptionPubKey, SigningPublicKey: signingPubKey}, nil
 }
 
-func (s *StrikeServer) OnlineUsers(ctx context.Context, userInfo *pb.UserInfo) (*pb.Users, error) {
+func (s *StrikeServer) OnlineUsers(ctx context.Context, userInfo *common_pb.UserInfo) (*common_pb.Users, error) {
 	//TODO: Log user making request userInfo
 	log.Printf("%s (%s) requested active user list\n", userInfo.Username, userInfo.UserId)
 
 	//TODO: revisit
 	s.mu.Lock()
-	users := make([]*pb.UserInfo, 0, len(s.Connected))
+	users := make([]*common_pb.UserInfo, 0, len(s.Connected))
 	for _, v := range s.Connected {
-		users = append(users, &pb.UserInfo{
+		users = append(users, &common_pb.UserInfo{
 			UserId:              v.UserId,
 			Username:            v.Username,
 			EncryptionPublicKey: v.EncryptionPublicKey,
@@ -297,15 +298,15 @@ func (s *StrikeServer) OnlineUsers(ctx context.Context, userInfo *pb.UserInfo) (
 	}
 	s.mu.Unlock()
 
-	return &pb.Users{Users: users}, nil
+	return &common_pb.Users{Users: users}, nil
 }
 
-func (s *StrikeServer) PollServer(ctx context.Context, userInfo *pb.UserInfo) (*pb.ServerInfo, error) {
+func (s *StrikeServer) PollServer(ctx context.Context, userInfo *common_pb.UserInfo) (*pb.ServerInfo, error) {
 	//TODO: Wait groups?
 	s.mu.Lock()
-	users := make([]*pb.UserInfo, 0, len(s.Connected))
+	users := make([]*common_pb.UserInfo, 0, len(s.Connected))
 	for _, v := range s.Connected {
-		users = append(users, &pb.UserInfo{
+		users = append(users, &common_pb.UserInfo{
 			UserId:              v.UserId,
 			Username:            v.Username,
 			EncryptionPublicKey: v.EncryptionPublicKey,
@@ -322,7 +323,7 @@ func (s *StrikeServer) PollServer(ctx context.Context, userInfo *pb.UserInfo) (*
 	}, nil
 }
 
-func (s *StrikeServer) PayloadStream(user *pb.UserInfo, stream pb.Strike_PayloadStreamServer) error {
+func (s *StrikeServer) PayloadStream(user *common_pb.UserInfo, stream pb.Strike_PayloadStreamServer) error {
 	log.Printf("Stream Established: %v online \n", user.Username)
 
 	parsedId, err := uuid.Parse(user.UserId)

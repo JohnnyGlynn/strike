@@ -30,3 +30,7 @@ message UserInfo {
     bytes signing_public_key = 4;
 }
 
+message Users {
+  repeated common.UserInfo users = 1;
+}
+

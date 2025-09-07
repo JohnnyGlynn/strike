@@ -41,7 +41,7 @@ type StrikeClient interface {
 	Login(ctx context.Context, in *LoginVerify, opts ...grpc.CallOption) (*ServerResponse, error)
 	SaltMine(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (*Salt, error)
 	UserRequest(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (*common.UserInfo, error)
-	OnlineUsers(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (*Users, error)
+	OnlineUsers(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (*common.Users, error)
 	StatusStream(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (Strike_StatusStreamClient, error)
 	SendPayload(ctx context.Context, in *StreamPayload, opts ...grpc.CallOption) (*ServerResponse, error)
 	PayloadStream(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (Strike_PayloadStreamClient, error)
@@ -97,9 +97,9 @@ func (c *strikeClient) UserRequest(ctx context.Context, in *common.UserInfo, opt
 	return out, nil
 }
 
-func (c *strikeClient) OnlineUsers(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (*Users, error) {
+func (c *strikeClient) OnlineUsers(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (*common.Users, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(Users)
+	out := new(common.Users)
 	err := c.cc.Invoke(ctx, Strike_OnlineUsers_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -212,7 +212,7 @@ type StrikeServer interface {
 	Login(context.Context, *LoginVerify) (*ServerResponse, error)
 	SaltMine(context.Context, *common.UserInfo) (*Salt, error)
 	UserRequest(context.Context, *common.UserInfo) (*common.UserInfo, error)
-	OnlineUsers(context.Context, *common.UserInfo) (*Users, error)
+	OnlineUsers(context.Context, *common.UserInfo) (*common.Users, error)
 	StatusStream(*common.UserInfo, Strike_StatusStreamServer) error
 	SendPayload(context.Context, *StreamPayload) (*ServerResponse, error)
 	PayloadStream(*common.UserInfo, Strike_PayloadStreamServer) error
@@ -237,7 +237,7 @@ func (UnimplementedStrikeServer) SaltMine(context.Context, *common.UserInfo) (*S
 func (UnimplementedStrikeServer) UserRequest(context.Context, *common.UserInfo) (*common.UserInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UserRequest not implemented")
 }
-func (UnimplementedStrikeServer) OnlineUsers(context.Context, *common.UserInfo) (*Users, error) {
+func (UnimplementedStrikeServer) OnlineUsers(context.Context, *common.UserInfo) (*common.Users, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OnlineUsers not implemented")
 }
 func (UnimplementedStrikeServer) StatusStream(*common.UserInfo, Strike_StatusStreamServer) error {

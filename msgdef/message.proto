@@ -17,7 +17,7 @@ service Strike {
 
   rpc UserRequest(common.UserInfo) returns (common.UserInfo) {}
 
-  rpc OnlineUsers(common.UserInfo) returns (Users) {}
+  rpc OnlineUsers(common.UserInfo) returns (common.Users) {}
 
   rpc StatusStream(common.UserInfo) returns (stream StatusUpdate) {}
 
@@ -34,11 +34,7 @@ service Strike {
 message ServerInfo {
   string server_id = 1;
   string server_name = 2;
-  repeated common.UserInfo users = 3;
-}
-
-message Users {
-  repeated common.UserInfo users = 1;
+  common.Users users = 3;
 }
 
 //TODO: Getting very verbose here, prune
