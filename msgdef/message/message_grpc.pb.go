@@ -2,13 +2,13 @@
 // versions:
 // - protoc-gen-go-grpc v1.4.0
 // - protoc             v5.29.3
-// source: message.proto
+// source: message/message.proto
 
 package message
 
 import (
-	common "./common"
 	context "context"
+	common "github.com/JohnnyGlynn/strike/msgdef/common"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -506,5 +506,5 @@ var Strike_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "message.proto",
+	Metadata: "message/message.proto",
 }

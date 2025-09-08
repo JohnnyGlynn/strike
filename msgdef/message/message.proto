@@ -1,11 +1,11 @@
 syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
-import "common.proto";
+import "common/common.proto";
 
 package message;
 
-option go_package="./message";
+option go_package="github.com/JohnnyGlynn/strike/msgdef/message/message;message";
 
 service Strike {
   //TODO: Just login?

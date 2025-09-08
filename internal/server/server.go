@@ -319,7 +319,7 @@ func (s *StrikeServer) PollServer(ctx context.Context, userInfo *common_pb.UserI
 	return &pb.ServerInfo{
 		ServerId:   s.ID.String(),
 		ServerName: s.Name,
-		Users:      users,
+		Users:      &common_pb.Users{Users: users},
 	}, nil
 }
 

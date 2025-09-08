@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.4.0
 // - protoc             v5.29.3
-// source: federation.proto
+// source: federation/federation.proto
 
 package federation
 
@@ -248,5 +248,5 @@ var Federation_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "federation.proto",
+	Metadata: "federation/federation.proto",
 }

@@ -1,11 +1,11 @@
 syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
-import "common.proto";
+import "common/common.proto";
 
 package federation;
 
-option go_package="./federation";
+option go_package="github.com/JohnnyGlynn/strike/msgdef/federation/federation;federation";
 
 service Federation {
   rpc Ping(PingReq) returns (FedAck);

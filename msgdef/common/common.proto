@@ -4,7 +4,7 @@ import "google/protobuf/timestamp.proto";
 
 package common;
 
-option go_package = "./common";
+option go_package = "github.com/JohnnyGlynn/strike/msgdef/common;common";
 
 message EncryptedEnvelope {
   bytes sender_public_key = 1; // public Curve25519 sender
