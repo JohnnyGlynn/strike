@@ -1,17 +1,22 @@
 package server
 
 import (
+	"fmt"
 	"os"
 	"sync"
 
 	"github.com/JohnnyGlynn/strike/internal/server/types"
 	"github.com/google/uuid"
+	"google.golang.org/grpc"
 	"gopkg.in/yaml.v3"
+
+	pb "github.com/JohnnyGlynn/strike/msgdef/federation"
 )
 
 type FederationOrchestrator struct {
 	peers    map[string]*types.Peer
 	presence map[uuid.UUID]string
+	clients  map[string]pb.FederationClient
 	mu       sync.RWMutex
 }
 
@@ -19,7 +24,8 @@ type FederationOrchestrator struct {
 func NewFederationOrchestrator(peers []types.PeerConfig) *FederationOrchestrator {
 
 	fo := &FederationOrchestrator{
-		peers: make(map[string]*types.Peer, len(peers)),
+		peers:   make(map[string]*types.Peer, len(peers)),
+		clients: make(map[string]pb.FederationClient),
 	}
 
 	for _, cfg := range peers {
@@ -41,6 +47,34 @@ func (fo *FederationOrchestrator) Lookup(user uuid.UUID) (string, bool) {
 	defer fo.mu.RUnlock()
 	origin, ok := fo.presence[user]
 	return origin, ok
+}
+
+func (fo *FederationOrchestrator) PeerClient(peerId string) (pb.FederationClient, error) {
+	fo.mu.RLock()
+	client, ok := fo.clients[peerId]
+	fo.mu.RUnlock()
+	if ok {
+		return client, nil
+	}
+
+	fo.mu.Lock()
+	defer fo.mu.Unlock()
+
+	peer, ok := fo.peers[peerId]
+	if !ok {
+		return nil, fmt.Errorf("Peer not found: %s", peerId)
+	}
+
+	conn, err := grpc.NewClient(peer.Config.Address)
+	if err != nil {
+		return nil, err
+	}
+
+	client = pb.NewFederationClient(conn)
+	fo.clients[peerId] = client
+
+	return client, nil
+
 }
 
 func LoadPeers(path string) ([]types.PeerConfig, error) {

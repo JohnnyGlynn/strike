@@ -99,7 +99,7 @@ fmt:
 proto:
 	protoc --proto_path=msgdef --go_out=msgdef \
 		--go-grpc_out=msgdef --go-grpc_opt=paths=source_relative \
-		message/message.proto federation/federation.proto common/common.proto
+		message/message.proto federation/federation.proto common/common.proto && rm -rf msgdef/github.com
 
 # Lint code
 .PHONY: lint

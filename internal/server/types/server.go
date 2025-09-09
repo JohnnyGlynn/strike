@@ -10,12 +10,14 @@ import (
 )
 
 type PendingMsg struct {
-	MessageID uuid.UUID
-	From      uuid.UUID
-	To        uuid.UUID
-	Payload   *pb.StreamPayload
-	Created   time.Time
-	Attempts  int
+	MessageID   uuid.UUID
+	From        uuid.UUID
+	To          uuid.UUID
+	Payload     *pb.StreamPayload
+	Origin      string
+	Destination string
+	Created     time.Time
+	Attempts    int
 }
 
 type PeerConfig struct {
