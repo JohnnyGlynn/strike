@@ -5,18 +5,25 @@ import "common/common.proto";
 
 package federation;
 
-option go_package="github.com/JohnnyGlynn/strike/msgdef/federation/federation;federation";
+option go_package="github.com/JohnnyGlynn/strike/msgdef/federation;federation";
 
 service Federation {
-  rpc Ping(PingReq) returns (FedAck);
+  // rpc Ping(PingReq) returns (FedAck);
+  rpc Ping(PingReq) returns (PingAck);
   rpc RoutePayload (FedPayload) returns (FedAck);
   rpc Ack(FedAck) returns (AckResponse);
   rpc Presence(Status) returns (stream FedAck);//TODO: Common proto types 
 }
 
 message PingReq {
-  string origin__id = 2;
+  string origin_id = 2;
 }
+
+message PingAck {
+  string ack_by = 1;
+  bool ok = 2;
+}
+
 message Status {
   //Session??
   string origin = 1;

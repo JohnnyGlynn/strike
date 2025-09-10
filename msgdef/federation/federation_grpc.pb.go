@@ -29,7 +29,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type FederationClient interface {
-	Ping(ctx context.Context, in *PingReq, opts ...grpc.CallOption) (*FedAck, error)
+	// rpc Ping(PingReq) returns (FedAck);
+	Ping(ctx context.Context, in *PingReq, opts ...grpc.CallOption) (*PingAck, error)
 	RoutePayload(ctx context.Context, in *FedPayload, opts ...grpc.CallOption) (*FedAck, error)
 	Ack(ctx context.Context, in *FedAck, opts ...grpc.CallOption) (*AckResponse, error)
 	Presence(ctx context.Context, in *Status, opts ...grpc.CallOption) (Federation_PresenceClient, error)
@@ -43,9 +44,9 @@ func NewFederationClient(cc grpc.ClientConnInterface) FederationClient {
 	return &federationClient{cc}
 }
 
-func (c *federationClient) Ping(ctx context.Context, in *PingReq, opts ...grpc.CallOption) (*FedAck, error) {
+func (c *federationClient) Ping(ctx context.Context, in *PingReq, opts ...grpc.CallOption) (*PingAck, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(FedAck)
+	out := new(PingAck)
 	err := c.cc.Invoke(ctx, Federation_Ping_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -110,7 +111,8 @@ func (x *federationPresenceClient) Recv() (*FedAck, error) {
 // All implementations must embed UnimplementedFederationServer
 // for forward compatibility
 type FederationServer interface {
-	Ping(context.Context, *PingReq) (*FedAck, error)
+	// rpc Ping(PingReq) returns (FedAck);
+	Ping(context.Context, *PingReq) (*PingAck, error)
 	RoutePayload(context.Context, *FedPayload) (*FedAck, error)
 	Ack(context.Context, *FedAck) (*AckResponse, error)
 	Presence(*Status, Federation_PresenceServer) error
@@ -121,7 +123,7 @@ type FederationServer interface {
 type UnimplementedFederationServer struct {
 }
 
-func (UnimplementedFederationServer) Ping(context.Context, *PingReq) (*FedAck, error) {
+func (UnimplementedFederationServer) Ping(context.Context, *PingReq) (*PingAck, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
 }
 func (UnimplementedFederationServer) RoutePayload(context.Context, *FedPayload) (*FedAck, error) {

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -75,6 +76,25 @@ func (fo *FederationOrchestrator) PeerClient(peerId string) (pb.FederationClient
 
 	return client, nil
 
+}
+
+func (fo *FederationOrchestrator) Ping(ctx context.Context, peerID string) (*pb.PingAck, error) {
+
+	grpcClient, err := fo.PeerClient(peerID)
+	if err != nil {
+		return &pb.PingAck{}, err
+	}
+
+	ack, err := grpcClient.Ping(ctx, &pb.PingReq{
+		OriginId: "TODO-load-server-id-from-config",
+	})
+	if err != nil {
+		return &pb.PingAck{}, err
+	}
+
+	fmt.Printf("Peer %s Acknowledged: %v\n", peerID, ack.Ok)
+
+	return ack, nil
 }
 
 func LoadPeers(path string) ([]types.PeerConfig, error) {

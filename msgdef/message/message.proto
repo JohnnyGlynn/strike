@@ -5,7 +5,7 @@ import "common/common.proto";
 
 package message;
 
-option go_package="github.com/JohnnyGlynn/strike/msgdef/message/message;message";
+option go_package="github.com/JohnnyGlynn/strike/msgdef/message;message";
 
 service Strike {
   //TODO: Just login?
