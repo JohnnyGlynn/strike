@@ -1,23 +1,21 @@
 #Strike Server
 
 FROM golang:1.23-alpine AS builder
-
-# RUN apk add --no-cache bash curl
-
 WORKDIR /go/strike
+# RUN apk add --no-cache bash curl
+RUN apk add --no-cache ca-certificates
+
 
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY ./ ./
+COPY . .
 
-RUN go mod download
-
-RUN go build -o strike.bin ./cmd/strike-server/main.go 
+RUN CGO_ENABLED=0 go build -o strike.bin ./cmd/strike-server
 
 FROM scratch
-
+#tls COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /go/strike/strike.bin /strike
-EXPOSE 8080
 
+EXPOSE 8080
 CMD ["/strike"]

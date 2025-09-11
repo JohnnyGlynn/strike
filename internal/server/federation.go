@@ -103,10 +103,10 @@ func LoadPeers(path string) ([]types.PeerConfig, error) {
 		return nil, err
 	}
 
-	var cfg []types.PeerConfig
+	var cfg types.FederationConfig
 	if err := yaml.Unmarshal(peerConfig, &cfg); err != nil {
 		return nil, err
 	}
 
-	return cfg, nil
+	return cfg.Peers, nil
 }

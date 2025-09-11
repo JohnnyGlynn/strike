@@ -26,7 +26,12 @@ spec:
             - name: strike-server-identity
               mountPath: /etc/strike-server-identity
               readOnly: true
+            - name: strike-federation
+              mountPath: /etc/strike-federation
       volumes:
         - name: strike-server-identity
           secret:
             secretName: strike-server-identity
+        - name: strike-federation
+          secret:
+            secretName: strike-federation

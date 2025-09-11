@@ -24,6 +24,12 @@ local_resource(
   deps=['$HOME/.strike-server/', 'strike-namespace']
 )
 
+local_resource(
+  'strike-federation',
+  'kubectl delete secret strike-federation -n strike --ignore-not-found && kubectl create secret generic strike-federation --from-file=./config/server -n strike',
+  deps=['./config/server/federation.yaml', 'strike-namespace']
+)
+
 k8s_yaml([
   './deploy/k8s/db.yaml',
   './deploy/k8s/db-svc.yaml',

@@ -29,6 +29,10 @@ type PeerConfig struct {
 	//Cert
 }
 
+type FederationConfig struct {
+	Peers []PeerConfig `yaml:"peers"`
+}
+
 type Peer struct {
 	Config PeerConfig
 	Mu     *sync.Mutex
