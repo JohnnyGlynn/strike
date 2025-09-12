@@ -107,10 +107,18 @@ func main() {
 
 	orchestrator := server.NewFederationOrchestrator(federationPeers)
 
+	//TODO: clean this up
+	key, err := keys.GetKeyFromPath(serverCfg.SigningPublicKeyPath)
+	if err != nil {
+		return
+	}
+
+	id := server.DeriveServerID(key)
+
 	strikeServerConfig := &server.StrikeServer{
 		Name: serverCfg.ServerName,
 		//TODO: Persistent identity
-		ID:          uuid.New(),
+		ID:          uuid.MustParse(id),
 		DBpool:      pool,
 		PStatements: statements,
 		Federation:  orchestrator,
