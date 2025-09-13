@@ -1,6 +1,10 @@
 {
-  "server_name": "endpoint0",
-  "private_server_signing_key_path": "~/.strike-server/strike_server.pem",
-  "public_server_signing_key_path": "~/.strike-server/strike_server_public.pem",
-  "certificate_path": "~/.strike-server/strike_server.crt"
+  "id": "fingerprint-of-public-key"
+  "name": "endpoint0"
+  "addr": "endpoint0.strike.svc.cluster.local:8080"
+  "keys": {
+    "private_server_signing_key_path": "~/.strike-server/strike_server.pem",
+    "public_server_signing_key_path": "~/.strike-server/strike_server_public.pem",
+    "certificate_path": "~/.strike-server/strike_server.crt"
+  }
 }

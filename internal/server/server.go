@@ -2,8 +2,6 @@ package server
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"log"
 	"sync"
@@ -378,7 +376,4 @@ func (s *StrikeServer) PayloadStream(user *common_pb.UserInfo, stream pb.Strike_
 	}
 }
 
-func DeriveServerID(pub []byte) string {
-	di := sha256.Sum256(pub)
-	return hex.EncodeToString(di[:16])
-}
+
