@@ -13,6 +13,7 @@ type ServerConfig struct {
 	SigningPublicKeyPath  string `json:"public_server_signing_key_path" yaml:"public_server_signing_key_path"`
 	CertificatePath       string `json:"certificate_path" yaml:"certificate_path"`
 	FederationPeers       string `json:"federation_peers" yaml:"federation_peers"`
+	IdentityFile          string `json:"id_file" yaml:"id_file"`
 }
 
 type ClientConfig struct {
@@ -30,6 +31,7 @@ func LoadServerConfigEnv() *ServerConfig {
 		SigningPublicKeyPath:  os.Getenv("PUBLIC_SERVER_SIGNING_KEY_PATH"),
 		CertificatePath:       os.Getenv("CERT_PATH"),
 		FederationPeers:       os.Getenv("FEDERATION_PEERS"),
+		IdentityFile:          os.Getenv("IDENTITY_FILE"),
 	}
 }
 
@@ -89,6 +91,7 @@ func (c *ServerConfig) ValidateConfig() error {
 		"public_server_signing_key_path":  &c.SigningPublicKeyPath,
 		"certificate_path":                &c.CertificatePath,
 		"federation_peers":                &c.FederationPeers,
+		"id_file":                         &c.IdentityFile,
 	})
 }
 
@@ -109,6 +112,7 @@ func (c *ServerConfig) ValidateEnv() error {
 		"PUBLIC_SERVER_SIGNING_KEY_PATH":  &c.SigningPublicKeyPath,
 		"CERT_PATH":                       &c.CertificatePath,
 		"FEDERATION_PEERS":                &c.FederationPeers,
+		"IDENTITY_FILE":                   &c.IdentityFile,
 	})
 }
 

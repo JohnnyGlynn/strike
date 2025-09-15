@@ -116,7 +116,7 @@ func main() {
 	id := server.DeriveServerID(key)
 
 	strikeServerConfig := &server.StrikeServer{
-		Name: serverCfg.ServerName,
+		Name: "name_from_id_file",
 		//TODO: Persistent identity
 		ID:          uuid.MustParse(id),
 		DBpool:      pool,
