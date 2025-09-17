@@ -28,36 +28,15 @@ func InitID(svrCfg config.ServerConfig, idCfg string) (*Identity, error) {
     if err != nil {
       return nil, err
     }
-
-    keyBytes, err := keys.GetKeyFromPath(svrCfg.SigningPublicKeyPath)
-    if err != nil {
-      return nil, err
-    }
-
-    fingerprint := DeriveServerID(keyBytes)
-
-    id := &Identity{
-      ID:   fingerprint,
-      Name: "MAKE-CONFIGURABLE",
-    }
-
-
-    writes, err := json.Marshal(id)
-    if err != nil {
-      return nil, err
-    }
-
-    //Json path
-    err = os.WriteFile(idCfg, writes, 0600)
-    if err != nil {
-      return nil, err
-    }
-
-    return id, nil
-
   }
 
-	//If an existing id config has been created
+  keyBytes, err := keys.GetKeyFromPath(svrCfg.SigningPublicKeyPath)
+  if err != nil {
+    return nil, err
+  }
+
+  fingerprint := DeriveServerID(keyBytes)
+
 	if _, err := os.Stat(idCfg); err == nil {
 		file, err := os.ReadFile(idCfg)
 		if err != nil {
@@ -68,10 +47,32 @@ func InitID(svrCfg config.ServerConfig, idCfg string) (*Identity, error) {
 		if err := json.Unmarshal(file, &id); err != nil {
 			return nil, err
 		}
+
+    if id.ID != fingerprint {
+      return nil, fmt.Errorf("identity mismatch")
+    }
 		return &id, nil
 	}
 
-  return &Identity{}, nil
+  id := &Identity{
+    ID:   fingerprint,
+    Name: "MAKE-CONFIGURABLE",
+  }
+
+
+  writes, err := json.Marshal(id)
+  if err != nil {
+    return nil, err
+  }
+
+  //Json path
+  err = os.WriteFile(idCfg, writes, 0600)
+  if err != nil {
+    return nil, err
+  }
+
+  return id, nil
+
 }
 
 func DeriveServerID(pub []byte) string {
