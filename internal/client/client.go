@@ -14,6 +14,7 @@ import (
 	"github.com/JohnnyGlynn/strike/internal/client/network"
 	"github.com/JohnnyGlynn/strike/internal/client/types"
 	"github.com/JohnnyGlynn/strike/internal/shared"
+	common_pb "github.com/JohnnyGlynn/strike/msgdef/common"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 	"github.com/google/uuid"
 
@@ -22,7 +23,7 @@ import (
 
 func ConnectPayloadStream(ctx context.Context, c *types.Client) error {
 	// Pass your own username to register your stream
-	stream, err := c.PBC.PayloadStream(ctx, &pb.UserInfo{
+	stream, err := c.PBC.PayloadStream(ctx, &common_pb.UserInfo{
 		Username:            c.Identity.Username,
 		UserId:              c.Identity.ID.String(),
 		EncryptionPublicKey: c.Identity.Keys["EncryptionPublicKey"],
@@ -105,7 +106,7 @@ func Login(c *types.Client, password string) error {
 
 	localIdentity := false
 
-	salt, err := c.PBC.SaltMine(ctx, &pb.UserInfo{Username: c.Identity.Username})
+	salt, err := c.PBC.SaltMine(ctx, &common_pb.UserInfo{Username: c.Identity.Username})
 	if err != nil {
 		log.Printf("Salt retrieval failed: %v\n", err)
 		return err
@@ -141,7 +142,7 @@ func Login(c *types.Client, password string) error {
 
 	if !localIdentity {
 
-		dbsync, err := c.PBC.UserRequest(context.TODO(), &pb.UserInfo{Username: c.Identity.Username})
+		dbsync, err := c.PBC.UserRequest(context.TODO(), &common_pb.UserInfo{Username: c.Identity.Username})
 		if err != nil {
 			log.Printf("error syncing: %v\n", err)
 			return err
@@ -167,7 +168,7 @@ func SendMessage(c *types.Client, message string) error {
 		return err
 	}
 
-	encenv := pb.EncryptedEnvelope{
+	encenv := common_pb.EncryptedEnvelope{
 		SenderPublicKey:  c.Identity.Keys["SigningPublicKey"],
 		SentAt:           timestamppb.Now(),
 		FromUser:         c.Identity.ID.String(),
@@ -197,11 +198,11 @@ func SendMessage(c *types.Client, message string) error {
 	return nil
 }
 
-func FriendRequest(ctx context.Context, c *types.Client, target *pb.UserInfo) error {
+func FriendRequest(ctx context.Context, c *types.Client, target *common_pb.UserInfo) error {
 
 	req := pb.FriendRequest{
 		Target: target.UserId,
-		UserInfo: &pb.UserInfo{
+		UserInfo: &common_pb.UserInfo{
 			Username:            c.Identity.Username,
 			UserId:              c.Identity.ID.String(),
 			EncryptionPublicKey: c.Identity.Keys["EncryptionPublicKey"],
@@ -236,7 +237,7 @@ func FriendResponse(ctx context.Context, c *types.Client, friendReq *pb.FriendRe
 
 	res := pb.FriendResponse{
 		Target: friendReq.UserInfo.UserId,
-		UserInfo: &pb.UserInfo{
+		UserInfo: &common_pb.UserInfo{
 			Username:            c.Identity.Username,
 			UserId:              c.Identity.ID.String(),
 			EncryptionPublicKey: c.Identity.Keys["EncryptionPublicKey"],
@@ -278,7 +279,7 @@ func FriendResponse(ctx context.Context, c *types.Client, friendReq *pb.FriendRe
 func RegisterStatus(c *types.Client) error {
 
 	//TODO:Messy
-	userInfo := pb.UserInfo{
+	userInfo := common_pb.UserInfo{
 		Username:            c.Identity.Username,
 		UserId:              c.Identity.ID.String(),
 		EncryptionPublicKey: c.Identity.Keys["EncryptionPublicKey"],
@@ -303,7 +304,7 @@ func RegisterStatus(c *types.Client) error {
 
 }
 
-func GetActiveUsers(c *types.Client, uinfo *pb.UserInfo) (*pb.Users, error) {
+func GetActiveUsers(c *types.Client, uinfo *common_pb.UserInfo) (*common_pb.Users, error) {
 	activeUsers, err := c.PBC.OnlineUsers(context.TODO(), uinfo)
 	if err != nil {
 		log.Printf("error getting active users: %v\n", err)
@@ -314,7 +315,7 @@ func GetActiveUsers(c *types.Client, uinfo *pb.UserInfo) (*pb.Users, error) {
 }
 
 func PollServer(c *types.Client) (*pb.ServerInfo, error) {
-	sInfo, err := c.PBC.PollServer(context.TODO(), &pb.UserInfo{
+	sInfo, err := c.PBC.PollServer(context.TODO(), &common_pb.UserInfo{
 		Username:            c.Identity.Username,
 		UserId:              c.Identity.ID.String(),
 		EncryptionPublicKey: c.Identity.Keys["EncryptionPublicKey"],

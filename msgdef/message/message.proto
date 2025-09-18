@@ -34,7 +34,7 @@ service Strike {
 message ServerInfo {
   string server_id = 1;
   string server_name = 2;
-  common.Users users = 3;
+  repeated common.UserInfo users = 3;
 }
 
 //TODO: Getting very verbose here, prune

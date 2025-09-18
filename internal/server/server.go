@@ -304,6 +304,8 @@ func (s *StrikeServer) OnlineUsers(ctx context.Context, userInfo *common_pb.User
 func (s *StrikeServer) PollServer(ctx context.Context, userInfo *common_pb.UserInfo) (*pb.ServerInfo, error) {
 	//TODO: Wait groups?
 	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	users := make([]*common_pb.UserInfo, 0, len(s.Connected))
 	for _, v := range s.Connected {
 		users = append(users, &common_pb.UserInfo{
@@ -314,12 +316,11 @@ func (s *StrikeServer) PollServer(ctx context.Context, userInfo *common_pb.UserI
 		})
 
 	}
-	s.mu.Unlock()
 
 	return &pb.ServerInfo{
 		ServerId:   s.ID.String(),
 		ServerName: s.Name,
-		Users:      &common_pb.Users{Users: users},
+		Users:      users,
 	}, nil
 }
 
@@ -375,5 +376,3 @@ func (s *StrikeServer) PayloadStream(user *common_pb.UserInfo, stream pb.Strike_
 		}
 	}
 }
-
-

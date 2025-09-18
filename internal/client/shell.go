@@ -16,6 +16,7 @@ import (
 	"github.com/JohnnyGlynn/strike/internal/client/crypto"
 	"github.com/JohnnyGlynn/strike/internal/client/network"
 	"github.com/JohnnyGlynn/strike/internal/client/types"
+	common_pb "github.com/JohnnyGlynn/strike/msgdef/common"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 )
 
@@ -229,9 +230,9 @@ func enterChat(c *types.Client, target string) error {
 
 	u := types.User{}
 
-  var targetid string
+	var targetid string
 	idrow := c.DB.ID.GetUID.QueryRowContext(context.TODO(), c.Identity.Username)
-  err := idrow.Scan(&targetid)
+	err := idrow.Scan(&targetid)
 	if err != nil {
 		return err
 	}
@@ -315,7 +316,7 @@ func shellFriendRequests(ctx context.Context, c *types.Client) error {
 		//TODO: reconstructing the freind request like this is messy
 		pbfr := pb.FriendRequest{
 			Target: c.Identity.ID.String(),
-			UserInfo: &pb.UserInfo{
+			UserInfo: &common_pb.UserInfo{
 				UserId:              fr.FriendId.String(),
 				Username:            fr.Username,
 				EncryptionPublicKey: fr.Enckey,
@@ -393,7 +394,7 @@ func FriendList(c *types.Client) error {
 func shellAddFriend(inputReader *bufio.Reader, c *types.Client) error {
 	fmt.Println("Online Users:")
 
-	au, err := GetActiveUsers(c, &pb.UserInfo{
+	au, err := GetActiveUsers(c, &common_pb.UserInfo{
 		Username:            c.Identity.Username,
 		UserId:              c.Identity.ID.String(),
 		EncryptionPublicKey: c.Identity.Keys["EncryptionPublicKey"],
@@ -404,7 +405,7 @@ func shellAddFriend(inputReader *bufio.Reader, c *types.Client) error {
 		return err
 	}
 
-	userList := make([]*pb.UserInfo, 0, len(au.Users))
+	userList := make([]*common_pb.UserInfo, 0, len(au.Users))
 	index := 0
 
 	for _, user := range au.Users {

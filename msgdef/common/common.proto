@@ -31,6 +31,6 @@ message UserInfo {
 }
 
 message Users {
-  repeated common.UserInfo users = 1;
+  repeated UserInfo users = 1;
 }
 
