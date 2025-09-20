@@ -15,6 +15,7 @@ import (
 	"github.com/JohnnyGlynn/strike/internal/server/types"
 	"github.com/JohnnyGlynn/strike/internal/shared"
 	common_pb "github.com/JohnnyGlynn/strike/msgdef/common"
+	"github.com/JohnnyGlynn/strike/msgdef/federation"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 )
 
@@ -83,7 +84,7 @@ func (s *StrikeServer) SendPayload(ctx context.Context, payload *pb.StreamPayloa
 		MessageID: messageID,
 		From:      parsedSender,
 		To:        parsedTarget,
-		Payload:   payload,
+		Payload:   payload.,
 		Created:   time.Now(),
 		Attempts:  3,
 	}
@@ -113,6 +114,7 @@ func (s *StrikeServer) attemptDelivery(messageID uuid.UUID) {
 			return
 		}
 
+    //TODO: Seperate message channels
 		s.mu.Lock()
 		ch, ok2 := s.PayloadChannels[pmsg.To]
 		s.mu.Unlock()
@@ -127,6 +129,24 @@ func (s *StrikeServer) attemptDelivery(messageID uuid.UUID) {
 			//TODO: Timeout case
 		} else {
 			//handle federated delivery
+
+      ack, err := s.Federation.Ping(context.TODO(), pmsg.Destination)
+      if err != nil {
+        return
+      }
+
+      if !ack.Ok {
+        fmt.Println("federation error: no ack")
+      }
+
+      fClient, err := s.Federation.PeerClient(pmsg.Destination)
+      if err != nil {
+        return
+      }
+
+      fClient.RoutePayload(context.TODO(), &federation.FedPayload{
+        Payload: pmsg.Payload,
+      })
 
 			//check for my pending messages destination domain.
 			// s.Federation.peers[pmsg.To]

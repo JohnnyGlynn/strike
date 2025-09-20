@@ -4,7 +4,8 @@ import (
 	"sync"
 	"time"
 
-	pb "github.com/JohnnyGlynn/strike/msgdef/message"
+	"github.com/JohnnyGlynn/strike/msgdef/common"
+	// pb "github.com/JohnnyGlynn/strike/msgdef/message"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 )
@@ -13,7 +14,7 @@ type PendingMsg struct {
 	MessageID   uuid.UUID
 	From        uuid.UUID
 	To          uuid.UUID
-	Payload     *pb.StreamPayload
+	Payload     *common.EncryptedEnvelope
 	Origin      string
 	Destination string
 	Created     time.Time
