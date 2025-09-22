@@ -98,10 +98,6 @@ func (s *StrikeServer) SendPayload(ctx context.Context, payload *pb.StreamPayloa
 
 }
 
-func (s *StrikeServer) RoutePayload(pmsg *types.PendingMsg) (bool, error) {
-	return false, nil
-}
-
 func (s *StrikeServer) attemptDelivery(messageID uuid.UUID) {
 	const maxAttempts = 5
 
@@ -166,7 +162,9 @@ func (s *StrikeServer) attemptDelivery(messageID uuid.UUID) {
 		s.mu.Unlock()
 
 		if att >= maxAttempts {
-			// failure to deliver case
+			//TODO: more than printing
+			fmt.Println("Failed to deliver message")
+			return
 		}
 
 		//sleep

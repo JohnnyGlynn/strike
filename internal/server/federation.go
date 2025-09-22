@@ -15,6 +15,7 @@ import (
 )
 
 type FederationOrchestrator struct {
+  pb.UnimplementedFederationServer
 	peers    map[string]*types.Peer
 	presence map[uuid.UUID]string
 	clients  map[string]pb.FederationClient
@@ -109,4 +110,22 @@ func LoadPeers(path string) ([]types.PeerConfig, error) {
 	}
 
 	return cfg.Peers, nil
+}
+
+func (fo *FederationOrchestrator) RoutePayload(ctx context.Context, fp *pb.FedPayload) (pb.FedAck, error) {
+
+  //Check local or federated again
+
+  //TODO: No panic parser
+  msg := &types.PendingMsg{
+    From: uuid.MustParse(fp.Sender.UInfo.UserId),
+    To: uuid.MustParse(fp.Recipient.UInfo.UserId),
+    Payload: fp.Payload,
+    Attempts: 0,
+    Destination: "local",
+  }
+
+  //handle local delivery (attemptDelivery again?)
+
+	return pb.FedAck{Accepted: true}, nil
 }
