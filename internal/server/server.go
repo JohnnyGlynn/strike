@@ -120,14 +120,9 @@ func (s *StrikeServer) attemptDelivery(messageID uuid.UUID) {
 			out := &pb.StreamPayload{
 				Target:  pmsg.To.String(),
 				Sender:  pmsg.From.String(),
-				Payload: &pb.StreamPayload_Encenv{Encenv: pmsg.Payload}}
+				Payload: &pb.StreamPayload_Encenv{Encenv: pmsg.Payload}
+      }
 
-			select {
-			case ch <- out: //proto.Clone?
-				//TODO: Delivery receipt?
-				fmt.Printf("Delivered: sent to local channel for %s", pmsg.To)
-				return
-			}
 			//TODO: Timeout case
 		} else {
 			//handle federated delivery
@@ -169,6 +164,26 @@ func (s *StrikeServer) attemptDelivery(messageID uuid.UUID) {
 
 		//sleep
 	}
+
+}
+
+func (s *StrikeServer) localDelivery (ctx context.Context, ch chan<- *pb.StreamPayload, pmsg *types.PendingMsg, timeout time.Duration) (bool, error) {
+  out := &pb.StreamPayload{
+    Target:  pmsg.To.String(),
+    Sender:  pmsg.From.String(),
+    Payload: &pb.StreamPayload_Encenv{Encenv: pmsg.Payload}
+  }
+
+  select {
+  case ch <- out: //proto.Clone?
+    //TODO: Delivery receipt?
+    return true, nil
+  case <-time.After(timeout):
+    return false, fmt.Errorf("Delivery timed out")
+  case <-ctx.Done():
+    return false, nil 
+  }
+
 
 }
 
