@@ -92,13 +92,13 @@ func (s *StrikeServer) SendPayload(ctx context.Context, payload *pb.StreamPayloa
 	s.Pending[messageID] = pmsg
 	s.mu.Unlock()
 
-	go s.attemptDelivery(messageID)
+	go s.attemptDelivery(context.TODO(), messageID)
 
 	return &pb.ServerResponse{Success: true, Message: fmt.Sprintf("relay-OK: %s", messageID.String())}, nil
 
 }
 
-func (s *StrikeServer) attemptDelivery(messageID uuid.UUID) {
+func (s *StrikeServer) attemptDelivery(ctx context.Context, messageID uuid.UUID) {
 	const maxAttempts = 5
 
 	for {
@@ -110,80 +110,93 @@ func (s *StrikeServer) attemptDelivery(messageID uuid.UUID) {
 			return
 		}
 
-		//TODO: Seperate message channels
-		s.mu.Lock()
-		ch, ok2 := s.PayloadChannels[pmsg.To]
-		s.mu.Unlock()
+		var delivered bool
+		var err error
 
-		if ok2 && ch != nil {
-
-			out := &pb.StreamPayload{
-				Target:  pmsg.To.String(),
-				Sender:  pmsg.From.String(),
-				Payload: &pb.StreamPayload_Encenv{Encenv: pmsg.Payload}
-      }
-
-			//TODO: Timeout case
+		if ch, ok := s.PayloadChannels[pmsg.To]; ok && ch != nil {
+			delivered, err = s.localDelivery(context.TODO(), ch, pmsg, 0)
+			if err != nil {
+				return
+			}
 		} else {
-			//handle federated delivery
-
-			ack, err := s.Federation.Ping(context.TODO(), pmsg.Destination)
+			delivered, err = s.fedDelivery(context.TODO(), pmsg)
 			if err != nil {
 				return
 			}
-
-			if !ack.Ok {
-				fmt.Println("federation error: no ack")
-			}
-
-			fClient, err := s.Federation.PeerClient(pmsg.Destination)
-			if err != nil {
-				return
-			}
-
-			fClient.RoutePayload(context.TODO(), &federation.FedPayload{
-				Payload: pmsg.Payload,
-			})
-
-			//check for my pending messages destination domain.
-			// s.Federation.peers[pmsg.To]
-			//begin acquiring a client, then sending a grpc message to Federation RoutePayload rpc
-			//Unlock Fedreration and server?
-
 		}
+
+		if delivered {
+			s.mu.Lock()
+			delete(s.Pending, messageID)
+			s.mu.Unlock()
+			fmt.Printf("Delivered: %s -> %s\n", pmsg.From, pmsg.To)
+			return
+		}
+
 		s.mu.Lock()
 		pmsg.Attempts++
 		att := pmsg.Attempts
 		s.mu.Unlock()
 
 		if att >= maxAttempts {
-			//TODO: more than printing
-			fmt.Println("Failed to deliver message")
+			s.mu.Lock()
+			delete(s.Pending, messageID)
+			s.mu.Unlock()
+			fmt.Printf("Delivery failed: %s -> %s attempts=%d\n", pmsg.From, pmsg.To, att)
 			return
 		}
 
-		//sleep
 	}
 
 }
 
-func (s *StrikeServer) localDelivery (ctx context.Context, ch chan<- *pb.StreamPayload, pmsg *types.PendingMsg, timeout time.Duration) (bool, error) {
-  out := &pb.StreamPayload{
-    Target:  pmsg.To.String(),
-    Sender:  pmsg.From.String(),
-    Payload: &pb.StreamPayload_Encenv{Encenv: pmsg.Payload}
-  }
+func (s *StrikeServer) fedDelivery(ctx context.Context, pmsg *types.PendingMsg) (bool, error) {
+	ack, err := s.Federation.Ping(context.TODO(), pmsg.Destination)
+	if err != nil {
+		return false, err
+	}
 
-  select {
-  case ch <- out: //proto.Clone?
-    //TODO: Delivery receipt?
-    return true, nil
-  case <-time.After(timeout):
-    return false, fmt.Errorf("Delivery timed out")
-  case <-ctx.Done():
-    return false, nil 
-  }
+	if !ack.Ok {
+		return false, fmt.Errorf("fed: no ack")
+	}
 
+	fClient, err := s.Federation.PeerClient(pmsg.Destination)
+	if err != nil {
+		return false, err
+	}
+
+	fedAck, err := fClient.RoutePayload(context.TODO(), &federation.FedPayload{
+		Payload: pmsg.Payload,
+	})
+
+	if err != nil {
+		return false, fmt.Errorf("fed: RoutePayload failed")
+	}
+
+	if !fedAck.Accepted {
+		return false, fmt.Errorf("fedAck: not accepted")
+	}
+
+	return true, nil
+
+}
+
+func (s *StrikeServer) localDelivery(ctx context.Context, ch chan<- *pb.StreamPayload, pmsg *types.PendingMsg, timeout time.Duration) (bool, error) {
+	out := &pb.StreamPayload{
+		Target:  pmsg.To.String(),
+		Sender:  pmsg.From.String(),
+		Payload: &pb.StreamPayload_Encenv{Encenv: pmsg.Payload},
+	}
+
+	select {
+	case ch <- out: //proto.Clone?
+		//TODO: Delivery receipt?
+		return true, nil
+	case <-time.After(timeout):
+		return false, fmt.Errorf("Delivery timed out")
+	case <-ctx.Done():
+		return false, nil
+	}
 
 }
 
