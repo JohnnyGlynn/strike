@@ -114,12 +114,12 @@ func (s *StrikeServer) attemptDelivery(ctx context.Context, messageID uuid.UUID)
 		var err error
 
 		if ch, ok := s.PayloadChannels[pmsg.To]; ok && ch != nil {
-			delivered, err = s.localDelivery(context.TODO(), ch, pmsg, 0)
+			delivered, err = s.localDelivery(ctx, ch, pmsg, 0)
 			if err != nil {
 				return
 			}
 		} else {
-			delivered, err = s.fedDelivery(context.TODO(), pmsg)
+			delivered, err = s.fedDelivery(ctx, pmsg)
 			if err != nil {
 				return
 			}
@@ -151,7 +151,7 @@ func (s *StrikeServer) attemptDelivery(ctx context.Context, messageID uuid.UUID)
 }
 
 func (s *StrikeServer) fedDelivery(ctx context.Context, pmsg *types.PendingMsg) (bool, error) {
-	ack, err := s.Federation.Ping(context.TODO(), pmsg.Destination)
+	ack, err := s.Federation.Ping(ctx, pmsg.Destination)
 	if err != nil {
 		return false, err
 	}
@@ -165,7 +165,7 @@ func (s *StrikeServer) fedDelivery(ctx context.Context, pmsg *types.PendingMsg) 
 		return false, err
 	}
 
-	fedAck, err := fClient.RoutePayload(context.TODO(), &federation.FedPayload{
+	fedAck, err := fClient.RoutePayload(ctx, &federation.FedPayload{
 		Payload: pmsg.Payload,
 	})
 
