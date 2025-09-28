@@ -1,15 +1,9 @@
 k8s_yaml('./deploy/k8s/ns.yaml')
 
 local_resource(
-  'strike-namespace',
-  'kubectl apply -f ./deploy/k8s/ns.yaml',
-  deps=['./deploy/k8s/ns.yaml']
-)
-
-local_resource(
   'strike-db-env',
   'kubectl delete secret strike-db-env -n strike --ignore-not-found && kubectl create secret generic strike-db-env --from-env-file=./config/db/env.db --namespace=strike',
-  deps=['./config/env.db', 'strike-namespace']
+  deps=['./config/db/env.db', 'strike-namespace']
 )
 
 local_resource(
