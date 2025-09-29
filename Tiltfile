@@ -1,27 +1,37 @@
 k8s_yaml('./deploy/k8s/ns.yaml')
 
 local_resource(
+  'strike-namespace',
+  'kubectl apply -f ./deploy/k8s/ns.yaml',
+  deps=['./deploy/k8s/ns.yaml']
+)
+
+local_resource(
   'strike-db-env',
   'kubectl delete secret strike-db-env -n strike --ignore-not-found && kubectl create secret generic strike-db-env --from-env-file=./config/db/env.db --namespace=strike',
-  deps=['./config/db/env.db', 'strike-namespace']
+  deps=['./config/db/env.db'],
+  resource_deps=['strike-namespace']
 )
 
 local_resource(
   'strike-server-env',
   'kubectl delete secret strike-server-env -n strike --ignore-not-found && kubectl create secret generic strike-server-env --from-env-file=./config/k8s/server.env --namespace=strike',
-  deps=['./config/k8s/server.env', 'strike-namespace']
+  deps=['./config/k8s/server.env'],
+  resource_deps=['strike-namespace']
 )
 
 local_resource(
   'strike-server-identity',
   'kubectl delete secret strike-server-identity -n strike --ignore-not-found && kubectl create secret generic strike-server-identity --from-file=$HOME/.strike-server --from-file=./config/server/identity.json -n strike',
-  deps=['$HOME/.strike-server/', './config/server/identity.json', 'strike-namespace']
+  deps=['$HOME/.strike-server/', './config/server/identity.json'],
+  resource_deps=['strike-namespace']
 )
 
 local_resource(
   'strike-federation',
   'kubectl delete secret strike-federation -n strike --ignore-not-found && kubectl create secret generic strike-federation --from-file=./config/server -n strike',
-  deps=['./config/server/federation.yaml', 'strike-namespace']
+  deps=['./config/server/federation.yaml'],
+  resource_deps=['strike-namespace']
 )
 
 k8s_yaml([
@@ -44,6 +54,20 @@ docker_build(
   ignore=['build', 'cmd/strike-client', 'internal/client']
 )
 
-k8s_resource('strike-db', port_forwards=5432, resource_deps=['strike-db-env'])
-k8s_resource('strike-server', port_forwards=8080, resource_deps=['strike-server-env', 'strike-db'])
+k8s_resource(
+  'strike-db',
+  port_forwards=5432,
+  resource_deps=['strike-db-env']
+)
+
+k8s_resource(
+  'strike-server',
+  port_forwards=8080,
+  resource_deps=[
+      'strike-server-env',
+      'strike-server-identity',
+      'strike-federation',
+      'strike-db'
+  ]
+)
 
