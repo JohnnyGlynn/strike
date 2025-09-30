@@ -193,7 +193,7 @@ func (s *StrikeServer) localDelivery(ctx context.Context, ch chan<- *pb.StreamPa
 		//TODO: Delivery receipt?
 		return true, nil
 	case <-time.After(timeout):
-		return false, fmt.Errorf("Delivery timed out")
+		return false, fmt.Errorf("delivery timed out")
 	case <-ctx.Done():
 		return false, nil
 	}

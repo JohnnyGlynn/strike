@@ -11,7 +11,6 @@ import (
 	"github.com/JohnnyGlynn/strike/internal/keys"
 )
 
-const idFile = "identity.json"
 
 type Identity struct {
 	ID   string `json:"id"`

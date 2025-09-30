@@ -66,7 +66,7 @@ func (fo *FederationOrchestrator) PeerClient(peerId string) (pb.FederationClient
 
 	peer, ok := fo.peers[peerId]
 	if !ok {
-		return nil, fmt.Errorf("Peer not found: %s", peerId)
+		return nil, fmt.Errorf("peer not found: %s", peerId)
 	}
 
 	conn, err := grpc.NewClient(peer.Config.Address)
