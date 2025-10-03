@@ -11,6 +11,7 @@ import (
 	"github.com/JohnnyGlynn/strike/internal/config"
 	"github.com/JohnnyGlynn/strike/internal/keys"
 	"github.com/JohnnyGlynn/strike/internal/server"
+	fedpb "github.com/JohnnyGlynn/strike/msgdef/federation"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -99,13 +100,13 @@ func main() {
 
 	log.Println("Loaded TLS credentials")
 
-	federationPeers, err := server.LoadPeers(serverCfg.FederationPeers)
-	if err != nil {
-		fmt.Printf("error loading peers: %v", err)
-		return
-	}
+	// federationPeers, err := server.LoadPeers(serverCfg.FederationPeers)
+	// if err != nil {
+	// 	fmt.Printf("error loading peers: %v", err)
+	// 	return
+	// }
 
-	orchestrator := server.NewFederationOrchestrator(federationPeers)
+	// orchestrator := server.NewFederationOrchestrator(federationPeers)
 
 	//TODO: clean this up
 	key, err := keys.GetKeyFromPath(serverCfg.SigningPublicKeyPath)
@@ -121,7 +122,7 @@ func main() {
 		ID:          uuid.MustParse(id),
 		DBpool:      pool,
 		PStatements: statements,
-		Federation:  orchestrator,
+		// Federation:  orchestrator,
 	}
 
 	// GRPC server prep
@@ -142,4 +143,22 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error listening: %v\n", err)
 	}
+
+	lisFed, err := net.Listen("tcp", ":9090")
+	if err != nil {
+		fmt.Println("failed to create federation listener")
+		return
+	}
+
+	fedSrvr := grpc.NewServer()
+	fedpb.RegisterFederationServer(fedSrvr, fedpb.UnimplementedFederationServer{})
+
+	go func() {
+		fmt.Println("federation server: listening on :9090")
+		err = fedSrvr.Serve(lisFed)
+		if err != nil {
+			fmt.Println("failed to start federation server")
+			return
+		}
+	}()
 }

@@ -15,13 +15,12 @@ import (
 )
 
 type FederationOrchestrator struct {
-  pb.UnimplementedFederationServer
 	peers    map[string]*types.Peer
 	presence map[uuid.UUID]string
 	clients  map[string]pb.FederationClient
 	mu       sync.RWMutex
 
-  strike *StrikeServer //backref
+	strike *StrikeServer //backref
 }
 
 // TODO: Load Peers from config
@@ -115,36 +114,35 @@ func LoadPeers(path string) ([]types.PeerConfig, error) {
 }
 
 func (fo *FederationOrchestrator) RoutePayload(ctx context.Context, fp *pb.FedPayload) (*pb.FedAck, error) {
-  if fp == nil || fp.Sender == nil || fp.Recipient == nil {
-    return &pb.FedAck{Accepted: false}, fmt.Errorf("invalid federated payload")
-  }
+	if fp == nil || fp.Sender == nil || fp.Recipient == nil {
+		return &pb.FedAck{Accepted: false}, fmt.Errorf("invalid federated payload")
+	}
 
-  from, err := uuid.Parse(fp.Sender.UInfo.UserId)
-  if err != nil {
-    return &pb.FedAck{Accepted: false}, fmt.Errorf("bad sender id")
-  }
+	from, err := uuid.Parse(fp.Sender.UInfo.UserId)
+	if err != nil {
+		return &pb.FedAck{Accepted: false}, fmt.Errorf("bad sender id")
+	}
 
-  to, err := uuid.Parse(fp.Recipient.UInfo.UserId)
-  if err != nil {
-    return &pb.FedAck{Accepted: false}, fmt.Errorf("bad reciever id")
-  }
+	to, err := uuid.Parse(fp.Recipient.UInfo.UserId)
+	if err != nil {
+		return &pb.FedAck{Accepted: false}, fmt.Errorf("bad reciever id")
+	}
 
-  msgID := uuid.New()//Add to message/pending?
-  pmsg := &types.PendingMsg{
-    From: from,
-    To: to,
-    Payload: fp.Payload,
-    Attempts: 0,
-    Destination: "local",
-  }
+	msgID := uuid.New() //Add to message/pending?
+	pmsg := &types.PendingMsg{
+		From:        from,
+		To:          to,
+		Payload:     fp.Payload,
+		Attempts:    0,
+		Destination: "local",
+	}
 
+	s := fo.strike
+	s.mu.Lock()
+	s.Pending[msgID] = pmsg
+	s.mu.Unlock()
 
-  s := fo.strike
-  s.mu.Lock()
-  s.Pending[msgID] = pmsg
-  s.mu.Unlock()
-
-  go s.attemptDelivery(ctx, msgID)
+	go s.attemptDelivery(ctx, msgID)
 
 	return &pb.FedAck{Accepted: true}, nil
 }
