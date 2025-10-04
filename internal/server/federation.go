@@ -80,6 +80,33 @@ func (fo *FederationOrchestrator) PeerClient(peerId string) (pb.FederationClient
 
 }
 
+func (fo *FederationOrchestrator) ConnectPeers(ctx context.Context) error {
+  for id, peer := range fo.peers {
+    conn, err := grpc.NewClient(peer.Config.Address)
+    if err != nil {
+      fmt.Printf("failed to connect peer %s\n", id)
+      continue  
+    }
+
+
+    client := pb.NewFederationClient(conn)
+
+    fo.mu.Lock()
+	  fo.clients[id] = client
+    fo.mu.Unlock()
+
+    pong, err := client.Ping(ctx, &pb.PingReq{OriginId: fo.strike.ID.String()})
+    if err != nil {
+      return err
+    } else {
+      fmt.Printf("Peer %s: ok=%v", id, pong.Ok)
+    }
+
+  }
+
+  return nil
+}
+
 func (fo *FederationOrchestrator) Ping(ctx context.Context, peerID string) (*pb.PingAck, error) {
 
 	grpcClient, err := fo.PeerClient(peerID)
