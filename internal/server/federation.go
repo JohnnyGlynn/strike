@@ -52,66 +52,46 @@ func (fo *FederationOrchestrator) Lookup(user uuid.UUID) (string, bool) {
 	return origin, ok
 }
 
-func (fo *FederationOrchestrator) PeerClient(peerId string) (pb.FederationClient, error) {
+func (fo *FederationOrchestrator) PeerClient(peerId string) (pb.FederationClient, bool) {
 	fo.mu.RLock()
+	defer fo.mu.RUnlock()
+
 	client, ok := fo.clients[peerId]
-	fo.mu.RUnlock()
-	if ok {
-		return client, nil
-	}
-
-	fo.mu.Lock()
-	defer fo.mu.Unlock()
-
-	peer, ok := fo.peers[peerId]
-	if !ok {
-		return nil, fmt.Errorf("peer not found: %s", peerId)
-	}
-
-	conn, err := grpc.NewClient(peer.Config.Address)
-	if err != nil {
-		return nil, err
-	}
-
-	client = pb.NewFederationClient(conn)
-	fo.clients[peerId] = client
-
-	return client, nil
+	return client, ok
 
 }
 
 func (fo *FederationOrchestrator) ConnectPeers(ctx context.Context) error {
-  for id, peer := range fo.peers {
-    conn, err := grpc.NewClient(peer.Config.Address)
-    if err != nil {
-      fmt.Printf("failed to connect peer %s\n", id)
-      continue  
-    }
+	for id, peer := range fo.peers {
+		conn, err := grpc.NewClient(peer.Config.Address)
+		if err != nil {
+			fmt.Printf("failed to connect peer %s\n", id)
+			continue
+		}
 
+		client := pb.NewFederationClient(conn)
 
-    client := pb.NewFederationClient(conn)
+		fo.mu.Lock()
+		fo.clients[id] = client
+		fo.mu.Unlock()
 
-    fo.mu.Lock()
-	  fo.clients[id] = client
-    fo.mu.Unlock()
+		pong, err := client.Ping(ctx, &pb.PingReq{OriginId: fo.strike.ID.String()})
+		if err != nil {
+			return err
+		} else {
+			fmt.Printf("Peer %s: ok=%v", id, pong.Ok)
+		}
 
-    pong, err := client.Ping(ctx, &pb.PingReq{OriginId: fo.strike.ID.String()})
-    if err != nil {
-      return err
-    } else {
-      fmt.Printf("Peer %s: ok=%v", id, pong.Ok)
-    }
+	}
 
-  }
-
-  return nil
+	return nil
 }
 
 func (fo *FederationOrchestrator) Ping(ctx context.Context, peerID string) (*pb.PingAck, error) {
 
-	grpcClient, err := fo.PeerClient(peerID)
-	if err != nil {
-		return &pb.PingAck{}, err
+	grpcClient, ok := fo.PeerClient(peerID)
+	if !ok {
+		return &pb.PingAck{}, fmt.Errorf("no peer")
 	}
 
 	ack, err := grpcClient.Ping(ctx, &pb.PingReq{
@@ -120,8 +100,6 @@ func (fo *FederationOrchestrator) Ping(ctx context.Context, peerID string) (*pb.
 	if err != nil {
 		return &pb.PingAck{}, err
 	}
-
-	fmt.Printf("Peer %s Acknowledged: %v\n", peerID, ack.Ok)
 
 	return ack, nil
 }
