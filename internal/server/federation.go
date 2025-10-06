@@ -28,12 +28,12 @@ func NewFederationOrchestrator(peers []types.PeerConfig) *FederationOrchestrator
 
 	fo := &FederationOrchestrator{
 		peers:   make(map[string]*types.Peer, len(peers)),
+    presence: make(map[uuid.UUID]string),
 		clients: make(map[string]pb.FederationClient),
 	}
 
 	for _, cfg := range peers {
-		p := &types.Peer{Config: cfg}
-		fo.peers[cfg.ID] = p
+		fo.peers[cfg.ID] = &types.Peer{Config: cfg}
 	}
 
 	return fo

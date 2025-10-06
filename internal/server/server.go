@@ -160,9 +160,9 @@ func (s *StrikeServer) fedDelivery(ctx context.Context, pmsg *types.PendingMsg) 
 		return false, fmt.Errorf("fed: no ack")
 	}
 
-	fClient, err := s.Federation.PeerClient(pmsg.Destination)
-	if err != nil {
-		return false, err
+	fClient, ok := s.Federation.PeerClient(pmsg.Destination)
+	if !ok {
+		return false, fmt.Errorf("failed to retrieve client")
 	}
 
 	fedAck, err := fClient.RoutePayload(ctx, &federation.FedPayload{
