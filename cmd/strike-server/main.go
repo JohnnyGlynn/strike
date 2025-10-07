@@ -100,13 +100,13 @@ func main() {
 
 	log.Println("Loaded TLS credentials")
 
-	// federationPeers, err := server.LoadPeers(serverCfg.FederationPeers)
-	// if err != nil {
-	// 	fmt.Printf("error loading peers: %v", err)
-	// 	return
-	// }
+	federationPeers, err := server.LoadPeers(serverCfg.FederationPeers)
+	if err != nil {
+		fmt.Printf("error loading peers: %v", err)
+		return
+	}
 
-	// orchestrator := server.NewFederationOrchestrator(federationPeers)
+	orchestrator := server.NewFederationOrchestrator(federationPeers)
 
 	//TODO: clean this up
 	key, err := keys.GetKeyFromPath(serverCfg.SigningPublicKeyPath)
@@ -122,7 +122,7 @@ func main() {
 		ID:          uuid.MustParse(id),
 		DBpool:      pool,
 		PStatements: statements,
-		// Federation:  orchestrator,
+		Federation:  orchestrator,
 	}
 
 	// GRPC server prep
