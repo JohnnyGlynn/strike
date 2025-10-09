@@ -42,7 +42,7 @@ k8s_yaml([
 ])
 
 docker_build(
-  'strike_db',
+  'strike-db',
   './',
   dockerfile='deploy/db.Dockerfile',
   ignore=['build', 'cmd', 'internal']

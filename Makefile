@@ -35,15 +35,15 @@ server-run:
 
 .PHONY: db-build
 db-build:
-	docker build -t strike_db -f deploy/db.Dockerfile .
+	docker build -t strike-db -f deploy/db.Dockerfile .
 
 .PHONY: db-run
 db-run:
-	docker run --env-file=./config/db/env.db --name strike_db --network=strikenw -p 5432:5432 localhost/strike_db:latest
+	docker run --env-file=./config/db/env.db --name strike-db --network=strikenw -p 5432:5432 localhost/strike-db:latest
 
 .PHONY: db-start
 db-start:
-	docker start strike_db
+	docker start strike-db
 
 
 .PHONY: bingen

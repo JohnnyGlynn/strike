@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: strike1-db
+  name: strike2-db
   namespace: strike
   labels:
-    app: strike1-db
+    app: strike2-db
 spec:
   selector:
     matchLabels:
-      app: strike1-db
+      app: strike2-db
   template:
     metadata:
       labels:
-        app: strike1-db
+        app: strike2-db
     spec:
       containers:
-      - name: strike1-db
-        image: strike1-db 
+      - name: strike2-db
+        image: strike2-db 
         ports:
         - containerPort: 5432
         envFrom:
