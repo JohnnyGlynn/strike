@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: strike-server1
+  name: strike-server2
   namespace: strike
   labels:
-    app: strike-server1
+    app: strike-server2
 spec:
   selector:
     matchLabels:
-      app: strike-server1
+      app: strike-server2
   template:
     metadata:
       labels:
-        app: strike-server1
+        app: strike-server2
     spec:
       containers:
-      - name: strike-server1
+      - name: strike-server2
         image: strike_server
         ports:
         - containerPort: 8080
