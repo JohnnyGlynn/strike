@@ -37,8 +37,12 @@ local_resource(
 k8s_yaml([
   './deploy/k8s/db.yaml',
   './deploy/k8s/db-svc.yaml',
+  './deploy/k8s/db2.yaml',
+  './deploy/k8s/db2-svc.yaml',
   './deploy/k8s/server.yaml',
   './deploy/k8s/server-svc.yaml',
+  './deploy/k8s/server2.yaml',
+  './deploy/k8s/server2-svc.yaml',
 ])
 
 docker_build(
@@ -55,19 +59,37 @@ docker_build(
 )
 
 k8s_resource(
-  'strike-db',
+  'strike-db-1',
   port_forwards=5432,
   resource_deps=['strike-db-env']
 )
 
 k8s_resource(
-  'strike-server',
+  'strike-server-1',
   port_forwards=8080,
   resource_deps=[
       'strike-server-env',
       'strike-server-identity',
       'strike-federation',
-      'strike-db'
+      'strike-db-1'
   ]
 )
+
+k8s_resource(
+  'strike-db-2',
+  port_forwards=5432,
+  resource_deps=['strike-db-env']
+)
+
+k8s_resource(
+  'strike-server-2',
+  port_forwards=8080,
+  resource_deps=[
+      'strike-server-env',
+      'strike-server-identity',
+      'strike-federation',
+      'strike-db-2'
+  ]
+)
+
 
