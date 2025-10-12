@@ -7,25 +7,50 @@ local_resource(
 )
 
 local_resource(
-  'strike-db-env',
-  'kubectl delete secret strike-db-env -n strike --ignore-not-found && kubectl create secret generic strike-db-env --from-env-file=./config/db/env.db --namespace=strike',
-  deps=['./config/db/env.db'],
+  'strike-db1-env',
+  'kubectl delete secret strike-db1-env -n strike --ignore-not-found && kubectl create secret generic strike-db1-env --from-env-file=./config/db/env1.db --namespace=strike',
+  deps=['./config/db/env1.db'],
+  resource_deps=['strike-namespace']
+)
+
+
+local_resource(
+  'strike-db1-env',
+  'kubectl delete secret strike-db2-env -n strike --ignore-not-found && kubectl create secret generic strike-db2-env --from-env-file=./config/db/env2.db --namespace=strike',
+  deps=['./config/db/env2.db'],
+  resource_deps=['strike-namespace']
+)
+
+
+local_resource(
+  'strike-server1-env',
+  'kubectl delete secret strike-server1-env -n strike --ignore-not-found && kubectl create secret generic strike-server1-env --from-env-file=./config/k8s/server1.env --namespace=strike',
+  deps=['./config/k8s/server1.env'],
+  resource_deps=['strike-namespace']
+)
+
+
+local_resource(
+  'strike-server2-env',
+  'kubectl delete secret strike-server2-env -n strike --ignore-not-found && kubectl create secret generic strike-server2-env --from-env-file=./config/k8s/server2.env --namespace=strike',
+  deps=['./config/k8s/server2.env'],
   resource_deps=['strike-namespace']
 )
 
 local_resource(
-  'strike-server-env',
-  'kubectl delete secret strike-server-env -n strike --ignore-not-found && kubectl create secret generic strike-server-env --from-env-file=./config/k8s/server.env --namespace=strike',
-  deps=['./config/k8s/server.env'],
+  'strike-server1-identity',
+  'kubectl delete secret strike-server1-identity -n strike --ignore-not-found && kubectl create secret generic strike-server1-identity --from-file=$HOME/.strike-server1 --from-file=./config/server/identity1.json -n strike',
+  deps=['$HOME/.strike-server/', './config/server/identity1.json'],
   resource_deps=['strike-namespace']
 )
 
 local_resource(
-  'strike-server-identity',
-  'kubectl delete secret strike-server-identity -n strike --ignore-not-found && kubectl create secret generic strike-server-identity --from-file=$HOME/.strike-server --from-file=./config/server/identity.json -n strike',
-  deps=['$HOME/.strike-server/', './config/server/identity.json'],
+  'strike-server2-identity',
+  'kubectl delete secret strike-server2-identity -n strike --ignore-not-found && kubectl create secret generic strike-server2-identity --from-file=$HOME/.strike-server2 --from-file=./config/server/identity2.json -n strike',
+  deps=['$HOME/.strike-server2/', './config/server/identity2.json'],
   resource_deps=['strike-namespace']
 )
+
 
 local_resource(
   'strike-federation',
