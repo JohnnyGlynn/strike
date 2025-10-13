@@ -15,7 +15,7 @@ local_resource(
 
 
 local_resource(
-  'strike-db1-env',
+  'strike-db2-env',
   'kubectl delete secret strike-db2-env -n strike --ignore-not-found && kubectl create secret generic strike-db2-env --from-env-file=./config/db/env2.db --namespace=strike',
   deps=['./config/db/env2.db'],
   resource_deps=['strike-namespace']
@@ -84,36 +84,36 @@ docker_build(
 )
 
 k8s_resource(
-  'strike-db-1',
+  'strike1-db',
   port_forwards=5432,
-  resource_deps=['strike-db-env']
+  resource_deps=['strike-db1-env']
 )
 
 k8s_resource(
-  'strike-server-1',
+  'strike-server1',
   port_forwards=8080,
   resource_deps=[
-      'strike-server-env',
-      'strike-server-identity',
+      'strike-server1-env',
+      'strike-server1-identity',
       'strike-federation',
-      'strike-db-1'
+      'strike1-db'
   ]
 )
 
 k8s_resource(
-  'strike-db-2',
-  port_forwards=5432,
-  resource_deps=['strike-db-env']
+  'strike2-db',
+  port_forwards=5433,
+  resource_deps=['strike-db2-env']
 )
 
 k8s_resource(
-  'strike-server-2',
-  port_forwards=8080,
+  'strike-server2',
+  port_forwards=8081,
   resource_deps=[
-      'strike-server-env',
-      'strike-server-identity',
+      'strike-server2-env',
+      'strike-server2-identity',
       'strike-federation',
-      'strike-db-2'
+      'strike2-db'
   ]
 )
 

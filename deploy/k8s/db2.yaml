@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: strike2-db
-        image: strike2-db 
+        image: strike-db 
         ports:
         - containerPort: 5432
         envFrom:
