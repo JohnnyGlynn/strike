@@ -71,7 +71,7 @@ func main() {
 	log.Printf("Loaded Server Config: %+v", serverCfg)
 
 	//TODO: Config for connection string
-	pgConfig, err := pgxpool.ParseConfig("postgres://strikeadmin:plaintextisbad@strike-db:5432/strike")
+	pgConfig, err := pgxpool.ParseConfig(serverCfg.DBConnectionString)
 	if err != nil {
 		fmt.Printf("Config parsing failed: %v", err)
 		return

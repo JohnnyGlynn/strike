@@ -14,6 +14,7 @@ type ServerConfig struct {
 	CertificatePath       string `json:"certificate_path" yaml:"certificate_path"`
 	FederationPeers       string `json:"federation_peers" yaml:"federation_peers"`
 	IdentityFile          string `json:"id_file" yaml:"id_file"`
+	DBConnectionString    string `json:"db_connection_string" yaml:"db_connection_string"`
 }
 
 type ClientConfig struct {
@@ -32,6 +33,7 @@ func LoadServerConfigEnv() *ServerConfig {
 		CertificatePath:       os.Getenv("CERT_PATH"),
 		FederationPeers:       os.Getenv("FEDERATION_PEERS"),
 		IdentityFile:          os.Getenv("IDENTITY_FILE"),
+		DBConnectionString:    os.Getenv("DB_CONNECTION_STRING"),
 	}
 }
 
@@ -92,6 +94,7 @@ func (c *ServerConfig) ValidateConfig() error {
 		"certificate_path":                &c.CertificatePath,
 		"federation_peers":                &c.FederationPeers,
 		"id_file":                         &c.IdentityFile,
+		"db_connection_string":            &c.DBConnectionString,
 	})
 }
 
@@ -113,6 +116,7 @@ func (c *ServerConfig) ValidateEnv() error {
 		"CERT_PATH":                       &c.CertificatePath,
 		"FEDERATION_PEERS":                &c.FederationPeers,
 		"IDENTITY_FILE":                   &c.IdentityFile,
+		"DB_CONNECTION_STRING":            &c.DBConnectionString,
 	})
 }
 
