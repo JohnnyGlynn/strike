@@ -21,17 +21,17 @@ spec:
         - containerPort: 8081
         envFrom:
             - secretRef:
-                name: strike-server-env
+                name: strike-server2-env
         volumeMounts:
-            - name: strike-server-identity
+            - name: strike-server2-identity
               mountPath: /etc/strike-server-identity
               readOnly: true
             - name: strike-federation
               mountPath: /etc/strike-federation
       volumes:
-        - name: strike-server-identity
+        - name: strike-server2-identity
           secret:
-            secretName: strike-server-identity
+            secretName: strike-server2-identity
         - name: strike-federation
           secret:
             secretName: strike-federation

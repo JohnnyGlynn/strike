@@ -39,14 +39,14 @@ local_resource(
 
 local_resource(
   'strike-server1-identity',
-  'kubectl delete secret strike-server1-identity -n strike --ignore-not-found && kubectl create secret generic strike-server1-identity --from-file=$HOME/.strike-server1 --from-file=./config/server/identity1.json -n strike',
+  'kubectl delete secret strike-server1-identity -n strike --ignore-not-found && kubectl create secret generic strike-server1-identity --from-file=$HOME/.strike-server --from-file=./config/server/identity1.json -n strike',
   deps=['$HOME/.strike-server/', './config/server/identity1.json'],
   resource_deps=['strike-namespace']
 )
 
 local_resource(
   'strike-server2-identity',
-  'kubectl delete secret strike-server2-identity -n strike --ignore-not-found && kubectl create secret generic strike-server2-identity --from-file=$HOME/.strike-server2 --from-file=./config/server/identity2.json -n strike',
+  'kubectl delete secret strike-server2-identity -n strike --ignore-not-found && kubectl create secret generic strike-server2-identity --from-file=$HOME/.strike-server --from-file=./config/server/identity2.json -n strike',
   deps=['$HOME/.strike-server2/', './config/server/identity2.json'],
   resource_deps=['strike-namespace']
 )

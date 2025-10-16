@@ -21,4 +21,4 @@ spec:
         - containerPort: 5432
         envFrom:
             - secretRef:
-                name: strike-db-env
+                name: strike-db1-env
