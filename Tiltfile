@@ -90,6 +90,12 @@ k8s_resource(
 )
 
 k8s_resource(
+  'strike2-db',
+  port_forwards=5433,
+  resource_deps=['strike-db2-env']
+)
+
+k8s_resource(
   'strike-server1',
   port_forwards=8080,
   resource_deps=[
@@ -99,13 +105,6 @@ k8s_resource(
       'strike1-db'
   ]
 )
-
-k8s_resource(
-  'strike2-db',
-  port_forwards=5433,
-  resource_deps=['strike-db2-env']
-)
-
 k8s_resource(
   'strike-server2',
   port_forwards=8081,
@@ -116,5 +115,4 @@ k8s_resource(
       'strike2-db'
   ]
 )
-
 

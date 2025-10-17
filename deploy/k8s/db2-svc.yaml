@@ -8,4 +8,4 @@ spec:
     app: strike2-db
   ports:
     - port: 5433
-      targetPort: 5433
+      targetPort: 5432
