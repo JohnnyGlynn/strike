@@ -15,11 +15,12 @@ import (
 )
 
 type FederationOrchestrator struct {
-	peers    map[string]*types.Peer
-	presence map[uuid.UUID]string
-	clients  map[string]pb.FederationClient
-	mu       sync.RWMutex
+	peers       map[string]*types.Peer
+	presence    map[uuid.UUID]string
+	clients     map[string]pb.FederationClient
+	connections map[string]*grpc.ClientConn
 
+	mu     sync.RWMutex
 	strike *StrikeServer //backref
 }
 
@@ -27,9 +28,10 @@ type FederationOrchestrator struct {
 func NewFederationOrchestrator(peers []types.PeerConfig) *FederationOrchestrator {
 
 	fo := &FederationOrchestrator{
-		peers:   make(map[string]*types.Peer, len(peers)),
-    presence: make(map[uuid.UUID]string),
-		clients: make(map[string]pb.FederationClient),
+		peers:       make(map[string]*types.Peer, len(peers)),
+		presence:    make(map[uuid.UUID]string),
+		clients:     make(map[string]pb.FederationClient),
+		connections: make(map[string]*grpc.ClientConn),
 	}
 
 	for _, cfg := range peers {
@@ -52,6 +54,18 @@ func (fo *FederationOrchestrator) Lookup(user uuid.UUID) (string, bool) {
 	return origin, ok
 }
 
+func (fo *FederationOrchestrator) Close() {
+	fo.mu.Lock()
+	defer fo.mu.Unlock()
+
+	for id, conn := range fo.connections {
+		if conn != nil {
+			conn.Close()
+			fmt.Printf("Connection with %s closed.", id)
+		}
+	}
+}
+
 func (fo *FederationOrchestrator) PeerClient(peerId string) (pb.FederationClient, bool) {
 	fo.mu.RLock()
 	defer fo.mu.RUnlock()
@@ -62,6 +76,9 @@ func (fo *FederationOrchestrator) PeerClient(peerId string) (pb.FederationClient
 }
 
 func (fo *FederationOrchestrator) ConnectPeers(ctx context.Context) error {
+	fo.mu.Lock()
+	defer fo.mu.Unlock()
+
 	for id, peer := range fo.peers {
 		conn, err := grpc.NewClient(peer.Config.Address)
 		if err != nil {
@@ -73,6 +90,7 @@ func (fo *FederationOrchestrator) ConnectPeers(ctx context.Context) error {
 
 		fo.mu.Lock()
 		fo.clients[id] = client
+		fo.connections[id] = conn
 		fo.mu.Unlock()
 
 		pong, err := client.Ping(ctx, &pb.PingReq{OriginId: fo.strike.ID.String()})

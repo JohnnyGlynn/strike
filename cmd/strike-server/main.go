@@ -161,4 +161,6 @@ func main() {
 			return
 		}
 	}()
+
+	// defer orchestrator.Close()
 }
