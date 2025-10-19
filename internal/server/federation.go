@@ -54,16 +54,22 @@ func (fo *FederationOrchestrator) Lookup(user uuid.UUID) (string, bool) {
 	return origin, ok
 }
 
-func (fo *FederationOrchestrator) Close() {
+func (fo *FederationOrchestrator) Close() error {
 	fo.mu.Lock()
 	defer fo.mu.Unlock()
 
 	for id, conn := range fo.connections {
 		if conn != nil {
-			conn.Close()
+			err := conn.Close()
+			if err != nil {
+				fmt.Printf("failed to closed connection for %s: %v", id, err)
+				return err
+			}
 			fmt.Printf("Connection with %s closed.", id)
 		}
 	}
+
+	return nil
 }
 
 func (fo *FederationOrchestrator) PeerClient(peerId string) (pb.FederationClient, bool) {
