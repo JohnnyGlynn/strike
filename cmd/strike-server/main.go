@@ -139,10 +139,13 @@ func main() {
 	srvr := grpc.NewServer(opts...)
 	pb.RegisterStrikeServer(srvr, strikeServerConfig)
 
-	err = srvr.Serve(lis)
-	if err != nil {
-		fmt.Printf("Error listening: %v\n", err)
-	}
+	go func() {
+		fmt.Println("strike server: listening on :8080")
+		err = srvr.Serve(lis)
+		if err != nil {
+			fmt.Printf("Error listening: %v\n", err)
+		}
+	}()
 
 	lisFed, err := net.Listen("tcp", ":9090")
 	if err != nil {
@@ -153,6 +156,11 @@ func main() {
 	fedSrvr := grpc.NewServer()
 	fedpb.RegisterFederationServer(fedSrvr, fedpb.UnimplementedFederationServer{})
 
+	err = orchestrator.ConnectPeers(context.TODO())
+	if err != nil {
+		fmt.Printf("failed peer connection: %v", err)
+	}
+
 	go func() {
 		fmt.Println("federation server: listening on :9090")
 		err = fedSrvr.Serve(lisFed)
@@ -162,5 +170,7 @@ func main() {
 		}
 	}()
 
-	// defer orchestrator.Close()
+	defer orchestrator.Close()
+
+	select {} //block forever
 }

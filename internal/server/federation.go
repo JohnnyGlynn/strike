@@ -99,6 +99,8 @@ func (fo *FederationOrchestrator) ConnectPeers(ctx context.Context) error {
 		fo.connections[id] = conn
 		fo.mu.Unlock()
 
+		fmt.Printf("Connecting to peer: %s:%s\n", id, peer.Config.Address)
+
 		pong, err := client.Ping(ctx, &pb.PingReq{OriginId: fo.strike.ID.String()})
 		if err != nil {
 			return err
