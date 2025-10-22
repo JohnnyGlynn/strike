@@ -170,7 +170,11 @@ func main() {
 		}
 	}()
 
-	defer orchestrator.Close()
+	defer func() {
+		if err := orchestrator.Close(); err != nil {
+			fmt.Printf("error closing orchestrator connections: %v\n", err)
+		}
+	}()
 
 	select {} //block forever
 }
