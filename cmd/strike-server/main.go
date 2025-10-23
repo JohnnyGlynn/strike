@@ -7,6 +7,8 @@ import (
 	"log"
 	"net"
 	"os"
+  "os/signal"
+  "syscall"
 
 	"github.com/JohnnyGlynn/strike/internal/config"
 	"github.com/JohnnyGlynn/strike/internal/keys"
@@ -27,6 +29,18 @@ func main() {
 	// Avoid shadowing
 	var serverCfg config.ServerConfig
 	var err error
+
+  ctx, cancel := context.WithCancel(context.Background())
+  defer cancel()
+
+
+  sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		s := <-sigCh
+    log.Printf("%s: initiating graceful shutdown", s)
+		cancel()
+	}()
 
 	// TODO: Refactor, replicated from client
 	configFilePath := flag.String("config", "", "Path to configuration JSON file")
@@ -170,11 +184,17 @@ func main() {
 		}
 	}()
 
+
+  <-ctx.Done()
+  fmt.Println("context cancelled")
+
+  pool.Close()
 	defer func() {
 		if err := orchestrator.Close(); err != nil {
 			fmt.Printf("error closing orchestrator connections: %v\n", err)
 		}
 	}()
 
-	select {} //block forever
+
 }
+
