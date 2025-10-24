@@ -24,7 +24,7 @@ spec:
                 name: strike-server1-env
         volumeMounts:
             - name: strike-server1-identity
-              mountPath: /etc/strike-server-identity
+              mountPath: /etc/strike-server1-identity
               readOnly: true
             - name: strike-federation
               mountPath: /etc/strike-federation
