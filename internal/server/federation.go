@@ -141,6 +141,7 @@ func LoadPeers(path string) ([]types.PeerConfig, error) {
 		return nil, err
 	}
 
+  fmt.Printf("cfg: %v\n", cfg)
 
   fmt.Println("Available peers")
   for _, p := range cfg.Peers{

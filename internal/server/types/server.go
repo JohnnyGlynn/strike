@@ -25,7 +25,7 @@ type PeerConfig struct {
 	ID      string `yaml:"id"`
 	Name    string `yaml:"name"`
 	Address string `yaml:"addr"`
-	PubKey  []byte `yaml:"pubkey"`
+	PubKey  string `yaml:"pubkey"`
 	// TLS bool
 	//Cert
 }

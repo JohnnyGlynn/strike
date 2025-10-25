@@ -1,4 +1,4 @@
-federation:
+peers:
   - id: "endpoint0-UUID"
     name: "endpoint0"
     addr: "endpoint1.strike.domain:8443"
