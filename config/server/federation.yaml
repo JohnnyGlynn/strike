@@ -1,10 +1,10 @@
 peers:
   - id: "endpoint0-UUID"
     name: "endpoint0"
-    addr: "endpoint1.strike.domain:8443"
+    addr: "strike-server1:9090"
     pubkey: "signing-key"
     # cert? /
   - id: "federated-server-UUID"
     name: "endpoint1"
-    addr: "federated1.strike.domain:8443"
+    addr: "strike-server2:9090"
     pubkey: "signing-key-federated"

@@ -19,6 +19,7 @@ spec:
         image: strike_server
         ports:
         - containerPort: 8080
+        - containerPort: 9090
         envFrom:
             - secretRef:
                 name: strike-server1-env
