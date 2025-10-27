@@ -9,6 +9,7 @@ import (
 	"github.com/JohnnyGlynn/strike/internal/server/types"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/yaml.v3"
 
 	pb "github.com/JohnnyGlynn/strike/msgdef/federation"
@@ -86,9 +87,10 @@ func (fo *FederationOrchestrator) ConnectPeers(ctx context.Context) error {
 	defer fo.mu.Unlock()
 
 	for id, peer := range fo.peers {
-		conn, err := grpc.NewClient(peer.Config.Address)
+		//TODO: CREDS
+		conn, err := grpc.NewClient(peer.Config.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
-			fmt.Printf("failed to connect peer %s\n", id)
+			fmt.Printf("failed to connect peer %s, err:%v\n", id, err)
 			continue
 		}
 
@@ -105,7 +107,7 @@ func (fo *FederationOrchestrator) ConnectPeers(ctx context.Context) error {
 		if err != nil {
 			return err
 		} else {
-			fmt.Printf("Peer %s: ok=%v", id, pong.Ok)
+			fmt.Printf("Peer %s: ok", pong.AckBy)
 		}
 
 	}
@@ -141,12 +143,12 @@ func LoadPeers(path string) ([]types.PeerConfig, error) {
 		return nil, err
 	}
 
-  fmt.Printf("cfg: %v\n", cfg)
+	fmt.Printf("cfg: %v\n", cfg)
 
-  fmt.Println("Available peers")
-  for _, p := range cfg.Peers{
-    fmt.Printf("%s@%s\n", p.Name, p.Address)
-  } 
+	fmt.Println("Available peers")
+	for _, p := range cfg.Peers {
+		fmt.Printf("%s@%s\n", p.Name, p.Address)
+	}
 
 	return cfg.Peers, nil
 }

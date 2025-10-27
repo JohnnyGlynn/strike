@@ -107,7 +107,7 @@ k8s_resource(
 )
 k8s_resource(
   'strike-server2',
-  port_forwards=8081,
+  port_forwards='8081:8080',
   resource_deps=[
       'strike-server2-env',
       'strike-server2-identity',
