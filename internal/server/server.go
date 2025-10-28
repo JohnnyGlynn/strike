@@ -15,7 +15,7 @@ import (
 	"github.com/JohnnyGlynn/strike/internal/server/types"
 	"github.com/JohnnyGlynn/strike/internal/shared"
 	common_pb "github.com/JohnnyGlynn/strike/msgdef/common"
-	"github.com/JohnnyGlynn/strike/msgdef/federation"
+	// "github.com/JohnnyGlynn/strike/msgdef/federation"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 )
 
@@ -36,7 +36,7 @@ type StrikeServer struct {
 	mu sync.Mutex
 
 	//Federation
-	Federation *FederationOrchestrator
+	// Federation *FederationOrchestrator
 }
 
 func (s *StrikeServer) mapInit() {
@@ -119,10 +119,11 @@ func (s *StrikeServer) attemptDelivery(ctx context.Context, messageID uuid.UUID)
 				return
 			}
 		} else {
-			delivered, err = s.fedDelivery(ctx, pmsg)
-			if err != nil {
-				return
-			}
+			// delivered, err = s.fedDelivery(ctx, pmsg)
+			// if err != nil {
+			// 	return
+			// }
+      fmt.Println("TODO: Attempt federated delivery here")
 		}
 
 		if delivered {
@@ -150,36 +151,36 @@ func (s *StrikeServer) attemptDelivery(ctx context.Context, messageID uuid.UUID)
 
 }
 
-func (s *StrikeServer) fedDelivery(ctx context.Context, pmsg *types.PendingMsg) (bool, error) {
-	ack, err := s.Federation.Ping(ctx, pmsg.Destination)
-	if err != nil {
-		return false, err
-	}
+// func (s *StrikeServer) fedDelivery(ctx context.Context, pmsg *types.PendingMsg) (bool, error) {
+// 	ack, err := s.Federation.Ping(ctx, pmsg.Destination)
+// 	if err != nil {
+// 		return false, err
+// 	}
 
-	if !ack.Ok {
-		return false, fmt.Errorf("fed: no ack")
-	}
+// 	if !ack.Ok {
+// 		return false, fmt.Errorf("fed: no ack")
+// 	}
 
-	fClient, ok := s.Federation.PeerClient(pmsg.Destination)
-	if !ok {
-		return false, fmt.Errorf("failed to retrieve client")
-	}
+// 	fClient, ok := s.Federation.PeerClient(pmsg.Destination)
+// 	if !ok {
+// 		return false, fmt.Errorf("failed to retrieve client")
+// 	}
 
-	fedAck, err := fClient.RoutePayload(ctx, &federation.FedPayload{
-		Payload: pmsg.Payload,
-	})
+// 	fedAck, err := fClient.RoutePayload(ctx, &federation.FedPayload{
+// 		Payload: pmsg.Payload,
+// 	})
 
-	if err != nil {
-		return false, fmt.Errorf("fed: RoutePayload failed")
-	}
+// 	if err != nil {
+// 		return false, fmt.Errorf("fed: RoutePayload failed")
+// 	}
 
-	if !fedAck.Accepted {
-		return false, fmt.Errorf("fedAck: not accepted")
-	}
+// 	if !fedAck.Accepted {
+// 		return false, fmt.Errorf("fedAck: not accepted")
+// 	}
 
-	return true, nil
+// 	return true, nil
 
-}
+// }
 
 func (s *StrikeServer) localDelivery(ctx context.Context, ch chan<- *pb.StreamPayload, pmsg *types.PendingMsg, timeout time.Duration) (bool, error) {
 	out := &pb.StreamPayload{

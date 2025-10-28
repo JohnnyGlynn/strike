@@ -26,13 +26,14 @@ type FederationOrchestrator struct {
 }
 
 // TODO: Load Peers from config
-func NewFederationOrchestrator(peers []types.PeerConfig) *FederationOrchestrator {
+func NewFederationOrchestrator(s *StrikeServer, peers []types.PeerConfig) *FederationOrchestrator {
 
 	fo := &FederationOrchestrator{
 		peers:       make(map[string]*types.Peer, len(peers)),
 		presence:    make(map[uuid.UUID]string),
 		clients:     make(map[string]pb.FederationClient),
 		connections: make(map[string]*grpc.ClientConn),
+    strike: s,
 	}
 
 	for _, cfg := range peers {

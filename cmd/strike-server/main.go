@@ -7,8 +7,8 @@ import (
 	"log"
 	"net"
 	"os"
-  "os/signal"
-  "syscall"
+	"os/signal"
+	"syscall"
 
 	"github.com/JohnnyGlynn/strike/internal/config"
 	"github.com/JohnnyGlynn/strike/internal/keys"
@@ -30,15 +30,14 @@ func main() {
 	var serverCfg config.ServerConfig
 	var err error
 
-  ctx, cancel := context.WithCancel(context.Background())
-  defer cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-
-  sigCh := make(chan os.Signal, 1)
+	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		s := <-sigCh
-    log.Printf("%s: initiating graceful shutdown", s)
+		log.Printf("%s: initiating graceful shutdown", s)
 		cancel()
 	}()
 
@@ -118,8 +117,6 @@ func main() {
 		return
 	}
 
-	orchestrator := server.NewFederationOrchestrator(federationPeers)
-
 	//TODO: clean this up
 	key, err := keys.GetKeyFromPath(serverCfg.SigningPublicKeyPath)
 	if err != nil {
@@ -134,8 +131,10 @@ func main() {
 		ID:          uuid.MustParse(id),
 		DBpool:      pool,
 		PStatements: statements,
-		Federation:  orchestrator,
+		// Federation:  orchestrator,
 	}
+
+	orchestrator := server.NewFederationOrchestrator(strikeServerConfig, federationPeers)
 
 	// GRPC server prep
 	lis, err := net.Listen("tcp", ":8080")
@@ -182,17 +181,14 @@ func main() {
 		}
 	}()
 
+	<-ctx.Done()
+	fmt.Println("context cancelled")
 
-  <-ctx.Done()
-  fmt.Println("context cancelled")
-
-  pool.Close()
+	pool.Close()
 	defer func() {
 		if err := orchestrator.Close(); err != nil {
 			fmt.Printf("error closing orchestrator connections: %v\n", err)
 		}
 	}()
 
-
 }
-
