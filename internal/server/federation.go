@@ -16,6 +16,7 @@ import (
 )
 
 type FederationOrchestrator struct {
+	pb.UnimplementedFederationServer
 	peers       map[string]*types.Peer
 	presence    map[uuid.UUID]string
 	clients     map[string]pb.FederationClient
@@ -33,7 +34,7 @@ func NewFederationOrchestrator(s *StrikeServer, peers []types.PeerConfig) *Feder
 		presence:    make(map[uuid.UUID]string),
 		clients:     make(map[string]pb.FederationClient),
 		connections: make(map[string]*grpc.ClientConn),
-    strike: s,
+		strike:      s,
 	}
 
 	for _, cfg := range peers {
@@ -104,7 +105,7 @@ func (fo *FederationOrchestrator) ConnectPeers(ctx context.Context) error {
 
 		fmt.Printf("Connecting to peer: %s:%s\n", id, peer.Config.Address)
 
-		pong, err := client.Ping(ctx, &pb.PingReq{OriginId: fo.strike.ID.String()})
+		pong, err := client.Ping(ctx, &pb.PingReq{OriginId: fo.strike.ID.String(), DestinationId: peer.Config.ID, DestinationAddr: peer.Config.Address})
 		if err != nil {
 			return err
 		} else {
@@ -116,15 +117,18 @@ func (fo *FederationOrchestrator) ConnectPeers(ctx context.Context) error {
 	return nil
 }
 
-func (fo *FederationOrchestrator) Ping(ctx context.Context, peerID string) (*pb.PingAck, error) {
+func (fo *FederationOrchestrator) Ping(ctx context.Context, pr *pb.PingReq) (*pb.PingAck, error) {
 
-	grpcClient, ok := fo.PeerClient(peerID)
+	grpcClient, ok := fo.PeerClient(pr.DestinationId)
 	if !ok {
 		return &pb.PingAck{}, fmt.Errorf("no peer")
 	}
 
+	//TODO:DRY?
 	ack, err := grpcClient.Ping(ctx, &pb.PingReq{
-		OriginId: "TODO-load-server-id-from-config",
+		OriginId:        "TODO-load-server-id-from-config",
+		DestinationId:   pr.DestinationId,
+		DestinationAddr: pr.DestinationAddr,
 	})
 	if err != nil {
 		return &pb.PingAck{}, err

@@ -16,7 +16,9 @@ service Federation {
 }
 
 message PingReq {
-  string origin_id = 2;
+  string origin_id = 1;
+  string destination_id = 2;
+  string destination_addr = 3;
 }
 
 message PingAck {

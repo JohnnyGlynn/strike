@@ -165,7 +165,7 @@ func main() {
 	}
 
 	fedSrvr := grpc.NewServer()
-	fedpb.RegisterFederationServer(fedSrvr, fedpb.UnimplementedFederationServer{})
+	fedpb.RegisterFederationServer(fedSrvr, orchestrator)
 
 	err = orchestrator.ConnectPeers(context.TODO())
 	if err != nil {
