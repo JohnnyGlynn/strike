@@ -24,7 +24,6 @@ import (
 
 func main() {
 	fmt.Println("Strike Server")
-	ctx := context.Background()
 
 	// Avoid shadowing
 	var serverCfg config.ServerConfig
