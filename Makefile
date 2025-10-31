@@ -29,8 +29,7 @@ server-run:
 	mkdir -p $(BUILD_DIR)/server
 	go build -o $(BUILD_DIR)/server/$(APP_NAME)-server ./cmd/strike-server/main.go
 	cp ./config/server/serverConfig.json ./$(BUILD_DIR)/server/
-	cd $(BUILD_DIR)/server/
-	./$(APP_NAME)-server --config=./serverConfig.json
+	./$(BUILD_DIR)/server/$(APP_NAME)-server --config=./$(BUILD_DIR)/server/serverConfig.json
 
 
 .PHONY: db-build
