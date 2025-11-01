@@ -133,10 +133,8 @@ func main() {
 		// Federation:  orchestrator,
 	}
 
-	orchestrator := server.NewFederationOrchestrator(strikeServerConfig, federationPeers)
-
 	// GRPC server prep
-	lis, err := net.Listen("tcp", ":8080")
+	lis, err := net.Listen("tcp", "0.0.0.0:8080")
 	if err != nil {
 		fmt.Printf("failed to listen: %v", err)
 		return
@@ -150,33 +148,40 @@ func main() {
 	pb.RegisterStrikeServer(srvr, strikeServerConfig)
 
 	go func() {
-		fmt.Println("strike server: listening on :8080")
+		fmt.Println("strike server: listening on 0.0.0.0:8080")
 		err = srvr.Serve(lis)
 		if err != nil {
 			fmt.Printf("Error listening: %v\n", err)
 		}
 	}()
 
-	lisFed, err := net.Listen("tcp", ":9090")
+	orchestrator := server.NewFederationOrchestrator(strikeServerConfig, federationPeers)
+
+	lisFed, err := net.Listen("tcp", "0.0.0.0:9090")
 	if err != nil {
 		fmt.Println("failed to create federation listener")
 		return
 	}
 
 	fedSrvr := grpc.NewServer()
+	if orchestrator == nil {
+		log.Fatal("orchestrator is nil")
+	}
 	fedpb.RegisterFederationServer(fedSrvr, orchestrator)
 
-	err = orchestrator.ConnectPeers(context.TODO())
-	if err != nil {
-		fmt.Printf("failed peer connection: %v", err)
-	}
-
 	go func() {
-		fmt.Println("federation server: listening on :9090")
+		fmt.Println("federation server: listening on 0.0.0.0:9090")
 		err = fedSrvr.Serve(lisFed)
 		if err != nil {
 			fmt.Println("failed to start federation server")
 			return
+		}
+	}()
+
+	go func() {
+		err = orchestrator.ConnectPeers(context.TODO())
+		if err != nil {
+			fmt.Printf("failed peer connection: %v", err)
 		}
 	}()
 
