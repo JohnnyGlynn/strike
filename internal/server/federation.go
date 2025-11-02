@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"sync"
 
@@ -85,32 +86,62 @@ func (fo *FederationOrchestrator) PeerClient(peerId string) (pb.FederationClient
 }
 
 func (fo *FederationOrchestrator) ConnectPeers(ctx context.Context) error {
-	fo.mu.Lock()
-	defer fo.mu.Unlock()
+	fo.mu.RLock()
+	copyPeers := make(map[string]*types.Peer, len(fo.peers))
+	maps.Copy(fo.peers, copyPeers)
+	fo.mu.RUnlock()
 
-	for id, peer := range fo.peers {
-		//TODO: CREDS
-		conn, err := grpc.NewClient(peer.Config.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
-		if err != nil {
-			fmt.Printf("failed to connect peer %s, err:%v\n", id, err)
+	var wg sync.WaitGroup
+	errCh := make(chan error, len(copyPeers))
+
+	for id, peer := range copyPeers {
+
+		if peer.Config.ID == fo.strike.ID.String() {
+			fmt.Println("Federation: skipping self")
 			continue
 		}
 
-		client := pb.NewFederationClient(conn)
+		wg.Add(1)
 
-		fo.mu.Lock()
-		fo.clients[id] = client
-		fo.connections[id] = conn
-		fo.mu.Unlock()
+		go func(id string, peer *types.Peer) {
+			defer wg.Done()
 
-		fmt.Printf("Connecting to peer: %s:%s\n", id, peer.Config.Address)
+			//TODO: CREDS
+			conn, err := grpc.NewClient(peer.Config.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				errCh <- fmt.Errorf("failed to connect peer %s, err:%v\n", id, err)
+				return
+			}
 
-		pong, err := client.Ping(ctx, &pb.PingReq{OriginId: fo.strike.ID.String(), DestinationId: peer.Config.ID, DestinationAddr: peer.Config.Address})
-		if err != nil {
-			return err
-		} else {
+			client := pb.NewFederationClient(conn)
+
+			fo.mu.Lock()
+			fo.clients[id] = client
+			fo.connections[id] = conn
+			fo.mu.Unlock()
+
+			fmt.Printf("Connecting to peer: %s:%s\n", id, peer.Config.Address)
+
+			pong, err := client.Ping(ctx, &pb.PingReq{OriginId: fo.strike.ID.String(), DestinationId: peer.Config.ID, DestinationAddr: peer.Config.Address})
+			if err != nil {
+				errCh <- fmt.Errorf("failed to ping peer %s, err:%v\n", id, err)
+				return
+			}
 			fmt.Printf("Peer %s: ok", pong.AckBy)
-		}
+
+		}(id, peer)
+
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	var errs []error
+	for e := range errCh {
+		errs = append(errs, e)
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("%d peers failed to connect: %v", len(errs), errs)
 
 	}
 
