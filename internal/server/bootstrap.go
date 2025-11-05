@@ -25,6 +25,33 @@ func InitBootstrap(cfg config.ServerConfig) *Bootstrap {
 	return &Bootstrap{Cfg: cfg}
 }
 
+func (b *Bootstrap) InitDb(ctx context.Context) error {
+
+	pgConfig, err := pgxpool.ParseConfig(b.Cfg.DBConnectionString)
+	if err != nil {
+		fmt.Printf("Config parsing failed: %v", err)
+		return err
+	}
+
+	b.DB, err = dbWithRetry(ctx, pgConfig)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("DB connection established...")
+	defer b.DB.Close()
+
+	b.Statements, err = PrepareStatements(ctx, b.DB)
+	if err != nil {
+		fmt.Printf("Failed to prepare statements: %v", err)
+		return err
+	}
+
+	fmt.Println("Prepared statements")
+	return nil
+
+}
+
 func dbWithRetry(ctx context.Context, pgConfig *pgxpool.Config) (*pgxpool.Pool, error) {
 	var pool *pgxpool.Pool
 	var err error
