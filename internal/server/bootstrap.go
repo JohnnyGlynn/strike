@@ -7,6 +7,7 @@ import (
 
 	"github.com/JohnnyGlynn/strike/internal/config"
 	"github.com/JohnnyGlynn/strike/internal/keys"
+	fedpb "github.com/JohnnyGlynn/strike/msgdef/federation"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 
 	"github.com/google/uuid"
@@ -20,7 +21,7 @@ type Bootstrap struct {
 	DB           *pgxpool.Pool
 	Statements   *ServerDB
 	Strike       *StrikeServer
-	Orchestrator FederationOrchestrator
+	Orchestrator *FederationOrchestrator
 	grpcStrike   *grpc.Server
 	grpcFed      *grpc.Server
 }
@@ -111,6 +112,22 @@ func (b *Bootstrap) InitServer(creds credentials.TransportCredentials) error {
 
 	srvr := grpc.NewServer(opts...)
 	pb.RegisterStrikeServer(srvr, b.Strike)
+
+	return nil
+
+}
+
+func (b *Bootstrap) InitFederation(creds credentials.TransportCredentials) error {
+	peers, err := LoadPeers(b.Cfg.FederationPeers)
+	if err != nil {
+		fmt.Printf("error loading peers: %v", err)
+		return err
+	}
+
+	b.Orchestrator = NewFederationOrchestrator(b.Strike, peers)
+
+	fedSrvr := grpc.NewServer()
+	fedpb.RegisterFederationServer(fedSrvr, b.Orchestrator)
 
 	return nil
 
