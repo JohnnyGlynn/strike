@@ -6,9 +6,13 @@ import (
 	"time"
 
 	"github.com/JohnnyGlynn/strike/internal/config"
+	"github.com/JohnnyGlynn/strike/internal/keys"
+	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 type Bootstrap struct {
@@ -84,4 +88,30 @@ func dbWithRetry(ctx context.Context, pgConfig *pgxpool.Config) (*pgxpool.Pool, 
 	return nil, fmt.Errorf("db unavailable: %w", err)
 }
 
-// func (b *Bootstrap)
+func (b *Bootstrap) InitServer(creds credentials.TransportCredentials) error {
+	key, err := keys.GetKeyFromPath(b.Cfg.SigningPublicKeyPath)
+	if err != nil {
+		return err
+	}
+
+	id := DeriveServerID(key)
+
+	b.Strike = &StrikeServer{
+		Name: "strike-server",
+		//TODO: Persistent identity
+		ID:          uuid.MustParse(id),
+		DBpool:      b.DB,
+		PStatements: b.Statements,
+		// Federation:  orchestrator,
+	}
+
+	opts := []grpc.ServerOption{
+		grpc.Creds(creds),
+	}
+
+	srvr := grpc.NewServer(opts...)
+	pb.RegisterStrikeServer(srvr, b.Strike)
+
+	return nil
+
+}
