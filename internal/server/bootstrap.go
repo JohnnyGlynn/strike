@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/JohnnyGlynn/strike/internal/config"
@@ -128,6 +129,50 @@ func (b *Bootstrap) InitFederation(creds credentials.TransportCredentials) error
 
 	fedSrvr := grpc.NewServer()
 	fedpb.RegisterFederationServer(fedSrvr, b.Orchestrator)
+
+	return nil
+
+}
+
+func (b *Bootstrap) Start(ctx context.Context) error {
+
+	go func() {
+		lis, err := net.Listen("tcp", "0.0.0.0:8080")
+		if err != nil {
+			fmt.Printf("failed to listen: %v", err)
+			return
+		}
+
+		fmt.Println("strike server: listening on 0.0.0.0:8080")
+
+		err = b.grpcStrike.Serve(lis)
+		if err != nil {
+			fmt.Printf("Error listening: %v\n", err)
+		}
+	}()
+
+	go func() {
+		lisFed, err := net.Listen("tcp", "0.0.0.0:9090")
+		if err != nil {
+			fmt.Println("failed to create federation listener")
+			return
+		}
+
+		fmt.Println("federation server: listening on 0.0.0.0:9090")
+
+		err = b.grpcFed.Serve(lisFed)
+		if err != nil {
+			fmt.Println("failed to start federation server")
+			return
+		}
+	}()
+
+	go func() {
+		err := b.Orchestrator.ConnectPeers(context.TODO())
+		if err != nil {
+			fmt.Printf("failed peer connection: %v", err)
+		}
+	}()
 
 	return nil
 
