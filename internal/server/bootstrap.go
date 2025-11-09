@@ -168,7 +168,7 @@ func (b *Bootstrap) Start(ctx context.Context) error {
 	}()
 
 	go func() {
-		err := b.Orchestrator.ConnectPeers(context.TODO())
+		err := b.Orchestrator.ConnectPeers(ctx)
 		if err != nil {
 			fmt.Printf("failed peer connection: %v", err)
 		}
@@ -176,4 +176,27 @@ func (b *Bootstrap) Start(ctx context.Context) error {
 
 	return nil
 
+}
+
+func (b *Bootstrap) Stop(ctx context.Context) {
+  
+  fmt.Println("Strike shutting down")
+
+	if b.grpcStrike != nil {
+    fmt.Println("shutdown strike server")
+	}
+
+	if b.grpcFed != nil {
+    fmt.Println("shutdown strike federation server")
+	}
+
+	if b.Orchestrator != nil {
+		_ = b.Orchestrator.Close()
+	}
+
+	if b.DB != nil {
+		b.DB.Close()
+	}
+
+	fmt.Println("Shutdown complete")
 }
