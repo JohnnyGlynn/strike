@@ -8,57 +8,84 @@ package federation;
 option go_package="github.com/JohnnyGlynn/strike/msgdef/federation;federation";
 
 service Federation {
-  // rpc Ping(PingReq) returns (FedAck);
-  rpc Ping(PingReq) returns (PingAck);
-  rpc RoutePayload (FedPayload) returns (FedAck);
-  rpc Ack(FedAck) returns (AckResponse);
-  rpc Presence(Status) returns (stream FedAck);//TODO: Common proto types 
+  rpc Handshake (HandshakeReq) returns (HandshakeAck);
+  rpc Relat (RelayPayload) returns (RelayAck);
 }
 
-message PingReq {
-  string origin_id = 1;
-  string destination_id = 2;
-  string destination_addr = 3;
+message HandshakeReq {
+  string server_id = 1;
+  string server_name = 2;
 }
 
-message PingAck {
-  string ack_by = 1;
-  bool ok = 2;
+message HandshakeAck {
+  bool ok = 1;
+  string server_id = 2;
+  string message = 3;
 }
 
-message Status {
-  //Session??
-  string origin = 1;
-  google.protobuf.Timestamp timestamp = 2;
-  common.UserAddress user = 3;
-}
+message RelayPayload {
+  string envelope_id = 1;
 
-message FedAck {
-  string payload_id = 1;
-  common.UserAddress ack_by = 2;
-  string origin = 3;
-  bool accepted = 4; //accepted by server
-  bool delivered = 5; //delivered to client
-  bool failed = 6; 
-  string info = 7; //info/error
-  google.protobuf.Timestamp timestamp = 8; 
-  bytes pubkey = 9;
-  bytes sig = 10;
-}
-
-message FedPayload {
-  string payload_id = 1;
   common.UserAddress sender = 2;
   common.UserAddress recipient = 3;
-  string origin = 4;
+
+  string origin_server = 4;
+
   common.EncryptedEnvelope payload = 5;
-  bytes nonce = 6;
-  google.protobuf.Timestamp sent_at = 7; 
-  bytes pubkey = 9;
-  bytes sig = 10;
+
+  google.protobuf.Timestamp sent_at = 6;
 }
 
-message AckResponse {
-  bool ok = 1;
-  string message = 2;
+message RelayAck {
+  string envelope_id = 1;
+  bool accepted = 2;
+  string info = 3;
 }
+
+// message PingReq {
+//   string origin_id = 1;
+//   string destination_id = 2;
+//   string destination_addr = 3;
+// }
+
+// message PingAck {
+//   string ack_by = 1;
+//   bool ok = 2;
+// }
+
+// message Status {
+//   //Session??
+//   string origin = 1;
+//   google.protobuf.Timestamp timestamp = 2;
+//   common.UserAddress user = 3;
+// }
+
+// message FedAck {
+//   string payload_id = 1;
+//   common.UserAddress ack_by = 2;
+//   string origin = 3;
+//   bool accepted = 4; //accepted by server
+//   bool delivered = 5; //delivered to client
+//   bool failed = 6; 
+//   string info = 7; //info/error
+//   google.protobuf.Timestamp timestamp = 8; 
+//   bytes pubkey = 9;
+//   bytes sig = 10;
+// }
+
+// message FedPayload {
+//   string payload_id = 1;
+//   common.UserAddress sender = 2;
+//   common.UserAddress recipient = 3;
+//   string origin = 4;
+//   common.EncryptedEnvelope payload = 5;
+//   bytes nonce = 6;
+//   google.protobuf.Timestamp sent_at = 7; 
+//   bytes pubkey = 9;
+//   bytes sig = 10;
+// }
+
+// message AckResponse {
+//   bool ok = 1;
+//   string message = 2;
+// }

@@ -19,21 +19,16 @@ import (
 const _ = grpc.SupportPackageIsVersion8
 
 const (
-	Federation_Ping_FullMethodName         = "/federation.Federation/Ping"
-	Federation_RoutePayload_FullMethodName = "/federation.Federation/RoutePayload"
-	Federation_Ack_FullMethodName          = "/federation.Federation/Ack"
-	Federation_Presence_FullMethodName     = "/federation.Federation/Presence"
+	Federation_Handshake_FullMethodName = "/federation.Federation/Handshake"
+	Federation_Relat_FullMethodName     = "/federation.Federation/Relat"
 )
 
 // FederationClient is the client API for Federation service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type FederationClient interface {
-	// rpc Ping(PingReq) returns (FedAck);
-	Ping(ctx context.Context, in *PingReq, opts ...grpc.CallOption) (*PingAck, error)
-	RoutePayload(ctx context.Context, in *FedPayload, opts ...grpc.CallOption) (*FedAck, error)
-	Ack(ctx context.Context, in *FedAck, opts ...grpc.CallOption) (*AckResponse, error)
-	Presence(ctx context.Context, in *Status, opts ...grpc.CallOption) (Federation_PresenceClient, error)
+	Handshake(ctx context.Context, in *HandshakeReq, opts ...grpc.CallOption) (*HandshakeAck, error)
+	Relat(ctx context.Context, in *RelayPayload, opts ...grpc.CallOption) (*RelayAck, error)
 }
 
 type federationClient struct {
@@ -44,78 +39,32 @@ func NewFederationClient(cc grpc.ClientConnInterface) FederationClient {
 	return &federationClient{cc}
 }
 
-func (c *federationClient) Ping(ctx context.Context, in *PingReq, opts ...grpc.CallOption) (*PingAck, error) {
+func (c *federationClient) Handshake(ctx context.Context, in *HandshakeReq, opts ...grpc.CallOption) (*HandshakeAck, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(PingAck)
-	err := c.cc.Invoke(ctx, Federation_Ping_FullMethodName, in, out, cOpts...)
+	out := new(HandshakeAck)
+	err := c.cc.Invoke(ctx, Federation_Handshake_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *federationClient) RoutePayload(ctx context.Context, in *FedPayload, opts ...grpc.CallOption) (*FedAck, error) {
+func (c *federationClient) Relat(ctx context.Context, in *RelayPayload, opts ...grpc.CallOption) (*RelayAck, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(FedAck)
-	err := c.cc.Invoke(ctx, Federation_RoutePayload_FullMethodName, in, out, cOpts...)
+	out := new(RelayAck)
+	err := c.cc.Invoke(ctx, Federation_Relat_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
-}
-
-func (c *federationClient) Ack(ctx context.Context, in *FedAck, opts ...grpc.CallOption) (*AckResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(AckResponse)
-	err := c.cc.Invoke(ctx, Federation_Ack_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *federationClient) Presence(ctx context.Context, in *Status, opts ...grpc.CallOption) (Federation_PresenceClient, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &Federation_ServiceDesc.Streams[0], Federation_Presence_FullMethodName, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &federationPresenceClient{ClientStream: stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type Federation_PresenceClient interface {
-	Recv() (*FedAck, error)
-	grpc.ClientStream
-}
-
-type federationPresenceClient struct {
-	grpc.ClientStream
-}
-
-func (x *federationPresenceClient) Recv() (*FedAck, error) {
-	m := new(FedAck)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
 }
 
 // FederationServer is the server API for Federation service.
 // All implementations must embed UnimplementedFederationServer
 // for forward compatibility
 type FederationServer interface {
-	// rpc Ping(PingReq) returns (FedAck);
-	Ping(context.Context, *PingReq) (*PingAck, error)
-	RoutePayload(context.Context, *FedPayload) (*FedAck, error)
-	Ack(context.Context, *FedAck) (*AckResponse, error)
-	Presence(*Status, Federation_PresenceServer) error
+	Handshake(context.Context, *HandshakeReq) (*HandshakeAck, error)
+	Relat(context.Context, *RelayPayload) (*RelayAck, error)
 	mustEmbedUnimplementedFederationServer()
 }
 
@@ -123,17 +72,11 @@ type FederationServer interface {
 type UnimplementedFederationServer struct {
 }
 
-func (UnimplementedFederationServer) Ping(context.Context, *PingReq) (*PingAck, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
+func (UnimplementedFederationServer) Handshake(context.Context, *HandshakeReq) (*HandshakeAck, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Handshake not implemented")
 }
-func (UnimplementedFederationServer) RoutePayload(context.Context, *FedPayload) (*FedAck, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RoutePayload not implemented")
-}
-func (UnimplementedFederationServer) Ack(context.Context, *FedAck) (*AckResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Ack not implemented")
-}
-func (UnimplementedFederationServer) Presence(*Status, Federation_PresenceServer) error {
-	return status.Errorf(codes.Unimplemented, "method Presence not implemented")
+func (UnimplementedFederationServer) Relat(context.Context, *RelayPayload) (*RelayAck, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Relat not implemented")
 }
 func (UnimplementedFederationServer) mustEmbedUnimplementedFederationServer() {}
 
@@ -148,79 +91,40 @@ func RegisterFederationServer(s grpc.ServiceRegistrar, srv FederationServer) {
 	s.RegisterService(&Federation_ServiceDesc, srv)
 }
 
-func _Federation_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PingReq)
+func _Federation_Handshake_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandshakeReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(FederationServer).Ping(ctx, in)
+		return srv.(FederationServer).Handshake(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Federation_Ping_FullMethodName,
+		FullMethod: Federation_Handshake_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FederationServer).Ping(ctx, req.(*PingReq))
+		return srv.(FederationServer).Handshake(ctx, req.(*HandshakeReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Federation_RoutePayload_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FedPayload)
+func _Federation_Relat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RelayPayload)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(FederationServer).RoutePayload(ctx, in)
+		return srv.(FederationServer).Relat(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Federation_RoutePayload_FullMethodName,
+		FullMethod: Federation_Relat_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FederationServer).RoutePayload(ctx, req.(*FedPayload))
+		return srv.(FederationServer).Relat(ctx, req.(*RelayPayload))
 	}
 	return interceptor(ctx, in, info, handler)
-}
-
-func _Federation_Ack_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FedAck)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(FederationServer).Ack(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Federation_Ack_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FederationServer).Ack(ctx, req.(*FedAck))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Federation_Presence_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(Status)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(FederationServer).Presence(m, &federationPresenceServer{ServerStream: stream})
-}
-
-type Federation_PresenceServer interface {
-	Send(*FedAck) error
-	grpc.ServerStream
-}
-
-type federationPresenceServer struct {
-	grpc.ServerStream
-}
-
-func (x *federationPresenceServer) Send(m *FedAck) error {
-	return x.ServerStream.SendMsg(m)
 }
 
 // Federation_ServiceDesc is the grpc.ServiceDesc for Federation service.
@@ -231,24 +135,14 @@ var Federation_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*FederationServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Ping",
-			Handler:    _Federation_Ping_Handler,
+			MethodName: "Handshake",
+			Handler:    _Federation_Handshake_Handler,
 		},
 		{
-			MethodName: "RoutePayload",
-			Handler:    _Federation_RoutePayload_Handler,
-		},
-		{
-			MethodName: "Ack",
-			Handler:    _Federation_Ack_Handler,
+			MethodName: "Relat",
+			Handler:    _Federation_Relat_Handler,
 		},
 	},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "Presence",
-			Handler:       _Federation_Presence_Handler,
-			ServerStreams: true,
-		},
-	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "federation/federation.proto",
 }
