@@ -134,6 +134,20 @@ func (b *Bootstrap) InitFederation(creds credentials.TransportCredentials) error
 
 }
 
+func (b *Bootstrap) InitTLS() (credentials.TransportCredentials, error) {
+  creds, err := credentials.NewServerTLSFromFile(
+    b.Cfg.CertificatePath, 
+    b.Cfg.SigningPrivateKeyPath,
+  )
+
+  if err != nil {
+    return nil, err
+  }
+
+  fmt.Println("Loaded TLS creds")
+  return creds, nil
+}
+
 func (b *Bootstrap) Start(ctx context.Context) error {
 
 	go func() {
