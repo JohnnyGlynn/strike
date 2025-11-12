@@ -1,11 +1,12 @@
 package types
 
 import (
+	"crypto/ed25519"
 	"sync"
 	"time"
 
 	"github.com/JohnnyGlynn/strike/msgdef/common"
-	// pb "github.com/JohnnyGlynn/strike/msgdef/message"
+	fedpb "github.com/JohnnyGlynn/strike/msgdef/federation"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 )
@@ -22,16 +23,19 @@ type PendingMsg struct {
 }
 
 type PeerConfig struct {
-	ID      string `yaml:"id"`
-	Name    string `yaml:"name"`
-	Address string `yaml:"addr"`
-	PubKey  string `yaml:"pubkey"`
-	// TLS bool
-	//Cert
+	ID      uuid.UUID         `yaml:"id"`
+	Name    string            `yaml:"name"`
+	Address string            `yaml:"addr"`
+	PubKey  ed25519.PublicKey `yaml:"pubkey"`
 }
 
-type FederationConfig struct {
-	Peers []PeerConfig `yaml:"peers"`
+type PeerRuntime struct {
+	cfg        PeerConfig
+	mu         sync.RWMutex
+	conn       *grpc.ClientConn
+	client     fedpb.FederationClient
+	handshaken bool
+	lastSeen   time.Time
 }
 
 type Peer struct {
@@ -40,4 +44,8 @@ type Peer struct {
 	Conn   *grpc.ClientConn
 
 	LastComms time.Time
+}
+
+type FederationConfig struct {
+	Peers []PeerConfig `yaml:"peers"`
 }
