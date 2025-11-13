@@ -30,12 +30,12 @@ type PeerConfig struct {
 }
 
 type PeerRuntime struct {
-	cfg        PeerConfig
-	mu         sync.RWMutex
-	conn       *grpc.ClientConn
-	client     fedpb.FederationClient
-	handshaken bool
-	lastSeen   time.Time
+	Cfg        PeerConfig
+  Mu         sync.RWMutex
+	Conn       *grpc.ClientConn
+	Client     fedpb.FederationClient
+	Handshaken bool
+  LastSeen   time.Time
 }
 
 type Peer struct {

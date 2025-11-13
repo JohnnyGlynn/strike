@@ -16,6 +16,21 @@ import (
 	pb "github.com/JohnnyGlynn/strike/msgdef/federation"
 )
 
+type PeerManager struct {
+	peers map[string]*types.PeerRuntime
+	mu    sync.RWMutex
+}
+
+func NewPeerManager(cfgs []types.PeerConfig) *PeerManager {
+	pm := &PeerManager{
+		peers: make(map[string]*types.PeerRuntime),
+	}
+	for _, c := range cfgs {
+		pm.peers[c.ID.String()] = &types.PeerRuntime{Cfg: c}
+	}
+	return pm
+}
+
 type FederationOrchestrator struct {
 	pb.UnimplementedFederationServer
 	peers       map[string]*types.Peer
