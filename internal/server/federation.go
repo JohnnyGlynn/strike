@@ -2,15 +2,15 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
-	"maps"
 	"os"
 	"sync"
 
 	"github.com/JohnnyGlynn/strike/internal/server/types"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 	"gopkg.in/yaml.v3"
 
 	pb "github.com/JohnnyGlynn/strike/msgdef/federation"
@@ -100,68 +100,102 @@ func (fo *FederationOrchestrator) PeerClient(peerId string) (pb.FederationClient
 
 }
 
-func (fo *FederationOrchestrator) ConnectPeers(ctx context.Context) error {
-	fo.mu.RLock()
-	copyPeers := make(map[string]*types.Peer, len(fo.peers))
-	maps.Copy(fo.peers, copyPeers)
-	fo.mu.RUnlock()
+func (pm *PeerManager) connectPeer(ctx context.Context, peer *types.PeerRuntime, tlsConf *tls.Config, localID string, localName string) {
 
-	var wg sync.WaitGroup
-	errCh := make(chan error, len(copyPeers))
+	creds := credentials.NewTLS(tlsConf)
 
-	for id, peer := range copyPeers {
-
-		if peer.Config.ID == fo.strike.ID.String() {
-			fmt.Println("Federation: skipping self")
-			continue
-		}
-
-		wg.Add(1)
-
-		go func(id string, peer *types.Peer) {
-			defer wg.Done()
-
-			//TODO: CREDS
-			conn, err := grpc.NewClient(peer.Config.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
-			if err != nil {
-				errCh <- fmt.Errorf("failed to connect peer %s, err:%v\n", id, err)
-				return
-			}
-
-			client := pb.NewFederationClient(conn)
-
-			fo.mu.Lock()
-			fo.clients[id] = client
-			fo.connections[id] = conn
-			fo.mu.Unlock()
-
-			fmt.Printf("Connecting to peer: %s:%s\n", id, peer.Config.Address)
-
-			pong, err := client.Ping(ctx, &pb.PingReq{OriginId: fo.strike.ID.String(), DestinationId: peer.Config.ID, DestinationAddr: peer.Config.Address})
-			if err != nil {
-				errCh <- fmt.Errorf("failed to ping peer %s, err:%v\n", id, err)
-				return
-			}
-			fmt.Printf("Peer %s: ok", pong.AckBy)
-
-		}(id, peer)
-
+	conn, err := grpc.NewClient(peer.Cfg.Address, grpc.WithTransportCredentials(creds))
+	if err != nil {
+		return
 	}
 
-	wg.Wait()
-	close(errCh)
+	client := pb.NewFederationClient(conn)
 
-	var errs []error
-	for e := range errCh {
-		errs = append(errs, e)
+	ack, err := client.Handshake(ctx, &pb.HandshakeReq{
+		ServerId:   localID,
+		ServerName: localName,
+	})
+	if err != nil || !ack.Ok {
+		conn.Close()
+		return
 	}
-	if len(errs) > 0 {
-		return fmt.Errorf("%d peers failed to connect: %v", len(errs), errs)
 
+	peer.Mu.Lock()
+	peer.Conn = conn
+	peer.Client = client
+	peer.Handshaken = true
+	peer.Mu.Unlock()
+}
+
+func (pm *PeerManager) ConnectAll(ctx context.Context, tlsConf *tls.Config, localID string, localName string) error {
+	for _, peer := range pm.peers {
+		go pm.connectPeer(ctx, peer, tlsConf, localID, localName)
 	}
-
 	return nil
 }
+
+// func (fo *FederationOrchestrator) ConnectPeers(ctx context.Context) error {
+// 	fo.mu.RLock()
+// 	copyPeers := make(map[string]*types.Peer, len(fo.peers))
+// 	maps.Copy(fo.peers, copyPeers)
+// 	fo.mu.RUnlock()
+
+// 	var wg sync.WaitGroup
+// 	errCh := make(chan error, len(copyPeers))
+
+// 	for id, peer := range copyPeers {
+
+// 		if peer.Config.ID == fo.strike.ID.String() {
+// 			fmt.Println("Federation: skipping self")
+// 			continue
+// 		}
+
+// 		wg.Add(1)
+
+// 		go func(id string, peer *types.Peer) {
+// 			defer wg.Done()
+
+// 			//TODO: CREDS
+// 			conn, err := grpc.NewClient(peer.Config.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+// 			if err != nil {
+// 				errCh <- fmt.Errorf("failed to connect peer %s, err:%v\n", id, err)
+// 				return
+// 			}
+
+// 			client := pb.NewFederationClient(conn)
+
+// 			fo.mu.Lock()
+// 			fo.clients[id] = client
+// 			fo.connections[id] = conn
+// 			fo.mu.Unlock()
+
+// 			fmt.Printf("Connecting to peer: %s:%s\n", id, peer.Config.Address)
+
+// 			pong, err := client.Ping(ctx, &pb.PingReq{OriginId: fo.strike.ID.String(), DestinationId: peer.Config.ID, DestinationAddr: peer.Config.Address})
+// 			if err != nil {
+// 				errCh <- fmt.Errorf("failed to ping peer %s, err:%v\n", id, err)
+// 				return
+// 			}
+// 			fmt.Printf("Peer %s: ok", pong.AckBy)
+
+// 		}(id, peer)
+
+// 	}
+
+// 	wg.Wait()
+// 	close(errCh)
+
+// 	var errs []error
+// 	for e := range errCh {
+// 		errs = append(errs, e)
+// 	}
+// 	if len(errs) > 0 {
+// 		return fmt.Errorf("%d peers failed to connect: %v", len(errs), errs)
+
+// 	}
+
+// 	return nil
+// }
 
 func (fo *FederationOrchestrator) Ping(ctx context.Context, pr *pb.PingReq) (*pb.PingAck, error) {
 
