@@ -134,6 +134,22 @@ func (pm *PeerManager) ConnectAll(ctx context.Context, tlsConf *tls.Config, loca
 	return nil
 }
 
+func (pm *PeerManager) Client(id string) (pb.FederationClient, bool) {
+	pm.mu.RLock()
+	peer, ok := pm.peers[id]
+	pm.mu.RUnlock()
+	if !ok {
+		return nil, false
+	}
+
+	peer.Mu.RLock()
+	defer peer.Mu.RUnlock()
+	if !peer.Handshaken {
+		return nil, false
+	}
+	return peer.Client, true
+}
+
 // func (fo *FederationOrchestrator) ConnectPeers(ctx context.Context) error {
 // 	fo.mu.RLock()
 // 	copyPeers := make(map[string]*types.Peer, len(fo.peers))
