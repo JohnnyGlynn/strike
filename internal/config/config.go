@@ -12,6 +12,7 @@ type ServerConfig struct {
 	SigningPrivateKeyPath string `json:"private_server_signing_key_path" yaml:"private_server_singing_key_path"`
 	SigningPublicKeyPath  string `json:"public_server_signing_key_path" yaml:"public_server_signing_key_path"`
 	CertificatePath       string `json:"certificate_path" yaml:"certificate_path"`
+	FederationCAPath      string `json:"federation_ca_path" yaml:"federation_ca_path"`
 	FederationPeers       string `json:"federation_peers" yaml:"federation_peers"`
 	IdentityFile          string `json:"id_file" yaml:"id_file"`
 	DBConnectionString    string `json:"db_connection_string" yaml:"db_connection_string"`
@@ -31,6 +32,7 @@ func LoadServerConfigEnv() *ServerConfig {
 		SigningPrivateKeyPath: os.Getenv("PRIVATE_SERVER_SIGNING_KEY_PATH"),
 		SigningPublicKeyPath:  os.Getenv("PUBLIC_SERVER_SIGNING_KEY_PATH"),
 		CertificatePath:       os.Getenv("CERT_PATH"),
+		FederationCAPath:      os.Getenv("FED_CA_PATH"),
 		FederationPeers:       os.Getenv("FEDERATION_PEERS"),
 		IdentityFile:          os.Getenv("IDENTITY_FILE"),
 		DBConnectionString:    os.Getenv("DB_CONNECTION_STRING"),
@@ -92,6 +94,7 @@ func (c *ServerConfig) ValidateConfig() error {
 		"private_server_signing_key_path": &c.SigningPrivateKeyPath,
 		"public_server_signing_key_path":  &c.SigningPublicKeyPath,
 		"certificate_path":                &c.CertificatePath,
+		"federation_ca_path":              &c.FederationCAPath,
 		"federation_peers":                &c.FederationPeers,
 		"id_file":                         &c.IdentityFile,
 		"db_connection_string":            &c.DBConnectionString,
@@ -114,6 +117,7 @@ func (c *ServerConfig) ValidateEnv() error {
 		"PRIVATE_SERVER_SIGNING_KEY_PATH": &c.SigningPrivateKeyPath,
 		"PUBLIC_SERVER_SIGNING_KEY_PATH":  &c.SigningPublicKeyPath,
 		"CERT_PATH":                       &c.CertificatePath,
+		"FED_CA_PATH":                     &c.FederationCAPath,
 		"FEDERATION_PEERS":                &c.FederationPeers,
 		"IDENTITY_FILE":                   &c.IdentityFile,
 		"DB_CONNECTION_STRING":            &c.DBConnectionString,

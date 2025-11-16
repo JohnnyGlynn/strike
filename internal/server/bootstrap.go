@@ -2,8 +2,11 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net"
+	"os"
 	"time"
 
 	"github.com/JohnnyGlynn/strike/internal/config"
@@ -134,18 +137,49 @@ func (b *Bootstrap) InitFederation(creds credentials.TransportCredentials) error
 
 }
 
-func (b *Bootstrap) InitTLS() (credentials.TransportCredentials, error) {
-  creds, err := credentials.NewServerTLSFromFile(
-    b.Cfg.CertificatePath, 
-    b.Cfg.SigningPrivateKeyPath,
-  )
+func LoadFederationTLSConfig(
+	certFile string,
+	keyFile string,
+	caFile string,
+) (*tls.Config, error) {
 
-  if err != nil {
-    return nil, err
-  }
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, fmt.Errorf("load cert: %w", err)
+	}
 
-  fmt.Println("Loaded TLS creds")
-  return creds, nil
+	caPEM, err := os.ReadFile(caFile)
+	if err != nil {
+		return nil, fmt.Errorf("read ca: %w", err)
+	}
+
+	caPool := x509.NewCertPool()
+	if !caPool.AppendCertsFromPEM(caPEM) {
+		return nil, fmt.Errorf("invalid CA pem")
+	}
+
+	return &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ClientCAs:    caPool,
+
+		ClientAuth: tls.RequireAndVerifyClientCert,
+
+		MinVersion: tls.VersionTLS13,
+	}, nil
+}
+
+func (b *Bootstrap) InitFederationTLS() (*tls.Config, error) {
+	tlsConf, err := LoadFederationTLSConfig(
+		b.Cfg.CertificatePath,       // server cert
+		b.Cfg.SigningPrivateKeyPath, // server key
+		b.Cfg.FederationCAPath,      // CA that signs peer certs
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println("Loaded federation mTLS config")
+	return tlsConf, nil
 }
 
 func (b *Bootstrap) Start(ctx context.Context) error {
@@ -193,15 +227,15 @@ func (b *Bootstrap) Start(ctx context.Context) error {
 }
 
 func (b *Bootstrap) Stop(ctx context.Context) {
-  
-  fmt.Println("Strike shutting down")
+
+	fmt.Println("Strike shutting down")
 
 	if b.grpcStrike != nil {
-    fmt.Println("shutdown strike server")
+		fmt.Println("shutdown strike server")
 	}
 
 	if b.grpcFed != nil {
-    fmt.Println("shutdown strike federation server")
+		fmt.Println("shutdown strike federation server")
 	}
 
 	if b.Orchestrator != nil {
