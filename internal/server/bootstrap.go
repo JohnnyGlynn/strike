@@ -81,7 +81,7 @@ func dbWithRetry(ctx context.Context, pgConfig *pgxpool.Config) (*pgxpool.Pool, 
 	return nil, fmt.Errorf("db unavailable: %w", err)
 }
 
-func (b *Bootstrap) InitServer(creds credentials.TransportCredentials) error {
+func (b *Bootstrap) InitStrikeServer(creds credentials.TransportCredentials) error {
 	key, err := keys.GetKeyFromPath(b.Cfg.SigningPublicKeyPath)
 	if err != nil {
 		return err
@@ -90,23 +90,18 @@ func (b *Bootstrap) InitServer(creds credentials.TransportCredentials) error {
 	id := DeriveServerID(key)
 
 	b.Strike = &StrikeServer{
-		Name: "strike-server",
-		//TODO: Persistent identity
+		Name:        "strike-server",
 		ID:          uuid.MustParse(id),
 		DBpool:      b.DB,
 		PStatements: b.Statements,
-		// Federation:  orchestrator,
 	}
 
-	opts := []grpc.ServerOption{
+	b.grpcStrike = grpc.NewServer(
 		grpc.Creds(creds),
-	}
+	)
 
-	srvr := grpc.NewServer(opts...)
-	pb.RegisterStrikeServer(srvr, b.Strike)
-
+	pb.RegisterStrikeServer(b.grpcStrike, b.Strike)
 	return nil
-
 }
 
 func (b *Bootstrap) InitFederation(creds credentials.TransportCredentials) error {
