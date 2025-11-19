@@ -120,20 +120,15 @@ func (b *Bootstrap) InitFederation(creds credentials.TransportCredentials) error
 
 }
 
-func LoadFederationTLSConfig(
-	certFile string,
-	keyFile string,
-	caFile string,
-) (*tls.Config, error) {
-
+func LoadFederationTLSConfig(certFile, keyFile, caFile string) (*tls.Config, error) {
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
-		return nil, fmt.Errorf("load cert: %w", err)
+		return nil, err
 	}
 
 	caPEM, err := os.ReadFile(caFile)
 	if err != nil {
-		return nil, fmt.Errorf("read ca: %w", err)
+		return nil, err
 	}
 
 	caPool := x509.NewCertPool()
@@ -144,10 +139,8 @@ func LoadFederationTLSConfig(
 	return &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		ClientCAs:    caPool,
-
-		ClientAuth: tls.RequireAndVerifyClientCert,
-
-		MinVersion: tls.VersionTLS13,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		MinVersion:   tls.VersionTLS13,
 	}, nil
 }
 
