@@ -168,47 +168,71 @@ func (b *Bootstrap) InitFederationTLS() (*tls.Config, error) {
 }
 
 func (b *Bootstrap) Start(ctx context.Context) error {
+	if b.grpcStrike == nil {
+		return fmt.Errorf("grpcStrike not initialized")
+	}
+	if b.grpcFed == nil {
+		return fmt.Errorf("grpcFed not initialized")
+	}
+	if b.Strike == nil {
+		return fmt.Errorf("strike server not initialized")
+	}
+	if b.Strike.PeerMgr == nil {
+		return fmt.Errorf("peer manager not initialized")
+	}
 
 	go func() {
 		lis, err := net.Listen("tcp", "0.0.0.0:8080")
 		if err != nil {
-			fmt.Printf("failed to listen: %v", err)
+			fmt.Printf("strike listen failed: %v\n", err)
 			return
 		}
+		defer lis.Close()
 
-		fmt.Println("strike server: listening on 0.0.0.0:8080")
+		fmt.Println("strike server listening on :8080")
 
-		err = b.grpcStrike.Serve(lis)
-		if err != nil {
-			fmt.Printf("Error listening: %v\n", err)
+		if err := b.grpcStrike.Serve(lis); err != nil {
+			fmt.Printf("strike serve error: %v\n", err)
 		}
 	}()
 
 	go func() {
-		lisFed, err := net.Listen("tcp", "0.0.0.0:9090")
+		lis, err := net.Listen("tcp", "0.0.0.0:9090")
 		if err != nil {
-			fmt.Println("failed to create federation listener")
+			fmt.Printf("federation listen failed: %v\n", err)
 			return
 		}
+		defer lis.Close()
 
-		fmt.Println("federation server: listening on 0.0.0.0:9090")
+		fmt.Println("federation server listening on :9090")
 
-		err = b.grpcFed.Serve(lisFed)
-		if err != nil {
-			fmt.Println("failed to start federation server")
-			return
+		if err := b.grpcFed.Serve(lis); err != nil {
+			fmt.Printf("federation serve error: %v\n", err)
 		}
 	}()
 
 	go func() {
-		err := b.Orchestrator.ConnectPeers(ctx)
+		// federation TLS (mTLS)
+		tlsConf, err := b.InitFederationTLS()
 		if err != nil {
-			fmt.Printf("failed peer connection: %v", err)
+			fmt.Printf("federation TLS init failed: %v\n", err)
+			return
+		}
+
+		localID := b.Strike.ID.String()
+		localName := b.Strike.Name
+
+		if err := b.Strike.PeerMgr.ConnectAll(
+			ctx,
+			tlsConf,
+			localID,
+			localName,
+		); err != nil {
+			fmt.Printf("peer connect failed: %v\n", err)
 		}
 	}()
 
 	return nil
-
 }
 
 func (b *Bootstrap) Stop(ctx context.Context) {

@@ -33,6 +33,8 @@ type StrikeServer struct {
 	PayloadChannels map[uuid.UUID]chan *pb.StreamPayload
 	Pending         map[uuid.UUID]*types.PendingMsg //TODO: Memory constraint
 
+  PeerMgr *PeerManager
+
 	mu sync.Mutex
 
 	//Federation
