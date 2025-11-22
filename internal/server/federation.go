@@ -26,7 +26,9 @@ func NewPeerManager(cfgs []types.PeerConfig) *PeerManager {
 		peers: make(map[string]*types.PeerRuntime),
 	}
 	for _, c := range cfgs {
-		pm.peers[c.ID.String()] = &types.PeerRuntime{Cfg: c}
+		pm.peers[c.ID.String()] = &types.PeerRuntime{
+			Cfg: c,
+		}
 	}
 	return pm
 }
@@ -54,7 +56,7 @@ func NewFederationOrchestrator(s *StrikeServer, peers []types.PeerConfig) *Feder
 	}
 
 	for _, cfg := range peers {
-		fo.peers[cfg.ID] = &types.Peer{Config: cfg}
+		fo.peers[cfg.ID.String()] = &types.Peer{Config: cfg}
 	}
 
 	return fo
