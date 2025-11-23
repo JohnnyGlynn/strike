@@ -129,11 +129,10 @@ func (pm *PeerManager) connectPeer(ctx context.Context, peer *types.PeerRuntime,
 	peer.Mu.Unlock()
 }
 
-func (pm *PeerManager) ConnectAll(ctx context.Context, tlsConf *tls.Config, localID string, localName string) error {
+func (pm *PeerManager) ConnectAll(ctx context.Context, tlsConf *tls.Config, localID string, localName string) {
 	for _, peer := range pm.peers {
 		go pm.connectPeer(ctx, peer, tlsConf, localID, localName)
 	}
-	return nil
 }
 
 func (pm *PeerManager) Client(id string) (pb.FederationClient, bool) {
