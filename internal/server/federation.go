@@ -35,31 +35,20 @@ func NewPeerManager(cfgs []types.PeerConfig) *PeerManager {
 
 type FederationOrchestrator struct {
 	pb.UnimplementedFederationServer
-	peers       map[string]*types.Peer
-	presence    map[uuid.UUID]string
-	clients     map[string]pb.FederationClient
-	connections map[string]*grpc.ClientConn
 
+	peers    *PeerManager
+	presence map[uuid.UUID]string
+
+	strike *StrikeServer
 	mu     sync.RWMutex
-	strike *StrikeServer //backref
 }
 
-// TODO: Load Peers from config
-func NewFederationOrchestrator(s *StrikeServer, peers []types.PeerConfig) *FederationOrchestrator {
-
-	fo := &FederationOrchestrator{
-		peers:       make(map[string]*types.Peer, len(peers)),
-		presence:    make(map[uuid.UUID]string),
-		clients:     make(map[string]pb.FederationClient),
-		connections: make(map[string]*grpc.ClientConn),
-		strike:      s,
+func NewFederationOrchestrator(s *StrikeServer, peerCfgs []types.PeerConfig) *FederationOrchestrator {
+	return &FederationOrchestrator{
+		peers:    NewPeerManager(peerCfgs),
+		presence: make(map[uuid.UUID]string),
+		strike:   s,
 	}
-
-	for _, cfg := range peers {
-		fo.peers[cfg.ID.String()] = &types.Peer{Config: cfg}
-	}
-
-	return fo
 }
 
 func (fo *FederationOrchestrator) UpdatePresence(user uuid.UUID, origin string) {
