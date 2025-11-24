@@ -36,59 +36,13 @@ func NewPeerManager(cfgs []types.PeerConfig) *PeerManager {
 type FederationOrchestrator struct {
 	pb.UnimplementedFederationServer
 
-	peers    *PeerManager
-	presence map[uuid.UUID]string
-
 	strike *StrikeServer
-	mu     sync.RWMutex
 }
 
-func NewFederationOrchestrator(s *StrikeServer, peerCfgs []types.PeerConfig) *FederationOrchestrator {
-	return &FederationOrchestrator{
-		peers:    NewPeerManager(peerCfgs),
-		presence: make(map[uuid.UUID]string),
-		strike:   s,
-	}
-}
-
-func (fo *FederationOrchestrator) UpdatePresence(user uuid.UUID, origin string) {
-	fo.mu.Lock()
-	defer fo.mu.Unlock()
-	fo.presence[user] = origin
-}
-
-func (fo *FederationOrchestrator) Lookup(user uuid.UUID) (string, bool) {
-	fo.mu.RLock()
-	defer fo.mu.RUnlock()
-	origin, ok := fo.presence[user]
-	return origin, ok
-}
-
-func (fo *FederationOrchestrator) Close() error {
-	fo.mu.Lock()
-	defer fo.mu.Unlock()
-
-	for id, conn := range fo.connections {
-		if conn != nil {
-			err := conn.Close()
-			if err != nil {
-				fmt.Printf("failed to closed connection for %s: %v", id, err)
-				return err
-			}
-			fmt.Printf("Connection with %s closed.", id)
-		}
-	}
-
-	return nil
-}
-
-func (fo *FederationOrchestrator) PeerClient(peerId string) (pb.FederationClient, bool) {
-	fo.mu.RLock()
-	defer fo.mu.RUnlock()
-
-	client, ok := fo.clients[peerId]
-	return client, ok
-
+func NewFederationOrchestrator(s *StrikeServer) *FederationOrchestrator {
+  return &FederationOrchestrator{
+    strike: s,
+  }
 }
 
 func (pm *PeerManager) connectPeer(ctx context.Context, peer *types.PeerRuntime, tlsConf *tls.Config, localID string, localName string) {
