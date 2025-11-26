@@ -20,7 +20,7 @@ const _ = grpc.SupportPackageIsVersion8
 
 const (
 	Federation_Handshake_FullMethodName = "/federation.Federation/Handshake"
-	Federation_Relat_FullMethodName     = "/federation.Federation/Relat"
+	Federation_Relay_FullMethodName     = "/federation.Federation/Relay"
 )
 
 // FederationClient is the client API for Federation service.
@@ -28,7 +28,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type FederationClient interface {
 	Handshake(ctx context.Context, in *HandshakeReq, opts ...grpc.CallOption) (*HandshakeAck, error)
-	Relat(ctx context.Context, in *RelayPayload, opts ...grpc.CallOption) (*RelayAck, error)
+	Relay(ctx context.Context, in *RelayPayload, opts ...grpc.CallOption) (*RelayAck, error)
 }
 
 type federationClient struct {
@@ -49,10 +49,10 @@ func (c *federationClient) Handshake(ctx context.Context, in *HandshakeReq, opts
 	return out, nil
 }
 
-func (c *federationClient) Relat(ctx context.Context, in *RelayPayload, opts ...grpc.CallOption) (*RelayAck, error) {
+func (c *federationClient) Relay(ctx context.Context, in *RelayPayload, opts ...grpc.CallOption) (*RelayAck, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RelayAck)
-	err := c.cc.Invoke(ctx, Federation_Relat_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Federation_Relay_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (c *federationClient) Relat(ctx context.Context, in *RelayPayload, opts ...
 // for forward compatibility
 type FederationServer interface {
 	Handshake(context.Context, *HandshakeReq) (*HandshakeAck, error)
-	Relat(context.Context, *RelayPayload) (*RelayAck, error)
+	Relay(context.Context, *RelayPayload) (*RelayAck, error)
 	mustEmbedUnimplementedFederationServer()
 }
 
@@ -75,8 +75,8 @@ type UnimplementedFederationServer struct {
 func (UnimplementedFederationServer) Handshake(context.Context, *HandshakeReq) (*HandshakeAck, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Handshake not implemented")
 }
-func (UnimplementedFederationServer) Relat(context.Context, *RelayPayload) (*RelayAck, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Relat not implemented")
+func (UnimplementedFederationServer) Relay(context.Context, *RelayPayload) (*RelayAck, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Relay not implemented")
 }
 func (UnimplementedFederationServer) mustEmbedUnimplementedFederationServer() {}
 
@@ -109,20 +109,20 @@ func _Federation_Handshake_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Federation_Relat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Federation_Relay_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RelayPayload)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(FederationServer).Relat(ctx, in)
+		return srv.(FederationServer).Relay(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Federation_Relat_FullMethodName,
+		FullMethod: Federation_Relay_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FederationServer).Relat(ctx, req.(*RelayPayload))
+		return srv.(FederationServer).Relay(ctx, req.(*RelayPayload))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -139,8 +139,8 @@ var Federation_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Federation_Handshake_Handler,
 		},
 		{
-			MethodName: "Relat",
-			Handler:    _Federation_Relat_Handler,
+			MethodName: "Relay",
+			Handler:    _Federation_Relay_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

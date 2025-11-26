@@ -9,7 +9,7 @@ option go_package="github.com/JohnnyGlynn/strike/msgdef/federation;federation";
 
 service Federation {
   rpc Handshake (HandshakeReq) returns (HandshakeAck);
-  rpc Relat (RelayPayload) returns (RelayAck);
+  rpc Relay (RelayPayload) returns (RelayAck);
 }
 
 message HandshakeReq {
