@@ -40,9 +40,28 @@ type FederationOrchestrator struct {
 }
 
 func NewFederationOrchestrator(s *StrikeServer) *FederationOrchestrator {
-  return &FederationOrchestrator{
-    strike: s,
-  }
+	return &FederationOrchestrator{
+		strike: s,
+	}
+}
+
+func (fo *FederationOrchestrator) Handshake(
+	ctx context.Context,
+	req *pb.HandshakeReq,
+) (*pb.HandshakeAck, error) {
+
+	if req.ServerId == "" {
+		return &pb.HandshakeAck{
+			Ok:      false,
+			Message: "missing server_id",
+		}, nil
+	}
+
+	return &pb.HandshakeAck{
+		Ok:       true,
+		ServerId: fo.strike.ID.String(),
+		Message:  "handshake accepted",
+	}, nil
 }
 
 func (pm *PeerManager) connectPeer(ctx context.Context, peer *types.PeerRuntime, tlsConf *tls.Config, localID string, localName string) {
