@@ -15,7 +15,7 @@ import (
 	"github.com/JohnnyGlynn/strike/internal/server/types"
 	"github.com/JohnnyGlynn/strike/internal/shared"
 	common_pb "github.com/JohnnyGlynn/strike/msgdef/common"
-	// "github.com/JohnnyGlynn/strike/msgdef/federation"
+	fedpb "github.com/JohnnyGlynn/strike/msgdef/federation"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 )
 
@@ -33,7 +33,7 @@ type StrikeServer struct {
 	PayloadChannels map[uuid.UUID]chan *pb.StreamPayload
 	Pending         map[uuid.UUID]*types.PendingMsg //TODO: Memory constraint
 
-  PeerMgr *PeerManager
+	PeerMgr *PeerManager
 
 	mu sync.Mutex
 
@@ -125,7 +125,7 @@ func (s *StrikeServer) attemptDelivery(ctx context.Context, messageID uuid.UUID)
 			// if err != nil {
 			// 	return
 			// }
-      fmt.Println("TODO: Attempt federated delivery here")
+			fmt.Println("TODO: Attempt federated delivery here")
 		}
 
 		if delivered {
@@ -151,6 +151,35 @@ func (s *StrikeServer) attemptDelivery(ctx context.Context, messageID uuid.UUID)
 
 	}
 
+}
+
+func (s *StrikeServer) EnqueueFederated(ctx context.Context, rp *fedpb.RelayPayload) error {
+	from, err := uuid.Parse(rp.Sender.UInfo.UserId)
+	if err != nil {
+		return fmt.Errorf("invalid sender id")
+	}
+
+	to, err := uuid.Parse(rp.Recipient.UInfo.UserId)
+	if err != nil {
+		return fmt.Errorf("invalid recipient id")
+	}
+
+	msgID := uuid.New()
+
+	s.mu.Lock()
+	s.mapInit()
+	s.Pending[msgID] = &types.PendingMsg{
+		MessageID: msgID,
+		From:      from,
+		To:        to,
+		Payload:   rp.Payload,
+		Created:   time.Now(),
+		Attempts:  0,
+	}
+	s.mu.Unlock()
+
+	go s.attemptDelivery(ctx, msgID)
+	return nil
 }
 
 // func (s *StrikeServer) fedDelivery(ctx context.Context, pmsg *types.PendingMsg) (bool, error) {
