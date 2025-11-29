@@ -64,6 +64,34 @@ func (fo *FederationOrchestrator) Handshake(
 	}, nil
 }
 
+func (fo *FederationOrchestrator) Relay(
+	ctx context.Context,
+	rp *pb.RelayPayload,
+) (*pb.RelayAck, error) {
+
+	if rp == nil || rp.Sender == nil || rp.Recipient == nil {
+		return &pb.RelayAck{
+			EnvelopeId: rp.GetEnvelopeId(),
+			Accepted:   false,
+			Info:       "invalid payload",
+		}, nil
+	}
+
+	if err := fo.strike.EnqueueFederated(ctx, rp); err != nil {
+		return &pb.RelayAck{
+			EnvelopeId: rp.EnvelopeId,
+			Accepted:   false,
+			Info:       err.Error(),
+		}, nil
+	}
+
+	return &pb.RelayAck{
+		EnvelopeId: rp.EnvelopeId,
+		Accepted:   true,
+		Info:       "accepted",
+	}, nil
+}
+
 func (pm *PeerManager) connectPeer(ctx context.Context, peer *types.PeerRuntime, tlsConf *tls.Config, localID string, localName string) {
 
 	creds := credentials.NewTLS(tlsConf)
