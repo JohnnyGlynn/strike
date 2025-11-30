@@ -2,15 +2,14 @@ package server
 
 import (
 	"context"
-	"crypto/tls"
+	// "crypto/tls"
 	"fmt"
 	"os"
 	"sync"
 
 	"github.com/JohnnyGlynn/strike/internal/server/types"
-	"github.com/google/uuid"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
+	// "github.com/google/uuid"
+	// "google.golang.org/grpc"
 	"gopkg.in/yaml.v3"
 
 	pb "github.com/JohnnyGlynn/strike/msgdef/federation"
@@ -143,25 +142,25 @@ func (fo *FederationOrchestrator) Relay(
 // 	return nil
 // }
 
-func (fo *FederationOrchestrator) Ping(ctx context.Context, pr *pb.PingReq) (*pb.PingAck, error) {
+// func (fo *FederationOrchestrator) Ping(ctx context.Context, pr *pb.PingReq) (*pb.PingAck, error) {
 
-	grpcClient, ok := fo.PeerClient(pr.DestinationId)
-	if !ok {
-		return &pb.PingAck{}, fmt.Errorf("no peer")
-	}
+// 	grpcClient, ok := fo.PeerClient(pr.DestinationId)
+// 	if !ok {
+// 		return &pb.PingAck{}, fmt.Errorf("no peer")
+// 	}
 
-	//TODO:DRY?
-	ack, err := grpcClient.Ping(ctx, &pb.PingReq{
-		OriginId:        "TODO-load-server-id-from-config",
-		DestinationId:   pr.DestinationId,
-		DestinationAddr: pr.DestinationAddr,
-	})
-	if err != nil {
-		return &pb.PingAck{}, err
-	}
+// 	//TODO:DRY?
+// 	ack, err := grpcClient.Ping(ctx, &pb.PingReq{
+// 		OriginId:        "TODO-load-server-id-from-config",
+// 		DestinationId:   pr.DestinationId,
+// 		DestinationAddr: pr.DestinationAddr,
+// 	})
+// 	if err != nil {
+// 		return &pb.PingAck{}, err
+// 	}
 
-	return ack, nil
-}
+// 	return ack, nil
+// }
 
 func LoadPeers(path string) ([]types.PeerConfig, error) {
 	peerConfig, err := os.ReadFile(path)
@@ -184,36 +183,36 @@ func LoadPeers(path string) ([]types.PeerConfig, error) {
 	return cfg.Peers, nil
 }
 
-func (fo *FederationOrchestrator) RoutePayload(ctx context.Context, fp *pb.FedPayload) (*pb.FedAck, error) {
-	if fp == nil || fp.Sender == nil || fp.Recipient == nil {
-		return &pb.FedAck{Accepted: false}, fmt.Errorf("invalid federated payload")
-	}
+// func (fo *FederationOrchestrator) RoutePayload(ctx context.Context, fp *pb.FedPayload) (*pb.FedAck, error) {
+// 	if fp == nil || fp.Sender == nil || fp.Recipient == nil {
+// 		return &pb.FedAck{Accepted: false}, fmt.Errorf("invalid federated payload")
+// 	}
 
-	from, err := uuid.Parse(fp.Sender.UInfo.UserId)
-	if err != nil {
-		return &pb.FedAck{Accepted: false}, fmt.Errorf("bad sender id")
-	}
+// 	from, err := uuid.Parse(fp.Sender.UInfo.UserId)
+// 	if err != nil {
+// 		return &pb.FedAck{Accepted: false}, fmt.Errorf("bad sender id")
+// 	}
 
-	to, err := uuid.Parse(fp.Recipient.UInfo.UserId)
-	if err != nil {
-		return &pb.FedAck{Accepted: false}, fmt.Errorf("bad reciever id")
-	}
+// 	to, err := uuid.Parse(fp.Recipient.UInfo.UserId)
+// 	if err != nil {
+// 		return &pb.FedAck{Accepted: false}, fmt.Errorf("bad reciever id")
+// 	}
 
-	msgID := uuid.New() //Add to message/pending?
-	pmsg := &types.PendingMsg{
-		From:        from,
-		To:          to,
-		Payload:     fp.Payload,
-		Attempts:    0,
-		Destination: "local",
-	}
+// 	msgID := uuid.New() //Add to message/pending?
+// 	pmsg := &types.PendingMsg{
+// 		From:        from,
+// 		To:          to,
+// 		Payload:     fp.Payload,
+// 		Attempts:    0,
+// 		Destination: "local",
+// 	}
 
-	s := fo.strike
-	s.mu.Lock()
-	s.Pending[msgID] = pmsg
-	s.mu.Unlock()
+// 	s := fo.strike
+// 	s.mu.Lock()
+// 	s.Pending[msgID] = pmsg
+// 	s.mu.Unlock()
 
-	go s.attemptDelivery(ctx, msgID)
+// 	go s.attemptDelivery(ctx, msgID)
 
-	return &pb.FedAck{Accepted: true}, nil
-}
+// 	return &pb.FedAck{Accepted: true}, nil
+// }
