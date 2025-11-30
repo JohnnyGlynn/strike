@@ -21,18 +21,6 @@ type PeerManager struct {
 	mu    sync.RWMutex
 }
 
-func NewPeerManager(cfgs []types.PeerConfig) *PeerManager {
-	pm := &PeerManager{
-		peers: make(map[string]*types.PeerRuntime),
-	}
-	for _, c := range cfgs {
-		pm.peers[c.ID.String()] = &types.PeerRuntime{
-			Cfg: c,
-		}
-	}
-	return pm
-}
-
 type FederationOrchestrator struct {
 	pb.UnimplementedFederationServer
 
@@ -90,55 +78,6 @@ func (fo *FederationOrchestrator) Relay(
 		Accepted:   true,
 		Info:       "accepted",
 	}, nil
-}
-
-func (pm *PeerManager) connectPeer(ctx context.Context, peer *types.PeerRuntime, tlsConf *tls.Config, localID string, localName string) {
-
-	creds := credentials.NewTLS(tlsConf)
-
-	conn, err := grpc.NewClient(peer.Cfg.Address, grpc.WithTransportCredentials(creds))
-	if err != nil {
-		return
-	}
-
-	client := pb.NewFederationClient(conn)
-
-	ack, err := client.Handshake(ctx, &pb.HandshakeReq{
-		ServerId:   localID,
-		ServerName: localName,
-	})
-	if err != nil || !ack.Ok {
-		conn.Close()
-		return
-	}
-
-	peer.Mu.Lock()
-	peer.Conn = conn
-	peer.Client = client
-	peer.Handshaken = true
-	peer.Mu.Unlock()
-}
-
-func (pm *PeerManager) ConnectAll(ctx context.Context, tlsConf *tls.Config, localID string, localName string) {
-	for _, peer := range pm.peers {
-		go pm.connectPeer(ctx, peer, tlsConf, localID, localName)
-	}
-}
-
-func (pm *PeerManager) Client(id string) (pb.FederationClient, bool) {
-	pm.mu.RLock()
-	peer, ok := pm.peers[id]
-	pm.mu.RUnlock()
-	if !ok {
-		return nil, false
-	}
-
-	peer.Mu.RLock()
-	defer peer.Mu.RUnlock()
-	if !peer.Handshaken {
-		return nil, false
-	}
-	return peer.Client, true
 }
 
 // func (fo *FederationOrchestrator) ConnectPeers(ctx context.Context) error {
