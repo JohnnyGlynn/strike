@@ -20,42 +20,20 @@ import (
 )
 
 type StrikeServer struct {
-	pb.UnimplementedStrikeServer
-
-	DBpool      *pgxpool.Pool
-	PStatements *ServerDB
-	Name        string
-	ID          uuid.UUID
-
-	// TODO: Package the stream better
-	Connected       map[uuid.UUID]*common_pb.UserInfo
-	PayloadStreams  map[uuid.UUID]pb.Strike_PayloadStreamServer
-	PayloadChannels map[uuid.UUID]chan *pb.StreamPayload
-	Pending         map[uuid.UUID]*types.PendingMsg //TODO: Memory constraint
+	ID   uuid.UUID
+	Name string
 
 	PeerMgr *PeerManager
 
-	mu sync.Mutex
-
-	//Federation
-	// Federation *FederationOrchestrator
+	Pending map[uuid.UUID]*types.PendingMsg
+	mu      sync.Mutex
 }
 
 func (s *StrikeServer) mapInit() {
-	if s.Connected == nil {
-		s.Connected = make(map[uuid.UUID]*common_pb.UserInfo)
-	}
-	if s.PayloadChannels == nil {
-		s.PayloadChannels = make(map[uuid.UUID]chan *pb.StreamPayload)
-	}
-	if s.PayloadStreams == nil {
-		s.PayloadStreams = make(map[uuid.UUID]pb.Strike_PayloadStreamServer)
-	}
 	if s.Pending == nil {
 		s.Pending = make(map[uuid.UUID]*types.PendingMsg)
 	}
 }
-
 func (s *StrikeServer) SendPayload(ctx context.Context, payload *pb.StreamPayload) (*pb.ServerResponse, error) {
 
 	if payload == nil {
