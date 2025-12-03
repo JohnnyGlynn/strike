@@ -78,86 +78,55 @@ func (s *StrikeServer) SendPayload(ctx context.Context, payload *pb.StreamPayloa
 
 }
 
-func (s *StrikeServer) attemptDelivery(ctx context.Context, messageID uuid.UUID) {
-	const maxAttempts = 5
+func (s *StrikeServer) attemptDelivery(
+  ctx context.Context,
+  msgID uuid.UUID,
+) {
 
-	for {
-		s.mu.Lock()
-		pmsg, ok := s.Pending[messageID]
-		s.mu.Unlock()
-		if !ok {
-			//not Pending
-			return
-		}
+  s.mu.Lock()
+  pmsg, ok := s.Pending[msgID]
+  s.mu.Unlock()
+  if !ok {
+    return
+  }
 
-		var delivered bool
-		var err error
+  delivered, err := s.fedDelivery(ctx, pmsg)
+  if err != nil || !delivered {
+    return
+  }
 
-		if ch, ok := s.PayloadChannels[pmsg.To]; ok && ch != nil {
-			delivered, err = s.localDelivery(ctx, ch, pmsg, 0)
-			if err != nil {
-				return
-			}
-		} else {
-			// delivered, err = s.fedDelivery(ctx, pmsg)
-			// if err != nil {
-			// 	return
-			// }
-			fmt.Println("TODO: Attempt federated delivery here")
-		}
-
-		if delivered {
-			s.mu.Lock()
-			delete(s.Pending, messageID)
-			s.mu.Unlock()
-			fmt.Printf("Delivered: %s -> %s\n", pmsg.From, pmsg.To)
-			return
-		}
-
-		s.mu.Lock()
-		pmsg.Attempts++
-		att := pmsg.Attempts
-		s.mu.Unlock()
-
-		if att >= maxAttempts {
-			s.mu.Lock()
-			delete(s.Pending, messageID)
-			s.mu.Unlock()
-			fmt.Printf("Delivery failed: %s -> %s attempts=%d\n", pmsg.From, pmsg.To, att)
-			return
-		}
-
-	}
-
+  s.mu.Lock()
+  delete(s.Pending, msgID)
+  s.mu.Unlock()
 }
-
 func (s *StrikeServer) EnqueueFederated(ctx context.Context, rp *fedpb.RelayPayload) error {
-	from, err := uuid.Parse(rp.Sender.UInfo.UserId)
-	if err != nil {
-		return fmt.Errorf("invalid sender id")
-	}
 
-	to, err := uuid.Parse(rp.Recipient.UInfo.UserId)
-	if err != nil {
-		return fmt.Errorf("invalid recipient id")
-	}
+  from, err := uuid.Parse(rp.Sender.UInfo.UserId)
+  if err != nil {
+    return fmt.Errorf("invalid sender id")
+  }
 
-	msgID := uuid.New()
+  to, err := uuid.Parse(rp.Recipient.UInfo.UserId)
+  if err != nil {
+    return fmt.Errorf("invalid recipient id")
+  }
 
-	s.mu.Lock()
-	s.mapInit()
-	s.Pending[msgID] = &types.PendingMsg{
-		MessageID: msgID,
-		From:      from,
-		To:        to,
-		Payload:   rp.Payload,
-		Created:   time.Now(),
-		Attempts:  0,
-	}
-	s.mu.Unlock()
+  msgID := uuid.New()
 
-	go s.attemptDelivery(ctx, msgID)
-	return nil
+  s.mu.Lock()
+  s.mapInit()
+  s.Pending[msgID] = &types.PendingMsg{
+    MessageID: msgID,
+    From:      from,
+    To:        to,
+    Payload:   rp.Payload,
+    Created:   time.Now(),
+    Attempts:  0,
+  }
+  s.mu.Unlock()
+
+  go s.attemptDelivery(ctx, msgID)
+  return nil
 }
 
 // func (s *StrikeServer) fedDelivery(ctx context.Context, pmsg *types.PendingMsg) (bool, error) {
