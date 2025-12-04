@@ -25,8 +25,9 @@ type StrikeServer struct {
 
 	PeerMgr *PeerManager
 
-	Pending map[uuid.UUID]*types.PendingMsg
-	mu      sync.Mutex
+	Pending        map[uuid.UUID]*types.PendingMsg
+	mu             sync.Mutex
+	RemotePresence map[uuid.UUID]string
 }
 
 func (s *StrikeServer) mapInit() {
@@ -79,54 +80,67 @@ func (s *StrikeServer) SendPayload(ctx context.Context, payload *pb.StreamPayloa
 }
 
 func (s *StrikeServer) attemptDelivery(
-  ctx context.Context,
-  msgID uuid.UUID,
+	ctx context.Context,
+	msgID uuid.UUID,
 ) {
 
-  s.mu.Lock()
-  pmsg, ok := s.Pending[msgID]
-  s.mu.Unlock()
-  if !ok {
-    return
-  }
+	s.mu.Lock()
+	pmsg, ok := s.Pending[msgID]
+	s.mu.Unlock()
+	if !ok {
+		return
+	}
 
-  delivered, err := s.fedDelivery(ctx, pmsg)
-  if err != nil || !delivered {
-    return
-  }
+	delivered, err := s.fedDelivery(ctx, pmsg)
+	if err != nil || !delivered {
+		return
+	}
 
-  s.mu.Lock()
-  delete(s.Pending, msgID)
-  s.mu.Unlock()
+	s.mu.Lock()
+	delete(s.Pending, msgID)
+	s.mu.Unlock()
 }
 func (s *StrikeServer) EnqueueFederated(ctx context.Context, rp *fedpb.RelayPayload) error {
 
-  from, err := uuid.Parse(rp.Sender.UInfo.UserId)
-  if err != nil {
-    return fmt.Errorf("invalid sender id")
-  }
+	from, err := uuid.Parse(rp.Sender.UInfo.UserId)
+	if err != nil {
+		return fmt.Errorf("invalid sender id")
+	}
 
-  to, err := uuid.Parse(rp.Recipient.UInfo.UserId)
-  if err != nil {
-    return fmt.Errorf("invalid recipient id")
-  }
+	to, err := uuid.Parse(rp.Recipient.UInfo.UserId)
+	if err != nil {
+		return fmt.Errorf("invalid recipient id")
+	}
 
-  msgID := uuid.New()
+	msgID := uuid.New()
 
-  s.mu.Lock()
-  s.mapInit()
-  s.Pending[msgID] = &types.PendingMsg{
-    MessageID: msgID,
-    From:      from,
-    To:        to,
-    Payload:   rp.Payload,
-    Created:   time.Now(),
-    Attempts:  0,
-  }
-  s.mu.Unlock()
+	s.mu.Lock()
+	s.mapInit()
+	s.Pending[msgID] = &types.PendingMsg{
+		MessageID: msgID,
+		From:      from,
+		To:        to,
+		Payload:   rp.Payload,
+		Created:   time.Now(),
+		Attempts:  0,
+	}
+	s.mu.Unlock()
 
-  go s.attemptDelivery(ctx, msgID)
-  return nil
+	go s.attemptDelivery(ctx, msgID)
+	return nil
+}
+
+func (s *StrikeServer) lookupRemoteUser(user uuid.UUID) (string, bool) {
+	// TODO: Replace with actual presence tracking / mapping.
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.RemotePresence == nil {
+		s.RemotePresence = make(map[uuid.UUID]string)
+	}
+
+	peerID, ok := s.RemotePresence[user]
+	return peerID, ok
 }
 
 // func (s *StrikeServer) fedDelivery(ctx context.Context, pmsg *types.PendingMsg) (bool, error) {
