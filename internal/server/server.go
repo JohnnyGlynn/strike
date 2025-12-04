@@ -143,6 +143,16 @@ func (s *StrikeServer) lookupRemoteUser(user uuid.UUID) (string, bool) {
 	return peerID, ok
 }
 
+func (s *StrikeServer) UpdateRemotePresence(user uuid.UUID, peerID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.RemotePresence == nil {
+		s.RemotePresence = make(map[uuid.UUID]string)
+	}
+	s.RemotePresence[user] = peerID
+}
+
 // func (s *StrikeServer) fedDelivery(ctx context.Context, pmsg *types.PendingMsg) (bool, error) {
 // 	ack, err := s.Federation.Ping(ctx, pmsg.Destination)
 // 	if err != nil {
