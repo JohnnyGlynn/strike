@@ -153,36 +153,34 @@ func (s *StrikeServer) UpdateRemotePresence(user uuid.UUID, peerID string) {
 	s.RemotePresence[user] = peerID
 }
 
-// func (s *StrikeServer) fedDelivery(ctx context.Context, pmsg *types.PendingMsg) (bool, error) {
-// 	ack, err := s.Federation.Ping(ctx, pmsg.Destination)
-// 	if err != nil {
-// 		return false, err
-// 	}
+func (s *StrikeServer) fedDelivery(
+	ctx context.Context,
+	pmsg *types.PendingMsg,
+) (bool, error) {
 
-// 	if !ack.Ok {
-// 		return false, fmt.Errorf("fed: no ack")
-// 	}
+	peerID, ok := s.lookupRemoteUser(pmsg.To)
+	if !ok {
+		return false, nil
+	}
 
-// 	fClient, ok := s.Federation.PeerClient(pmsg.Destination)
-// 	if !ok {
-// 		return false, fmt.Errorf("failed to retrieve client")
-// 	}
+	client, ok := s.PeerMgr.Client(peerID)
+	if !ok {
+		return false, nil
+	}
 
-// 	fedAck, err := fClient.RoutePayload(ctx, &federation.FedPayload{
-// 		Payload: pmsg.Payload,
-// 	})
+	_, err := client.Relay(ctx, &fedpb.RelayPayload{
+		EnvelopeId:   uuid.NewString(),
+		OriginServer: s.ID.String(),
+		Payload:      pmsg.Payload,
+		SentAt:       timestamppb.Now(),
+	})
 
-// 	if err != nil {
-// 		return false, fmt.Errorf("fed: RoutePayload failed")
-// 	}
+	if err != nil {
+		return false, err
+	}
 
-// 	if !fedAck.Accepted {
-// 		return false, fmt.Errorf("fedAck: not accepted")
-// 	}
-
-// 	return true, nil
-
-// }
+	return true, nil
+}
 
 func (s *StrikeServer) localDelivery(ctx context.Context, ch chan<- *pb.StreamPayload, pmsg *types.PendingMsg, timeout time.Duration) (bool, error) {
 	out := &pb.StreamPayload{
