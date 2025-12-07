@@ -5,21 +5,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/JohnnyGlynn/strike/msgdef/common"
 	fedpb "github.com/JohnnyGlynn/strike/msgdef/federation"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 )
 
 type PendingMsg struct {
-	MessageID   uuid.UUID
-	From        uuid.UUID
-	To          uuid.UUID
-	Payload     *common.EncryptedEnvelope
-	Origin      string
-	Destination string
-	Created     time.Time
-	Attempts    int
+	MessageID uuid.UUID
+	From      uuid.UUID
+	To        uuid.UUID
+	Payload   []byte
+	Created   time.Time
+	Attempts  int
 }
 
 type PeerConfig struct {
