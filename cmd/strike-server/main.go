@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,12 +12,9 @@ import (
 	"github.com/JohnnyGlynn/strike/internal/config"
 	"github.com/JohnnyGlynn/strike/internal/keys"
 	"github.com/JohnnyGlynn/strike/internal/server"
-	fedpb "github.com/JohnnyGlynn/strike/msgdef/federation"
-	pb "github.com/JohnnyGlynn/strike/msgdef/message"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
+	// fedpb "github.com/JohnnyGlynn/strike/msgdef/federation"
+	// pb "github.com/JohnnyGlynn/strike/msgdef/message"
 
-	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
 
@@ -81,118 +77,57 @@ func main() {
 
 	log.Printf("Loaded Server Config: %+v", serverCfg)
 
-	pgConfig, err := pgxpool.ParseConfig(serverCfg.DBConnectionString)
+	// pgConfig, err := pgxpool.ParseConfig(serverCfg.DBConnectionString)
+	// if err != nil {
+	// 	fmt.Printf("Config parsing failed: %v", err)
+	// 	return
+	// }
+
+	// pool, err := pgxpool.NewWithConfig(ctx, pgConfig)
+	// if err != nil {
+	// 	fmt.Printf("DB pool connection failed: %v", err)
+	// 	return
+	// }
+	// defer pool.Close()
+
+	// statements, err := server.PrepareStatements(ctx, pool)
+	// if err != nil {
+	// 	fmt.Printf("Failed to prepare statements: %v", err)
+	// 	return
+	// }
+
+	// Load TLS credentials for Strike gRPC server
+	creds, err := credentials.NewServerTLSFromFile(serverCfg.CertificatePath, serverCfg.SigningPrivateKeyPath)
 	if err != nil {
-		fmt.Printf("Config parsing failed: %v", err)
-		return
+		log.Fatalf("failed to load TLS credentials: %v", err)
 	}
 
-	pool, err := pgxpool.NewWithConfig(ctx, pgConfig)
-	if err != nil {
-		fmt.Printf("DB pool connection failed: %v", err)
-		return
-	}
-	defer pool.Close()
+	// Initialize bootstrap
+	bootstrap := server.InitBootstrap(serverCfg)
 
-	statements, err := server.PrepareStatements(ctx, pool)
-	if err != nil {
-		fmt.Printf("Failed to prepare statements: %v", err)
-		return
+	// Initialize DB
+	if err := bootstrap.InitDb(ctx); err != nil {
+		log.Fatalf("DB initialization failed: %v", err)
 	}
 
-	log.Println("DB connection established...")
-
-	serverCreds, err := credentials.NewServerTLSFromFile(serverCfg.CertificatePath, serverCfg.SigningPrivateKeyPath)
-	if err != nil {
-		fmt.Printf("Failed to load TLS credentials: %v", err)
-		return
+	// Initialize Strike server
+	if err := bootstrap.InitStrikeServer(creds); err != nil {
+		log.Fatalf("Strike server initialization failed: %v", err)
 	}
 
-	log.Println("Loaded TLS credentials")
-
-	federationPeers, err := server.LoadPeers(serverCfg.FederationPeers)
-	if err != nil {
-		fmt.Printf("error loading peers: %v", err)
-		return
+	// Initialize Federation server
+	if err := bootstrap.InitFederation(); err != nil {
+		log.Fatalf("Federation server initialization failed: %v", err)
 	}
 
-	//TODO: clean this up
-	key, err := keys.GetKeyFromPath(serverCfg.SigningPublicKeyPath)
-	if err != nil {
-		return
+	// Start servers and peer connections
+	if err := bootstrap.Start(ctx); err != nil {
+		log.Fatalf("bootstrap start failed: %v", err)
 	}
 
-	id := server.DeriveServerID(key)
-
-	strikeServerConfig := &server.StrikeServer{
-		Name: "name_from_id_file",
-		//TODO: Persistent identity
-		ID:          uuid.MustParse(id),
-		DBpool:      pool,
-		PStatements: statements,
-		// Federation:  orchestrator,
-	}
-
-	// GRPC server prep
-	lis, err := net.Listen("tcp", "0.0.0.0:8080")
-	if err != nil {
-		fmt.Printf("failed to listen: %v", err)
-		return
-	}
-
-	opts := []grpc.ServerOption{
-		grpc.Creds(serverCreds),
-	}
-
-	srvr := grpc.NewServer(opts...)
-	pb.RegisterStrikeServer(srvr, strikeServerConfig)
-
-	go func() {
-		fmt.Println("strike server: listening on 0.0.0.0:8080")
-		err = srvr.Serve(lis)
-		if err != nil {
-			fmt.Printf("Error listening: %v\n", err)
-		}
-	}()
-
-	orchestrator := server.NewFederationOrchestrator(strikeServerConfig, federationPeers)
-
-	lisFed, err := net.Listen("tcp", "0.0.0.0:9090")
-	if err != nil {
-		fmt.Println("failed to create federation listener")
-		return
-	}
-
-	fedSrvr := grpc.NewServer()
-	if orchestrator == nil {
-		log.Fatal("orchestrator is nil")
-	}
-	fedpb.RegisterFederationServer(fedSrvr, orchestrator)
-
-	go func() {
-		fmt.Println("federation server: listening on 0.0.0.0:9090")
-		err = fedSrvr.Serve(lisFed)
-		if err != nil {
-			fmt.Println("failed to start federation server")
-			return
-		}
-	}()
-
-	go func() {
-		err = orchestrator.ConnectPeers(context.TODO())
-		if err != nil {
-			fmt.Printf("failed peer connection: %v", err)
-		}
-	}()
-
+	// Wait for shutdown signal
 	<-ctx.Done()
-	fmt.Println("context cancelled")
+	log.Println("Shutdown signal received")
 
-	pool.Close()
-	defer func() {
-		if err := orchestrator.Close(); err != nil {
-			fmt.Printf("error closing orchestrator connections: %v\n", err)
-		}
-	}()
-
+	bootstrap.Stop(ctx)
 }

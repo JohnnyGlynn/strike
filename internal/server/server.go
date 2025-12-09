@@ -23,8 +23,9 @@ type StrikeServer struct {
 	ID   uuid.UUID
 	Name string
 
-	PeerMgr *PeerManager
-
+	PeerMgr        *PeerManager
+	DBpool         *pgxpool.Pool
+	PStatements    *ServerDB
 	Pending        map[uuid.UUID]*types.PendingMsg
 	mu             sync.Mutex
 	RemotePresence map[uuid.UUID]string
