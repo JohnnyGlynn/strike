@@ -20,6 +20,7 @@ import (
 )
 
 type StrikeServer struct {
+  StrikeServer pb.UnimplementedStrikeServer
 	ID   uuid.UUID
 	Name string
 

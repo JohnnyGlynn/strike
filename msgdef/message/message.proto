@@ -17,17 +17,17 @@ service Strike {
 
   rpc UserRequest(common.UserInfo) returns (common.UserInfo) {}
 
-  rpc OnlineUsers(common.UserInfo) returns (common.Users) {}
+  // rpc OnlineUsers(common.UserInfo) returns (common.Users) {}
 
-  rpc StatusStream(common.UserInfo) returns (stream StatusUpdate) {}
+  // rpc StatusStream(common.UserInfo) returns (stream StatusUpdate) {}
 
   rpc SendPayload(StreamPayload) returns (ServerResponse) {}
 
-  rpc PayloadStream(common.UserInfo) returns (stream StreamPayload) {}
+  // rpc PayloadStream(common.UserInfo) returns (stream StreamPayload) {}
 
-  rpc PollServer(common.UserInfo) returns (ServerInfo) {}
+  // rpc PollServer(common.UserInfo) returns (ServerInfo) {}
 
-  rpc DeliveryReceipt(Receipt) returns (ServerResponse) {}
+  // rpc DeliveryReceipt(Receipt) returns (ServerResponse) {}
 }
 
 //TODO: Lots of cleaning

@@ -20,16 +20,11 @@ import (
 const _ = grpc.SupportPackageIsVersion8
 
 const (
-	Strike_Signup_FullMethodName          = "/message.Strike/Signup"
-	Strike_Login_FullMethodName           = "/message.Strike/Login"
-	Strike_SaltMine_FullMethodName        = "/message.Strike/SaltMine"
-	Strike_UserRequest_FullMethodName     = "/message.Strike/UserRequest"
-	Strike_OnlineUsers_FullMethodName     = "/message.Strike/OnlineUsers"
-	Strike_StatusStream_FullMethodName    = "/message.Strike/StatusStream"
-	Strike_SendPayload_FullMethodName     = "/message.Strike/SendPayload"
-	Strike_PayloadStream_FullMethodName   = "/message.Strike/PayloadStream"
-	Strike_PollServer_FullMethodName      = "/message.Strike/PollServer"
-	Strike_DeliveryReceipt_FullMethodName = "/message.Strike/DeliveryReceipt"
+	Strike_Signup_FullMethodName      = "/message.Strike/Signup"
+	Strike_Login_FullMethodName       = "/message.Strike/Login"
+	Strike_SaltMine_FullMethodName    = "/message.Strike/SaltMine"
+	Strike_UserRequest_FullMethodName = "/message.Strike/UserRequest"
+	Strike_SendPayload_FullMethodName = "/message.Strike/SendPayload"
 )
 
 // StrikeClient is the client API for Strike service.
@@ -41,12 +36,7 @@ type StrikeClient interface {
 	Login(ctx context.Context, in *LoginVerify, opts ...grpc.CallOption) (*ServerResponse, error)
 	SaltMine(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (*Salt, error)
 	UserRequest(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (*common.UserInfo, error)
-	OnlineUsers(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (*common.Users, error)
-	StatusStream(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (Strike_StatusStreamClient, error)
 	SendPayload(ctx context.Context, in *StreamPayload, opts ...grpc.CallOption) (*ServerResponse, error)
-	PayloadStream(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (Strike_PayloadStreamClient, error)
-	PollServer(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (*ServerInfo, error)
-	DeliveryReceipt(ctx context.Context, in *Receipt, opts ...grpc.CallOption) (*ServerResponse, error)
 }
 
 type strikeClient struct {
@@ -97,106 +87,10 @@ func (c *strikeClient) UserRequest(ctx context.Context, in *common.UserInfo, opt
 	return out, nil
 }
 
-func (c *strikeClient) OnlineUsers(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (*common.Users, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(common.Users)
-	err := c.cc.Invoke(ctx, Strike_OnlineUsers_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *strikeClient) StatusStream(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (Strike_StatusStreamClient, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &Strike_ServiceDesc.Streams[0], Strike_StatusStream_FullMethodName, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &strikeStatusStreamClient{ClientStream: stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type Strike_StatusStreamClient interface {
-	Recv() (*StatusUpdate, error)
-	grpc.ClientStream
-}
-
-type strikeStatusStreamClient struct {
-	grpc.ClientStream
-}
-
-func (x *strikeStatusStreamClient) Recv() (*StatusUpdate, error) {
-	m := new(StatusUpdate)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 func (c *strikeClient) SendPayload(ctx context.Context, in *StreamPayload, opts ...grpc.CallOption) (*ServerResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ServerResponse)
 	err := c.cc.Invoke(ctx, Strike_SendPayload_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *strikeClient) PayloadStream(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (Strike_PayloadStreamClient, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &Strike_ServiceDesc.Streams[1], Strike_PayloadStream_FullMethodName, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &strikePayloadStreamClient{ClientStream: stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type Strike_PayloadStreamClient interface {
-	Recv() (*StreamPayload, error)
-	grpc.ClientStream
-}
-
-type strikePayloadStreamClient struct {
-	grpc.ClientStream
-}
-
-func (x *strikePayloadStreamClient) Recv() (*StreamPayload, error) {
-	m := new(StreamPayload)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *strikeClient) PollServer(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (*ServerInfo, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ServerInfo)
-	err := c.cc.Invoke(ctx, Strike_PollServer_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *strikeClient) DeliveryReceipt(ctx context.Context, in *Receipt, opts ...grpc.CallOption) (*ServerResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ServerResponse)
-	err := c.cc.Invoke(ctx, Strike_DeliveryReceipt_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -212,12 +106,7 @@ type StrikeServer interface {
 	Login(context.Context, *LoginVerify) (*ServerResponse, error)
 	SaltMine(context.Context, *common.UserInfo) (*Salt, error)
 	UserRequest(context.Context, *common.UserInfo) (*common.UserInfo, error)
-	OnlineUsers(context.Context, *common.UserInfo) (*common.Users, error)
-	StatusStream(*common.UserInfo, Strike_StatusStreamServer) error
 	SendPayload(context.Context, *StreamPayload) (*ServerResponse, error)
-	PayloadStream(*common.UserInfo, Strike_PayloadStreamServer) error
-	PollServer(context.Context, *common.UserInfo) (*ServerInfo, error)
-	DeliveryReceipt(context.Context, *Receipt) (*ServerResponse, error)
 	mustEmbedUnimplementedStrikeServer()
 }
 
@@ -237,23 +126,8 @@ func (UnimplementedStrikeServer) SaltMine(context.Context, *common.UserInfo) (*S
 func (UnimplementedStrikeServer) UserRequest(context.Context, *common.UserInfo) (*common.UserInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UserRequest not implemented")
 }
-func (UnimplementedStrikeServer) OnlineUsers(context.Context, *common.UserInfo) (*common.Users, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method OnlineUsers not implemented")
-}
-func (UnimplementedStrikeServer) StatusStream(*common.UserInfo, Strike_StatusStreamServer) error {
-	return status.Errorf(codes.Unimplemented, "method StatusStream not implemented")
-}
 func (UnimplementedStrikeServer) SendPayload(context.Context, *StreamPayload) (*ServerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendPayload not implemented")
-}
-func (UnimplementedStrikeServer) PayloadStream(*common.UserInfo, Strike_PayloadStreamServer) error {
-	return status.Errorf(codes.Unimplemented, "method PayloadStream not implemented")
-}
-func (UnimplementedStrikeServer) PollServer(context.Context, *common.UserInfo) (*ServerInfo, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PollServer not implemented")
-}
-func (UnimplementedStrikeServer) DeliveryReceipt(context.Context, *Receipt) (*ServerResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeliveryReceipt not implemented")
 }
 func (UnimplementedStrikeServer) mustEmbedUnimplementedStrikeServer() {}
 
@@ -340,45 +214,6 @@ func _Strike_UserRequest_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Strike_OnlineUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(common.UserInfo)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(StrikeServer).OnlineUsers(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Strike_OnlineUsers_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StrikeServer).OnlineUsers(ctx, req.(*common.UserInfo))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Strike_StatusStream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(common.UserInfo)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(StrikeServer).StatusStream(m, &strikeStatusStreamServer{ServerStream: stream})
-}
-
-type Strike_StatusStreamServer interface {
-	Send(*StatusUpdate) error
-	grpc.ServerStream
-}
-
-type strikeStatusStreamServer struct {
-	grpc.ServerStream
-}
-
-func (x *strikeStatusStreamServer) Send(m *StatusUpdate) error {
-	return x.ServerStream.SendMsg(m)
-}
-
 func _Strike_SendPayload_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(StreamPayload)
 	if err := dec(in); err != nil {
@@ -393,63 +228,6 @@ func _Strike_SendPayload_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(StrikeServer).SendPayload(ctx, req.(*StreamPayload))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Strike_PayloadStream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(common.UserInfo)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(StrikeServer).PayloadStream(m, &strikePayloadStreamServer{ServerStream: stream})
-}
-
-type Strike_PayloadStreamServer interface {
-	Send(*StreamPayload) error
-	grpc.ServerStream
-}
-
-type strikePayloadStreamServer struct {
-	grpc.ServerStream
-}
-
-func (x *strikePayloadStreamServer) Send(m *StreamPayload) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func _Strike_PollServer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(common.UserInfo)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(StrikeServer).PollServer(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Strike_PollServer_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StrikeServer).PollServer(ctx, req.(*common.UserInfo))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Strike_DeliveryReceipt_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Receipt)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(StrikeServer).DeliveryReceipt(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Strike_DeliveryReceipt_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StrikeServer).DeliveryReceipt(ctx, req.(*Receipt))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -478,33 +256,10 @@ var Strike_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Strike_UserRequest_Handler,
 		},
 		{
-			MethodName: "OnlineUsers",
-			Handler:    _Strike_OnlineUsers_Handler,
-		},
-		{
 			MethodName: "SendPayload",
 			Handler:    _Strike_SendPayload_Handler,
 		},
-		{
-			MethodName: "PollServer",
-			Handler:    _Strike_PollServer_Handler,
-		},
-		{
-			MethodName: "DeliveryReceipt",
-			Handler:    _Strike_DeliveryReceipt_Handler,
-		},
 	},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "StatusStream",
-			Handler:       _Strike_StatusStream_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "PayloadStream",
-			Handler:       _Strike_PayloadStream_Handler,
-			ServerStreams: true,
-		},
-	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "message/message.proto",
 }

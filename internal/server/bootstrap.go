@@ -105,12 +105,12 @@ func (b *Bootstrap) InitStrikeServer(creds credentials.TransportCredentials) err
 }
 
 func (b *Bootstrap) InitFederation() error {
-	peers, err := LoadPeers(b.Cfg.FederationPeers)
-	if err != nil {
-		return err
-	}
+	// peers, err := LoadPeers(b.Cfg.FederationPeers)
+	// if err != nil {
+	// 	return err
+	// }
 
-	b.Orchestrator = NewFederationOrchestrator(b.Strike, peers)
+	b.Orchestrator = NewFederationOrchestrator(b.Strike)
 
 	tlsConf, err := LoadFederationTLSConfig(
 		b.Cfg.CertificatePath,
@@ -222,14 +222,8 @@ func (b *Bootstrap) Start(ctx context.Context) error {
 		localID := b.Strike.ID.String()
 		localName := b.Strike.Name
 
-		if err := b.Strike.PeerMgr.ConnectAll(
-			ctx,
-			tlsConf,
-			localID,
-			localName,
-		); err != nil {
-			fmt.Printf("peer connect failed: %v\n", err)
-		}
+		b.Strike.PeerMgr.ConnectAll(ctx, tlsConf, localID, localName)
+
 	}()
 
 	return nil
@@ -245,10 +239,6 @@ func (b *Bootstrap) Stop(ctx context.Context) {
 
 	if b.grpcFed != nil {
 		fmt.Println("shutdown strike federation server")
-	}
-
-	if b.Orchestrator != nil {
-		_ = b.Orchestrator.Close()
 	}
 
 	if b.DB != nil {
