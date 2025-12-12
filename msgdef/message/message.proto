@@ -8,7 +8,6 @@ package message;
 option go_package="github.com/JohnnyGlynn/strike/msgdef/message;message";
 
 service Strike {
-  //TODO: Just login?
   rpc Signup(InitUser) returns (ServerResponse) {}
 
   rpc Login(LoginVerify) returns (ServerResponse) {}
@@ -17,17 +16,8 @@ service Strike {
 
   rpc UserRequest(common.UserInfo) returns (common.UserInfo) {}
 
-  // rpc OnlineUsers(common.UserInfo) returns (common.Users) {}
-
-  // rpc StatusStream(common.UserInfo) returns (stream StatusUpdate) {}
-
   rpc SendPayload(StreamPayload) returns (ServerResponse) {}
 
-  // rpc PayloadStream(common.UserInfo) returns (stream StreamPayload) {}
-
-  // rpc PollServer(common.UserInfo) returns (ServerInfo) {}
-
-  // rpc DeliveryReceipt(Receipt) returns (ServerResponse) {}
 }
 
 //TODO: Lots of cleaning

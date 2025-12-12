@@ -31,7 +31,6 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type StrikeClient interface {
-	// TODO: Just login?
 	Signup(ctx context.Context, in *InitUser, opts ...grpc.CallOption) (*ServerResponse, error)
 	Login(ctx context.Context, in *LoginVerify, opts ...grpc.CallOption) (*ServerResponse, error)
 	SaltMine(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (*Salt, error)
@@ -101,7 +100,6 @@ func (c *strikeClient) SendPayload(ctx context.Context, in *StreamPayload, opts 
 // All implementations must embed UnimplementedStrikeServer
 // for forward compatibility
 type StrikeServer interface {
-	// TODO: Just login?
 	Signup(context.Context, *InitUser) (*ServerResponse, error)
 	Login(context.Context, *LoginVerify) (*ServerResponse, error)
 	SaltMine(context.Context, *common.UserInfo) (*Salt, error)
