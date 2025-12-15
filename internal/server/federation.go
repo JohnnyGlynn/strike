@@ -2,14 +2,11 @@ package server
 
 import (
 	"context"
-	// "crypto/tls"
 	"fmt"
 	"os"
 	"sync"
 
 	"github.com/JohnnyGlynn/strike/internal/server/types"
-	// "github.com/google/uuid"
-	// "google.golang.org/grpc"
 	"gopkg.in/yaml.v3"
 
 	pb "github.com/JohnnyGlynn/strike/msgdef/federation"
