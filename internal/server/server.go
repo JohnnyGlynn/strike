@@ -187,24 +187,24 @@ func (s *StrikeServer) fedDelivery(
 	return true, nil
 }
 
-func (s *StrikeServer) localDelivery(ctx context.Context, ch chan<- *pb.StreamPayload, pmsg *types.PendingMsg, timeout time.Duration) (bool, error) {
-	out := &pb.StreamPayload{
-		Target:  pmsg.To.String(),
-		Sender:  pmsg.From.String(),
-		Payload: &pb.StreamPayload_Encenv{Encenv: pmsg.Payload},
-	}
+// func (s *StrikeServer) localDelivery(ctx context.Context, ch chan<- *pb.StreamPayload, pmsg *types.PendingMsg, timeout time.Duration) (bool, error) {
+// 	out := &pb.StreamPayload{
+// 		Target:  pmsg.To.String(),
+// 		Sender:  pmsg.From.String(),
+// 		Payload: &pb.StreamPayload_Encenv{Encenv: pmsg.Payload},
+// 	}
 
-	select {
-	case ch <- out: //proto.Clone?
-		//TODO: Delivery receipt?
-		return true, nil
-	case <-time.After(timeout):
-		return false, fmt.Errorf("delivery timed out")
-	case <-ctx.Done():
-		return false, nil
-	}
+// 	select {
+// 	case ch <- out: //proto.Clone?
+// 		//TODO: Delivery receipt?
+// 		return true, nil
+// 	case <-time.After(timeout):
+// 		return false, fmt.Errorf("delivery timed out")
+// 	case <-ctx.Done():
+// 		return false, nil
+// 	}
 
-}
+// }
 
 func (s *StrikeServer) SaltMine(ctx context.Context, userInfo *common_pb.UserInfo) (*pb.Salt, error) {
 	var salt []byte
