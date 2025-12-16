@@ -20,13 +20,16 @@ import (
 )
 
 type StrikeServer struct {
-  StrikeServer pb.UnimplementedStrikeServer
+	pb.UnimplementedStrikeServer
+
 	ID   uuid.UUID
 	Name string
 
-	PeerMgr        *PeerManager
-	DBpool         *pgxpool.Pool
-	PStatements    *ServerDB
+	PeerMgr *PeerManager
+
+	DBpool      *pgxpool.Pool
+	PStatements *ServerDB
+
 	Pending        map[uuid.UUID]*types.PendingMsg
 	mu             sync.Mutex
 	RemotePresence map[uuid.UUID]string
