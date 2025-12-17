@@ -39,7 +39,11 @@ func (s *StrikeServer) mapInit() {
 	if s.Pending == nil {
 		s.Pending = make(map[uuid.UUID]*types.PendingMsg)
 	}
+	if s.RemotePresence == nil {
+		s.RemotePresence = make(map[uuid.UUID]string)
+	}
 }
+
 func (s *StrikeServer) SendPayload(ctx context.Context, payload *pb.StreamPayload) (*pb.ServerResponse, error) {
 
 	if payload == nil {
