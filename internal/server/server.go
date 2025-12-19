@@ -179,7 +179,7 @@ func (s *StrikeServer) fedDelivery(
 
 	client, ok := s.PeerMgr.Client(peerID)
 	if !ok {
-		return false, nil
+		return false, fmt.Errorf("peer %s not connected", peerID)
 	}
 
 	_, err := client.Relay(ctx, &fedpb.RelayPayload{
