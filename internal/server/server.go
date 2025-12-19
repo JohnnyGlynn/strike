@@ -102,9 +102,14 @@ func (s *StrikeServer) attemptDelivery(
 
 	delivered, err := s.fedDelivery(ctx, pmsg)
 	if err != nil || !delivered {
+		s.mu.Lock()
+		pmsg.Attempts--
+		if pmsg.Attempts <= 0 {
+			delete(s.Pending, msgID)
+		}
+		s.mu.Unlock()
 		return
 	}
-
 	s.mu.Lock()
 	delete(s.Pending, msgID)
 	s.mu.Unlock()
