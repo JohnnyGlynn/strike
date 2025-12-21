@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"crypto/tls"
+  "sync"
 	"google.golang.org/grpc/credentials"
 
 	"google.golang.org/grpc"
@@ -10,6 +11,11 @@ import (
 	"github.com/JohnnyGlynn/strike/internal/server/types"
 	fedpb "github.com/JohnnyGlynn/strike/msgdef/federation"
 )
+
+type PeerManager struct {
+	peers map[string]*types.PeerRuntime
+	mu    sync.RWMutex
+}
 
 func NewPeerManager(cfgs []types.PeerConfig) *PeerManager {
 	pm := &PeerManager{

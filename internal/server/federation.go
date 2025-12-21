@@ -4,18 +4,12 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"sync"
 
 	"github.com/JohnnyGlynn/strike/internal/server/types"
 	"gopkg.in/yaml.v3"
 
 	pb "github.com/JohnnyGlynn/strike/msgdef/federation"
 )
-
-type PeerManager struct {
-	peers map[string]*types.PeerRuntime
-	mu    sync.RWMutex
-}
 
 type FederationOrchestrator struct {
 	pb.UnimplementedFederationServer
