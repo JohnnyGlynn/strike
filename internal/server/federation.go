@@ -35,6 +35,11 @@ func (fo *FederationOrchestrator) Handshake(
 		}, nil
 	}
 
+	//TODO: TLS identity binding 
+	// peerID := deriveFromTLS(ctx)
+
+	fmt.Printf("federation handshake from server %s\n", req.ServerId)
+
 	return &pb.HandshakeAck{
 		Ok:       true,
 		ServerId: fo.strike.ID.String(),
