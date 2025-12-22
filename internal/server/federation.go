@@ -8,6 +8,8 @@ import (
 	"github.com/JohnnyGlynn/strike/internal/server/types"
 	"gopkg.in/yaml.v3"
 
+	"github.com/google/uuid"
+
 	pb "github.com/JohnnyGlynn/strike/msgdef/federation"
 )
 
@@ -59,6 +61,11 @@ func (fo *FederationOrchestrator) Relay(
 			Info:       "invalid payload",
 		}, nil
 	}
+
+  senderID, err := uuid.Parse(rp.Sender.UInfo.UserId)
+  if err == nil {
+    fo.strike.UpdateRemotePresence(senderID, rp.OriginServer)
+  }
 
 	if err := fo.strike.EnqueueFederated(ctx, rp); err != nil {
 		return &pb.RelayAck{
