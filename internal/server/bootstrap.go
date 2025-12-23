@@ -11,6 +11,7 @@ import (
 
 	"github.com/JohnnyGlynn/strike/internal/config"
 	"github.com/JohnnyGlynn/strike/internal/keys"
+	"github.com/JohnnyGlynn/strike/internal/server/types"
 	fedpb "github.com/JohnnyGlynn/strike/msgdef/federation"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 
@@ -81,7 +82,7 @@ func dbWithRetry(ctx context.Context, pgConfig *pgxpool.Config) (*pgxpool.Pool, 
 	return nil, fmt.Errorf("db unavailable: %w", err)
 }
 
-func (b *Bootstrap) InitStrikeServer(creds credentials.TransportCredentials) error {
+func (b *Bootstrap) InitStrikeServer(creds credentials.TransportCredentials, peers []types.PeerConfig) error {
 	key, err := keys.GetKeyFromPath(b.Cfg.SigningPublicKeyPath)
 	if err != nil {
 		return err
@@ -90,12 +91,14 @@ func (b *Bootstrap) InitStrikeServer(creds credentials.TransportCredentials) err
 	id := DeriveServerID(key)
 
 	b.Strike = &StrikeServer{
-		Name:        "strike-server",
-		ID:          uuid.MustParse(id),
-		DBpool:      b.DB,
-		PStatements: b.Statements,
-	}
-
+    Name:        "strike-server",
+    ID:          uuid.MustParse(id),
+    DBpool:      b.DB,
+    PStatements: b.Statements,
+    PeerMgr:     NewPeerManager(peers),
+    Pending:     make(map[uuid.UUID]*types.PendingMsg),
+    RemotePresence: make(map[uuid.UUID]string),
+}
 	b.grpcStrike = grpc.NewServer(
 		grpc.Creds(creds),
 	)
