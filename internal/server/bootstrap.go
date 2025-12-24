@@ -22,13 +22,17 @@ import (
 )
 
 type Bootstrap struct {
-	Cfg          config.ServerConfig
-	DB           *pgxpool.Pool
-	Statements   *ServerDB
+	Cfg        config.ServerConfig
+	DB         *pgxpool.Pool
+	Statements *ServerDB
+
 	Strike       *StrikeServer
 	Orchestrator *FederationOrchestrator
-	grpcStrike   *grpc.Server
-	grpcFed      *grpc.Server
+
+	grpcStrike *grpc.Server
+	grpcFed    *grpc.Server
+
+	fedTLS *tls.Config
 }
 
 func InitBootstrap(cfg config.ServerConfig) *Bootstrap {
@@ -91,14 +95,14 @@ func (b *Bootstrap) InitStrikeServer(creds credentials.TransportCredentials, pee
 	id := DeriveServerID(key)
 
 	b.Strike = &StrikeServer{
-    Name:        "strike-server",
-    ID:          uuid.MustParse(id),
-    DBpool:      b.DB,
-    PStatements: b.Statements,
-    PeerMgr:     NewPeerManager(peers),
-    Pending:     make(map[uuid.UUID]*types.PendingMsg),
-    RemotePresence: make(map[uuid.UUID]string),
-}
+		Name:           "strike-server",
+		ID:             uuid.MustParse(id),
+		DBpool:         b.DB,
+		PStatements:    b.Statements,
+		PeerMgr:        NewPeerManager(peers),
+		Pending:        make(map[uuid.UUID]*types.PendingMsg),
+		RemotePresence: make(map[uuid.UUID]string),
+	}
 	b.grpcStrike = grpc.NewServer(
 		grpc.Creds(creds),
 	)
