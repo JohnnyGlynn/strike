@@ -112,14 +112,9 @@ func (b *Bootstrap) InitStrikeServer(creds credentials.TransportCredentials, pee
 }
 
 func (b *Bootstrap) InitFederation() error {
-	// peers, err := LoadPeers(b.Cfg.FederationPeers)
-	// if err != nil {
-	// 	return err
-	// }
+	var err error
 
-	b.Orchestrator = NewFederationOrchestrator(b.Strike)
-
-	tlsConf, err := LoadFederationTLSConfig(
+	b.fedTLS, err = LoadFederationTLSConfig(
 		b.Cfg.CertificatePath,
 		b.Cfg.SigningPrivateKeyPath,
 		b.Cfg.FederationCAPath,
@@ -128,8 +123,10 @@ func (b *Bootstrap) InitFederation() error {
 		return err
 	}
 
+	b.Orchestrator = NewFederationOrchestrator(b.Strike)
+
 	b.grpcFed = grpc.NewServer(
-		grpc.Creds(credentials.NewTLS(tlsConf)),
+		grpc.Creds(credentials.NewTLS(b.fedTLS)),
 	)
 
 	fedpb.RegisterFederationServer(b.grpcFed, b.Orchestrator)
