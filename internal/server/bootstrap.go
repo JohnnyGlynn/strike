@@ -172,62 +172,27 @@ func (b *Bootstrap) InitFederationTLS() (*tls.Config, error) {
 }
 
 func (b *Bootstrap) Start(ctx context.Context) error {
-	if b.grpcStrike == nil {
-		return fmt.Errorf("grpcStrike not initialized")
-	}
-	if b.grpcFed == nil {
-		return fmt.Errorf("grpcFed not initialized")
-	}
-	if b.Strike == nil {
-		return fmt.Errorf("strike server not initialized")
-	}
-	if b.Strike.PeerMgr == nil {
-		return fmt.Errorf("peer manager not initialized")
+	if b.grpcStrike == nil || b.grpcFed == nil || b.Strike == nil {
+		return fmt.Errorf("bootstrap not initialized")
 	}
 
 	go func() {
-		lis, err := net.Listen("tcp", "0.0.0.0:8080")
-		if err != nil {
-			fmt.Printf("strike listen failed: %v\n", err)
-			return
-		}
-		defer lis.Close()
-
-		fmt.Println("strike server listening on :8080")
-
-		if err := b.grpcStrike.Serve(lis); err != nil {
-			fmt.Printf("strike serve error: %v\n", err)
-		}
+		lis, _ := net.Listen("tcp", ":8080")
+		b.grpcStrike.Serve(lis)
 	}()
 
 	go func() {
-		lis, err := net.Listen("tcp", "0.0.0.0:9090")
-		if err != nil {
-			fmt.Printf("federation listen failed: %v\n", err)
-			return
-		}
-		defer lis.Close()
-
-		fmt.Println("federation server listening on :9090")
-
-		if err := b.grpcFed.Serve(lis); err != nil {
-			fmt.Printf("federation serve error: %v\n", err)
-		}
+		lis, _ := net.Listen("tcp", ":9090")
+		b.grpcFed.Serve(lis)
 	}()
 
 	go func() {
-		// federation TLS (mTLS)
-		tlsConf, err := b.InitFederationTLS()
-		if err != nil {
-			fmt.Printf("federation TLS init failed: %v\n", err)
-			return
-		}
-
-		localID := b.Strike.ID.String()
-		localName := b.Strike.Name
-
-		b.Strike.PeerMgr.ConnectAll(ctx, tlsConf, localID, localName)
-
+		b.Strike.PeerMgr.ConnectAll(
+			ctx,
+			b.fedTLS,
+			b.Strike.ID.String(),
+			b.Strike.Name,
+		)
 	}()
 
 	return nil
