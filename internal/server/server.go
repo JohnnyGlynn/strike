@@ -136,7 +136,7 @@ func (s *StrikeServer) EnqueueFederated(ctx context.Context, rp *fedpb.RelayPayl
 		To:        to,
 		Payload:   rp.Payload,
 		Created:   time.Now(),
-		Attempts:  0,
+		Attempts:  3,
 	}
 	s.mu.Unlock()
 
