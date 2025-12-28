@@ -514,7 +514,6 @@ func (x *StatusUpdate) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
-// TODO: this is getting messy
 type StreamPayload struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

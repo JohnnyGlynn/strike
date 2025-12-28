@@ -70,7 +70,6 @@ message StatusUpdate {
     google.protobuf.Timestamp updated_at = 2;
 }
 
-// TODO: this is getting messy
 message StreamPayload {
   string target = 1;
   string sender = 2;
