@@ -13,22 +13,18 @@ import (
 )
 
 type PeerManager struct {
-	peers map[string]*types.PeerRuntime
-	mu    sync.RWMutex
+	mu          sync.RWMutex
+	peers       map[string]*types.Peer
+	conns       map[string]*grpc.ClientConn
+	clients     map[string]fedpb.FederationClient
 }
 
-func NewPeerManager(cfgs []types.PeerConfig) *PeerManager {
-	pm := &PeerManager{
-		peers: make(map[string]*types.PeerRuntime),
+func NewPeerManager(peers map[string]*types.Peer) *PeerManager {
+	return &PeerManager{
+		peers:   peers,
+		conns:   make(map[string]*grpc.ClientConn),
+		clients: make(map[string]fedpb.FederationClient),
 	}
-
-	for _, c := range cfgs {
-		pm.peers[c.ID.String()] = &types.PeerRuntime{
-			Cfg: c,
-		}
-	}
-
-	return pm
 }
 
 func (pm *PeerManager) ConnectAll(
