@@ -77,10 +77,6 @@ func (pm *PeerManager) Client(peerID string) (fedpb.FederationClient, bool) {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
 
-	p, ok := pm.peers[peerID]
-	if !ok || !p.Online || p.Client == nil {
-		return nil, false
-	}
-
-	return p.Client, true
+	c, ok := pm.clients[peerID]
+	return c, ok
 }
