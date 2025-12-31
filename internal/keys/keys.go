@@ -215,7 +215,7 @@ func GetKeyFromPath(path string) ([]byte, error) {
 		return nil, fmt.Errorf("error opening key file: %v", err)
 	}
 
-	defer func()  {
+	defer func() {
 		if fileError := keyFile.Close(); fileError != nil {
 			fmt.Printf("error reading file: %v\n", fileError)
 		}

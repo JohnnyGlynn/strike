@@ -37,7 +37,7 @@ func (fo *FederationOrchestrator) Handshake(
 		}, nil
 	}
 
-	//TODO: TLS identity binding 
+	//TODO: TLS identity binding
 	// peerID := deriveFromTLS(ctx)
 
 	fmt.Printf("federation handshake from server %s\n", req.ServerId)
@@ -62,10 +62,10 @@ func (fo *FederationOrchestrator) Relay(
 		}, nil
 	}
 
-  senderID, err := uuid.Parse(rp.Sender.UInfo.UserId)
-  if err == nil {
-    fo.strike.UpdateRemotePresence(senderID, rp.OriginServer)
-  }
+	senderID, err := uuid.Parse(rp.Sender.UInfo.UserId)
+	if err == nil {
+		fo.strike.UpdateRemotePresence(senderID, rp.OriginServer)
+	}
 
 	if err := fo.strike.EnqueueFederated(ctx, rp); err != nil {
 		return &pb.RelayAck{
@@ -102,4 +102,3 @@ func LoadPeers(path string) ([]types.PeerConfig, error) {
 
 	return cfg.Peers, nil
 }
-

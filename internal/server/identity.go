@@ -11,7 +11,6 @@ import (
 	"github.com/JohnnyGlynn/strike/internal/keys"
 )
 
-
 type Identity struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
@@ -19,22 +18,22 @@ type Identity struct {
 
 func InitID(svrCfg config.ServerConfig, idCfg string) (*Identity, error) {
 
-  //First run, check for keys
-  if _, err := os.Stat(svrCfg.SigningPrivateKeyPath); os.IsNotExist(err){
-    fmt.Println("No server identity found: Bootstrapping")
+	//First run, check for keys
+	if _, err := os.Stat(svrCfg.SigningPrivateKeyPath); os.IsNotExist(err) {
+		fmt.Println("No server identity found: Bootstrapping")
 
-    err := keys.GenerateServerKeysAndCert()
-    if err != nil {
-      return nil, err
-    }
-  }
+		err := keys.GenerateServerKeysAndCert()
+		if err != nil {
+			return nil, err
+		}
+	}
 
-  keyBytes, err := keys.GetKeyFromPath(svrCfg.SigningPublicKeyPath)
-  if err != nil {
-    return nil, err
-  }
+	keyBytes, err := keys.GetKeyFromPath(svrCfg.SigningPublicKeyPath)
+	if err != nil {
+		return nil, err
+	}
 
-  fingerprint := DeriveServerID(keyBytes)
+	fingerprint := DeriveServerID(keyBytes)
 
 	if _, err := os.Stat(idCfg); err == nil {
 		file, err := os.ReadFile(idCfg)
@@ -47,30 +46,29 @@ func InitID(svrCfg config.ServerConfig, idCfg string) (*Identity, error) {
 			return nil, err
 		}
 
-    if id.ID != fingerprint {
-      return nil, fmt.Errorf("identity mismatch")
-    }
+		if id.ID != fingerprint {
+			return nil, fmt.Errorf("identity mismatch")
+		}
 		return &id, nil
 	}
 
-  id := &Identity{
-    ID:   fingerprint,
-    Name: "MAKE-CONFIGURABLE",
-  }
+	id := &Identity{
+		ID:   fingerprint,
+		Name: "MAKE-CONFIGURABLE",
+	}
 
+	writes, err := json.Marshal(id)
+	if err != nil {
+		return nil, err
+	}
 
-  writes, err := json.Marshal(id)
-  if err != nil {
-    return nil, err
-  }
+	//Json path
+	err = os.WriteFile(idCfg, writes, 0600)
+	if err != nil {
+		return nil, err
+	}
 
-  //Json path
-  err = os.WriteFile(idCfg, writes, 0600)
-  if err != nil {
-    return nil, err
-  }
-
-  return id, nil
+	return id, nil
 
 }
 

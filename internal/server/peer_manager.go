@@ -3,8 +3,8 @@ package server
 import (
 	"context"
 	"crypto/tls"
-  "sync"
 	"google.golang.org/grpc/credentials"
+	"sync"
 
 	"google.golang.org/grpc"
 
@@ -13,10 +13,10 @@ import (
 )
 
 type PeerManager struct {
-	mu          sync.RWMutex
-	peers       map[string]*types.Peer
-	conns       map[string]*grpc.ClientConn
-	clients     map[string]fedpb.FederationClient
+	mu      sync.RWMutex
+	peers   map[string]*types.Peer
+	conns   map[string]*grpc.ClientConn
+	clients map[string]fedpb.FederationClient
 }
 
 func NewPeerManager(peers map[string]*types.Peer) *PeerManager {
