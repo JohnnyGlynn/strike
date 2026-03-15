@@ -14,17 +14,21 @@ import (
 
 type PeerManager struct {
 	mu      sync.RWMutex
-	peers   map[string]*types.Peer
+	peers   map[string]*types.PeerRuntime
 	conns   map[string]*grpc.ClientConn
 	clients map[string]fedpb.FederationClient
 }
 
-func NewPeerManager(peers map[string]*types.Peer) *PeerManager {
-	return &PeerManager{
-		peers:   peers,
+func NewPeerManager(peers []types.PeerConfig) *PeerManager {
+	pm := &PeerManager{
+		peers:   make(map[string]*types.PeerRuntime, len(peers)),
 		conns:   make(map[string]*grpc.ClientConn),
 		clients: make(map[string]fedpb.FederationClient),
 	}
+	for _, p := range peers {
+		pm.peers[p.ID.String()] = &types.PeerRuntime{Cfg: p}
+	}
+	return pm
 }
 
 func (pm *PeerManager) ConnectAll(
@@ -68,9 +72,17 @@ func (pm *PeerManager) connectPeer(
 		return
 	}
 
+	pm.mu.Lock()
+	pm.conns[peer.Cfg.ID.String()] = conn
+	pm.clients[peer.Cfg.ID.String()] = client
+	pm.mu.Unlock()
+
+	peer.Mu.Lock()
 	peer.Conn = conn
 	peer.Client = client
 	peer.Online = true
+	peer.Handshaken = true
+	peer.Mu.Unlock()
 }
 
 func (pm *PeerManager) Client(peerID string) (fedpb.FederationClient, bool) {

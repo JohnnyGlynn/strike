@@ -110,8 +110,14 @@ func main() {
 		log.Fatalf("DB initialization failed: %v", err)
 	}
 
+	// Load federation peers
+	peers, err := server.LoadPeers(serverCfg.FederationPeers)
+	if err != nil {
+		log.Fatalf("Failed to load federation peers: %v", err)
+	}
+
 	// Initialize Strike server
-	if err := bootstrap.InitStrikeServer(creds); err != nil {
+	if err := bootstrap.InitStrikeServer(creds, peers); err != nil {
 		log.Fatalf("Strike server initialization failed: %v", err)
 	}
 

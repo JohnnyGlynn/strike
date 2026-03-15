@@ -26,3 +26,4 @@ cmd/strike-client/client.db
 cmd/strike-server/main
 build/
 cfg/
+CLAUDE.md

@@ -18,6 +18,8 @@ service Strike {
 
   rpc SendPayload(StreamPayload) returns (ServerResponse) {}
 
+  rpc PayloadStream(common.UserInfo) returns (stream StreamPayload) {}
+
 }
 
 //TODO: Lots of cleaning

@@ -20,11 +20,12 @@ import (
 const _ = grpc.SupportPackageIsVersion8
 
 const (
-	Strike_Signup_FullMethodName      = "/message.Strike/Signup"
-	Strike_Login_FullMethodName       = "/message.Strike/Login"
-	Strike_SaltMine_FullMethodName    = "/message.Strike/SaltMine"
-	Strike_UserRequest_FullMethodName = "/message.Strike/UserRequest"
-	Strike_SendPayload_FullMethodName = "/message.Strike/SendPayload"
+	Strike_Signup_FullMethodName        = "/message.Strike/Signup"
+	Strike_Login_FullMethodName         = "/message.Strike/Login"
+	Strike_SaltMine_FullMethodName      = "/message.Strike/SaltMine"
+	Strike_UserRequest_FullMethodName   = "/message.Strike/UserRequest"
+	Strike_SendPayload_FullMethodName   = "/message.Strike/SendPayload"
+	Strike_PayloadStream_FullMethodName = "/message.Strike/PayloadStream"
 )
 
 // StrikeClient is the client API for Strike service.
@@ -36,6 +37,7 @@ type StrikeClient interface {
 	SaltMine(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (*Salt, error)
 	UserRequest(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (*common.UserInfo, error)
 	SendPayload(ctx context.Context, in *StreamPayload, opts ...grpc.CallOption) (*ServerResponse, error)
+	PayloadStream(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (Strike_PayloadStreamClient, error)
 }
 
 type strikeClient struct {
@@ -96,6 +98,39 @@ func (c *strikeClient) SendPayload(ctx context.Context, in *StreamPayload, opts 
 	return out, nil
 }
 
+func (c *strikeClient) PayloadStream(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (Strike_PayloadStreamClient, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Strike_ServiceDesc.Streams[0], Strike_PayloadStream_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &strikePayloadStreamClient{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Strike_PayloadStreamClient interface {
+	Recv() (*StreamPayload, error)
+	grpc.ClientStream
+}
+
+type strikePayloadStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *strikePayloadStreamClient) Recv() (*StreamPayload, error) {
+	m := new(StreamPayload)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // StrikeServer is the server API for Strike service.
 // All implementations must embed UnimplementedStrikeServer
 // for forward compatibility
@@ -105,6 +140,7 @@ type StrikeServer interface {
 	SaltMine(context.Context, *common.UserInfo) (*Salt, error)
 	UserRequest(context.Context, *common.UserInfo) (*common.UserInfo, error)
 	SendPayload(context.Context, *StreamPayload) (*ServerResponse, error)
+	PayloadStream(*common.UserInfo, Strike_PayloadStreamServer) error
 	mustEmbedUnimplementedStrikeServer()
 }
 
@@ -126,6 +162,9 @@ func (UnimplementedStrikeServer) UserRequest(context.Context, *common.UserInfo) 
 }
 func (UnimplementedStrikeServer) SendPayload(context.Context, *StreamPayload) (*ServerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendPayload not implemented")
+}
+func (UnimplementedStrikeServer) PayloadStream(*common.UserInfo, Strike_PayloadStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method PayloadStream not implemented")
 }
 func (UnimplementedStrikeServer) mustEmbedUnimplementedStrikeServer() {}
 
@@ -230,6 +269,27 @@ func _Strike_SendPayload_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Strike_PayloadStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(common.UserInfo)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(StrikeServer).PayloadStream(m, &strikePayloadStreamServer{ServerStream: stream})
+}
+
+type Strike_PayloadStreamServer interface {
+	Send(*StreamPayload) error
+	grpc.ServerStream
+}
+
+type strikePayloadStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *strikePayloadStreamServer) Send(m *StreamPayload) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // Strike_ServiceDesc is the grpc.ServiceDesc for Strike service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -258,6 +318,12 @@ var Strike_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Strike_SendPayload_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "PayloadStream",
+			Handler:       _Strike_PayloadStream_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "message/message.proto",
 }

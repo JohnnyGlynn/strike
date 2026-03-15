@@ -37,14 +37,6 @@ type PeerRuntime struct {
 	Online     bool
 }
 
-type Peer struct {
-	Config PeerConfig
-	Mu     *sync.Mutex
-	Conn   *grpc.ClientConn
-
-	LastComms time.Time
-}
-
 type FederationConfig struct {
 	Peers []PeerConfig `yaml:"peers"`
 }
