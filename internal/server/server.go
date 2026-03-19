@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
-	// "log"
+	"log"
 	"sync"
 	"time"
 
@@ -30,12 +30,25 @@ type StrikeServer struct {
 	DBpool      *pgxpool.Pool
 	PStatements *ServerDB
 
+	Connected      map[uuid.UUID]*common_pb.UserInfo
+	PayloadStreams  map[uuid.UUID]pb.Strike_PayloadStreamServer
+	PayloadChannels map[uuid.UUID]chan *pb.StreamPayload
+
 	Pending        map[uuid.UUID]*types.PendingMsg
 	mu             sync.Mutex
 	RemotePresence map[uuid.UUID]string
 }
 
 func (s *StrikeServer) mapInit() {
+	if s.Connected == nil {
+		s.Connected = make(map[uuid.UUID]*common_pb.UserInfo)
+	}
+	if s.PayloadStreams == nil {
+		s.PayloadStreams = make(map[uuid.UUID]pb.Strike_PayloadStreamServer)
+	}
+	if s.PayloadChannels == nil {
+		s.PayloadChannels = make(map[uuid.UUID]chan *pb.StreamPayload)
+	}
 	if s.Pending == nil {
 		s.Pending = make(map[uuid.UUID]*types.PendingMsg)
 	}
@@ -95,11 +108,26 @@ func (s *StrikeServer) attemptDelivery(
 
 	s.mu.Lock()
 	pmsg, ok := s.Pending[msgID]
-	s.mu.Unlock()
 	if !ok {
+		s.mu.Unlock()
 		return
 	}
 
+	// Try local delivery first
+	ch, local := s.PayloadChannels[pmsg.To]
+	s.mu.Unlock()
+
+	if local {
+		delivered, err := s.localDelivery(ctx, ch, pmsg, 5*time.Second)
+		if err == nil && delivered {
+			s.mu.Lock()
+			delete(s.Pending, msgID)
+			s.mu.Unlock()
+			return
+		}
+	}
+
+	// Fall back to federation
 	delivered, err := s.fedDelivery(ctx, pmsg)
 	if err != nil || !delivered {
 		s.mu.Lock()
@@ -196,24 +224,23 @@ func (s *StrikeServer) fedDelivery(
 	return true, nil
 }
 
-// func (s *StrikeServer) localDelivery(ctx context.Context, ch chan<- *pb.StreamPayload, pmsg *types.PendingMsg, timeout time.Duration) (bool, error) {
-// 	out := &pb.StreamPayload{
-// 		Target:  pmsg.To.String(),
-// 		Sender:  pmsg.From.String(),
-// 		Payload: &pb.StreamPayload_Encenv{Encenv: pmsg.Payload},
-// 	}
+func (s *StrikeServer) localDelivery(ctx context.Context, ch chan<- *pb.StreamPayload, pmsg *types.PendingMsg, timeout time.Duration) (bool, error) {
+	out := &pb.StreamPayload{
+		Target:  pmsg.To.String(),
+		Sender:  pmsg.From.String(),
+		Payload: &pb.StreamPayload_Encenv{Encenv: pmsg.Payload},
+	}
 
-// 	select {
-// 	case ch <- out: //proto.Clone?
-// 		//TODO: Delivery receipt?
-// 		return true, nil
-// 	case <-time.After(timeout):
-// 		return false, fmt.Errorf("delivery timed out")
-// 	case <-ctx.Done():
-// 		return false, nil
-// 	}
+	select {
+	case ch <- out:
+		return true, nil
+	case <-time.After(timeout):
+		return false, fmt.Errorf("delivery timed out")
+	case <-ctx.Done():
+		return false, nil
+	}
 
-// }
+}
 
 func (s *StrikeServer) SaltMine(ctx context.Context, userInfo *common_pb.UserInfo) (*pb.Salt, error) {
 	var salt []byte
@@ -278,51 +305,48 @@ func (s *StrikeServer) Signup(ctx context.Context, userInit *pb.InitUser) (*pb.S
 	}, nil
 }
 
-// func (s *StrikeServer) StatusStream(req *common_pb.UserInfo, stream pb.Strike_StatusStreamServer) error {
+func (s *StrikeServer) StatusStream(req *common_pb.UserInfo, stream pb.Strike_StatusStreamServer) error {
 
-// 	// TODO: Parse function
-// 	parsedId, err := uuid.Parse(req.UserId)
-// 	if err != nil {
-// 		return fmt.Errorf("failed to parse user ID: %v", err)
-// 	}
-// 	// Register the user as online
-// 	s.mu.Lock()
-// 	s.Connected[parsedId] = &common_pb.UserInfo{
-// 		Username:            req.Username,
-// 		UserId:              req.UserId,
-// 		EncryptionPublicKey: req.EncryptionPublicKey,
-// 		SigningPublicKey:    req.SigningPublicKey,
-// 	}
-// 	s.mu.Unlock()
+	parsedId, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return fmt.Errorf("failed to parse user ID: %v", err)
+	}
 
-// 	// Defer so regardless of how we exit (gracefully or an error), the user is removed from OnlineUsers
-// 	defer func() {
-// 		s.mu.Lock()
-// 		delete(s.Connected, parsedId)
-// 		s.mu.Unlock()
-// 		fmt.Printf("%s is now offline.\n", req.Username)
-// 	}()
+	s.mu.Lock()
+	s.mapInit()
+	s.Connected[parsedId] = &common_pb.UserInfo{
+		Username:            req.Username,
+		UserId:              req.UserId,
+		EncryptionPublicKey: req.EncryptionPublicKey,
+		SigningPublicKey:    req.SigningPublicKey,
+	}
+	s.mu.Unlock()
 
-// 	fmt.Printf("%s is online.\n", req.Username)
+	defer func() {
+		s.mu.Lock()
+		delete(s.Connected, parsedId)
+		s.mu.Unlock()
+		log.Printf("%s is now offline.\n", req.Username)
+	}()
 
-// 	for {
-// 		select {
-// 		case <-stream.Context().Done():
-// 			// TODO: Add cleanup post client disconnect?
-// 			return nil
-// 		case <-time.After(2 * time.Minute):
-// 			// TODO: Countdown until disconnect
-// 			err := stream.Send(&pb.StatusUpdate{
-// 				Message:   "Still alive",
-// 				UpdatedAt: timestamppb.Now(),
-// 			})
-// 			if err != nil {
-// 				fmt.Printf("Failed to send status update: %v\n", err)
-// 				return err
-// 			}
-// 		}
-// 	}
-// }
+	log.Printf("%s is online.\n", req.Username)
+
+	for {
+		select {
+		case <-stream.Context().Done():
+			return nil
+		case <-time.After(2 * time.Minute):
+			err := stream.Send(&pb.StatusUpdate{
+				Message:   "Still alive",
+				UpdatedAt: timestamppb.Now(),
+			})
+			if err != nil {
+				log.Printf("Failed to send status update: %v\n", err)
+				return err
+			}
+		}
+	}
+}
 
 func (s *StrikeServer) UserRequest(ctx context.Context, userInfo *common_pb.UserInfo) (*common_pb.UserInfo, error) {
 	var userid uuid.UUID
@@ -347,99 +371,89 @@ func (s *StrikeServer) UserRequest(ctx context.Context, userInfo *common_pb.User
 	return &common_pb.UserInfo{UserId: userid.String(), Username: userInfo.Username, EncryptionPublicKey: encryptionPubKey, SigningPublicKey: signingPubKey}, nil
 }
 
-// func (s *StrikeServer) OnlineUsers(ctx context.Context, userInfo *common_pb.UserInfo) (*common_pb.Users, error) {
-// 	//TODO: Log user making request userInfo
-// 	log.Printf("%s (%s) requested active user list\n", userInfo.Username, userInfo.UserId)
+func (s *StrikeServer) OnlineUsers(ctx context.Context, userInfo *common_pb.UserInfo) (*common_pb.Users, error) {
+	log.Printf("%s (%s) requested active user list\n", userInfo.Username, userInfo.UserId)
 
-// 	//TODO: revisit
-// 	s.mu.Lock()
-// 	users := make([]*common_pb.UserInfo, 0, len(s.Connected))
-// 	for _, v := range s.Connected {
-// 		users = append(users, &common_pb.UserInfo{
-// 			UserId:              v.UserId,
-// 			Username:            v.Username,
-// 			EncryptionPublicKey: v.EncryptionPublicKey,
-// 			SigningPublicKey:    v.SigningPublicKey,
-// 		})
+	s.mu.Lock()
+	users := make([]*common_pb.UserInfo, 0, len(s.Connected))
+	for _, v := range s.Connected {
+		users = append(users, &common_pb.UserInfo{
+			UserId:              v.UserId,
+			Username:            v.Username,
+			EncryptionPublicKey: v.EncryptionPublicKey,
+			SigningPublicKey:    v.SigningPublicKey,
+		})
+	}
+	s.mu.Unlock()
 
-// 	}
-// 	s.mu.Unlock()
+	return &common_pb.Users{Users: users}, nil
+}
 
-// 	return &common_pb.Users{Users: users}, nil
-// }
+func (s *StrikeServer) PollServer(ctx context.Context, userInfo *common_pb.UserInfo) (*pb.ServerInfo, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-// func (s *StrikeServer) PollServer(ctx context.Context, userInfo *common_pb.UserInfo) (*pb.ServerInfo, error) {
-// 	//TODO: Wait groups?
-// 	s.mu.Lock()
-// 	defer s.mu.Unlock()
+	users := make([]*common_pb.UserInfo, 0, len(s.Connected))
+	for _, v := range s.Connected {
+		users = append(users, &common_pb.UserInfo{
+			UserId:              v.UserId,
+			Username:            v.Username,
+			EncryptionPublicKey: v.EncryptionPublicKey,
+			SigningPublicKey:    v.SigningPublicKey,
+		})
+	}
 
-// 	users := make([]*common_pb.UserInfo, 0, len(s.Connected))
-// 	for _, v := range s.Connected {
-// 		users = append(users, &common_pb.UserInfo{
-// 			UserId:              v.UserId,
-// 			Username:            v.Username,
-// 			EncryptionPublicKey: v.EncryptionPublicKey,
-// 			SigningPublicKey:    v.SigningPublicKey,
-// 		})
+	return &pb.ServerInfo{
+		ServerId:   s.ID.String(),
+		ServerName: s.Name,
+		Users:      users,
+	}, nil
+}
 
-// 	}
+func (s *StrikeServer) PayloadStream(user *common_pb.UserInfo, stream pb.Strike_PayloadStreamServer) error {
+	log.Printf("Stream Established: %v online\n", user.Username)
 
-// 	return &pb.ServerInfo{
-// 		ServerId:   s.ID.String(),
-// 		ServerName: s.Name,
-// 		Users:      users,
-// 	}, nil
-// }
+	parsedId, err := uuid.Parse(user.UserId)
+	if err != nil {
+		return fmt.Errorf("failed to parse user id: %v", err)
+	}
 
-// func (s *StrikeServer) PayloadStream(user *common_pb.UserInfo, stream pb.Strike_PayloadStreamServer) error {
-// 	log.Printf("Stream Established: %v online \n", user.Username)
+	s.mu.Lock()
+	s.mapInit()
+	s.PayloadStreams[parsedId] = stream
+	s.mu.Unlock()
 
-// 	parsedId, err := uuid.Parse(user.UserId)
-// 	if err != nil {
-// 		return fmt.Errorf("failed to parse user id: %v", err)
-// 	}
-// 	// Register the users message steam
-// 	s.mu.Lock()
-// 	s.PayloadStreams[parsedId] = stream
-// 	s.mu.Unlock()
+	payloadChannel := make(chan *pb.StreamPayload, 100)
 
-// 	// create a channel for each connected client
-// 	payloadChannel := make(chan *pb.StreamPayload, 100)
+	s.mu.Lock()
+	s.PayloadChannels[parsedId] = payloadChannel
+	s.mu.Unlock()
 
-// 	// Register the users message channel
-// 	s.mu.Lock()
-// 	s.PayloadChannels[parsedId] = payloadChannel
-// 	s.mu.Unlock()
+	defer func() {
+		s.mu.Lock()
+		delete(s.PayloadStreams, parsedId)
+		delete(s.PayloadChannels, parsedId)
+		close(payloadChannel)
+		s.mu.Unlock()
+		log.Printf("Client %s disconnected.\n", user.Username)
+	}()
 
-// 	// Defer our cleanup of stream map and message channel
-// 	defer func() {
-// 		s.mu.Lock()
-// 		delete(s.PayloadStreams, parsedId)
-// 		delete(s.PayloadChannels, parsedId)
-// 		close(payloadChannel) // Safely close the channel
-// 		s.mu.Unlock()
-// 		fmt.Printf("Client %s disconnected.\n", user.Username)
-// 	}()
+	go func() {
+		for msg := range payloadChannel {
+			if err := stream.Send(msg); err != nil {
+				log.Printf("Failed to send message to %s: %v\n", user.Username, err)
+				return
+			}
+		}
+	}()
 
-// 	// Goroutine to send messages from channel
-// 	// Only exits when the channel is closed thanks to the for/range
-// 	go func() {
-// 		for msg := range payloadChannel {
-// 			if err := stream.Send(msg); err != nil {
-// 				fmt.Printf("Failed to send message to %s: %v\n", user.Username, err)
-// 				return
-// 			}
-// 		}
-// 	}()
-
-// 	for {
-// 		select {
-// 		case <-stream.Context().Done():
-// 			// TODO: Graceful Disconnect/Shutdown
-// 			fmt.Println("Client disconnected.")
-// 			return nil
-// 		case <-time.After(1 * time.Minute):
-// 			// TODO: Heart Beat
-// 		}
-// 	}
-// }
+	for {
+		select {
+		case <-stream.Context().Done():
+			log.Println("Client disconnected.")
+			return nil
+		case <-time.After(1 * time.Minute):
+			// TODO: Heart Beat
+		}
+	}
+}

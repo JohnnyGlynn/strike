@@ -77,11 +77,9 @@ func NewDemultiplexer(c *types.Client) *Demultiplexer {
 		default:
 			fmt.Printf("route not found %T", r)
 		}
-
-		return d
 	}
 
-	return nil
+	return d
 }
 
 func (d *Demultiplexer) spawnWorker(name string, fn func()) {

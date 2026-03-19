@@ -20,6 +20,12 @@ service Strike {
 
   rpc PayloadStream(common.UserInfo) returns (stream StreamPayload) {}
 
+  rpc StatusStream(common.UserInfo) returns (stream StatusUpdate) {}
+
+  rpc OnlineUsers(common.UserInfo) returns (common.Users) {}
+
+  rpc PollServer(common.UserInfo) returns (ServerInfo) {}
+
 }
 
 //TODO: Lots of cleaning

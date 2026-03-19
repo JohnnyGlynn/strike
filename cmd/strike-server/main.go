@@ -39,10 +39,11 @@ func main() {
 	// TODO: Refactor, replicated from client
 	configFilePath := flag.String("config", "", "Path to configuration JSON file")
 	keygen := flag.Bool("keygen", false, "Launch Strike Server Key generation, creating keypair and certificate")
+	keydir := flag.String("keydir", ".", "Output directory for generated keys and certificate")
 	flag.Parse()
 
 	if *keygen {
-		err := keys.GenerateServerKeysAndCert()
+		err := keys.GenerateServerKeysAndCert(*keydir)
 		if err != nil {
 			fmt.Printf("error generating server signing keys and certificate: %v\n", err)
 			return

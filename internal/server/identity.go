@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/JohnnyGlynn/strike/internal/config"
 	"github.com/JohnnyGlynn/strike/internal/keys"
@@ -22,7 +23,9 @@ func InitID(svrCfg config.ServerConfig, idCfg string) (*Identity, error) {
 	if _, err := os.Stat(svrCfg.SigningPrivateKeyPath); os.IsNotExist(err) {
 		fmt.Println("No server identity found: Bootstrapping")
 
-		err := keys.GenerateServerKeysAndCert()
+		// Use the directory containing the expected private key path as output
+		keyDir := filepath.Dir(svrCfg.SigningPrivateKeyPath)
+		err := keys.GenerateServerKeysAndCert(keyDir)
 		if err != nil {
 			return nil, err
 		}

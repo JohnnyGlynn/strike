@@ -12,14 +12,14 @@ all: build
 keygen-client:
 	mkdir -p $(BUILD_DIR)
 	go build -o $(BUILD_DIR)/$(APP_NAME)-client cmd/strike-client/main.go
-	./$(BUILD_DIR)/$(APP_NAME)-client --keygen 
+	./$(BUILD_DIR)/$(APP_NAME)-client --keygen --keydir=$(or $(KEYDIR),./keys/client)
 	rm -rf $(BUILD_DIR)
 
 .PHONY: keygen-server
 keygen-server:
 	mkdir -p $(BUILD_DIR)
 	go build -o $(BUILD_DIR)/$(APP_NAME)-server cmd/strike-server/main.go
-	./$(BUILD_DIR)/$(APP_NAME)-server --keygen 
+	./$(BUILD_DIR)/$(APP_NAME)-server --keygen --keydir=$(or $(KEYDIR),./keys/server)
 	rm -rf $(BUILD_DIR)
 
 # === keygen ===

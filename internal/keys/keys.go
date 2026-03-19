@@ -15,8 +15,6 @@ import (
 	"time"
 )
 
-var homeDir string
-
 type KeyType int
 
 // enum
@@ -30,17 +28,7 @@ type KeyDefinition struct {
 	Type KeyType
 }
 
-func init() {
-	// Initialize the global homeDir variable
-	var err error
-	homeDir, err = os.UserHomeDir()
-	if err != nil {
-		panic(fmt.Errorf("error finding user home directory: %v", err))
-	}
-}
-
-func SigningKeygen() error {
-	// TODO: There is definetly a better way to do this
+func SigningKeygen(outputDir string) error {
 	fmt.Println("WARNING: You (the user) are responsible for the safety of these key files. You will not be able to recover these files if they are lost")
 
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
@@ -54,7 +42,7 @@ func SigningKeygen() error {
 		return fmt.Errorf("error encoding private key: %v", err)
 	}
 
-	err = writeToPem(privateKeyBytes, "PRIVATE KEY", "strike_signing.pem")
+	err = writeToPem(privateKeyBytes, "PRIVATE KEY", "strike_signing.pem", outputDir)
 	if err != nil {
 		return fmt.Errorf("failed to write private key: %v", err)
 	}
@@ -65,12 +53,12 @@ func SigningKeygen() error {
 		return fmt.Errorf("error encoding public key: %v", err)
 	}
 
-	err = writeToPem(publicKeyBytes, "PUBLIC KEY", "strike_public_signing.pem")
+	err = writeToPem(publicKeyBytes, "PUBLIC KEY", "strike_public_signing.pem", outputDir)
 	if err != nil {
 		return fmt.Errorf("failed to write public key: %v", err)
 	}
 
-	fmt.Println("Strike Signing Keys generated and saved to ~/.strike-keys")
+	fmt.Printf("Strike Signing Keys generated and saved to %s\n", outputDir)
 	return nil
 }
 
@@ -115,7 +103,7 @@ func ValidateSigningKeys(keyBytes []byte) error {
 	return nil
 }
 
-func EncryptionKeygen() error {
+func EncryptionKeygen(outputDir string) error {
 	curve := ecdh.X25519()
 
 	privateKey, err := curve.GenerateKey(rand.Reader)
@@ -125,18 +113,18 @@ func EncryptionKeygen() error {
 
 	// Extract the private and public keys as byte slices
 	privateKeyBytes := privateKey.Bytes()
-	err = writeToPem(privateKeyBytes, "PRIVATE KEY", "strike_encryption.pem")
+	err = writeToPem(privateKeyBytes, "PRIVATE KEY", "strike_encryption.pem", outputDir)
 	if err != nil {
 		return fmt.Errorf("failed to write private key: %v", err)
 	}
 
 	publicKeyBytes := privateKey.PublicKey().Bytes()
-	err = writeToPem(publicKeyBytes, "PUBLIC KEY", "strike_public_encryption.pem")
+	err = writeToPem(publicKeyBytes, "PUBLIC KEY", "strike_public_encryption.pem", outputDir)
 	if err != nil {
 		return fmt.Errorf("failed to write private key: %v", err)
 	}
 
-	fmt.Println("Strike Encryption Keys generated and saved to ~/.strike-keys")
+	fmt.Printf("Strike Encryption Keys generated and saved to %s\n", outputDir)
 	return nil
 }
 
@@ -229,21 +217,11 @@ func GetKeyFromPath(path string) ([]byte, error) {
 	return key, nil
 }
 
-func writeToPem(keyBytes []byte, keyType string, keyNameDotPem string) error {
-	strikeKeyDir := filepath.Join(homeDir, "/.strike-keys/")
-	fullPath := filepath.Join(strikeKeyDir, keyNameDotPem)
+func writeToPem(keyBytes []byte, keyType string, keyNameDotPem string, outputDir string) error {
+	fullPath := filepath.Join(outputDir, keyNameDotPem)
 
-	// Check if key directory exists
-	if _, err := os.Stat(strikeKeyDir); os.IsNotExist(err) {
-		// Directory doesn't exist
-		fmt.Println("~/.strike_keys not found. Creating ~/.strike_keys")
-		// TODO:Hidden Home for now, handle storing this in Library/Application Support : Cross Platform
-		err = os.Mkdir(strikeKeyDir, 0755)
-		if err != nil {
-			return fmt.Errorf("error creating key directory: %v", err)
-		}
-	} else if err == nil {
-		fmt.Println("~/.strike_keys found, Writing keys")
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return fmt.Errorf("error creating key directory: %v", err)
 	}
 
 	keyPEM := pem.Block{
@@ -253,15 +231,14 @@ func writeToPem(keyBytes []byte, keyType string, keyNameDotPem string) error {
 
 	err := os.WriteFile(fullPath, pem.EncodeToMemory(&keyPEM), 0600)
 	if err != nil {
-		return fmt.Errorf("failed to write public key: %v", err)
+		return fmt.Errorf("failed to write key: %v", err)
 	}
 
-	fmt.Printf("Strike Key \"%v\" generated and saved to: %v\n", keyNameDotPem, strikeKeyDir)
+	fmt.Printf("Strike Key \"%v\" saved to: %v\n", keyNameDotPem, outputDir)
 	return nil
 }
 
-// TODO: REFACTOR above functions to be more generic and robust, for now this will be fine
-func GenerateServerKeysAndCert() error {
+func GenerateServerKeysAndCert(outputDir string) error {
 	fmt.Println("Server Keys and Cert Generator")
 
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
@@ -281,21 +258,13 @@ func GenerateServerKeysAndCert() error {
 		return fmt.Errorf("error encoding public key: %v", err)
 	}
 
-	strikeKeyDir := filepath.Join(homeDir, "/.strike-server/")
-	// TODO: Not great
-	pubFullPath := filepath.Join(strikeKeyDir, "strike_server_public.pem")
-	privFullPath := filepath.Join(strikeKeyDir, "strike_server.pem")
-	certFullPath := filepath.Join(strikeKeyDir, "strike_server.crt")
-
-	if _, err := os.Stat(strikeKeyDir); os.IsNotExist(err) {
-		fmt.Println("~/.strike-server not found. Creating ~/.strike-server")
-		err = os.Mkdir(strikeKeyDir, 0755)
-		if err != nil {
-			return fmt.Errorf("error creating key directory: %v", err)
-		}
-	} else if err == nil {
-		fmt.Println("~/.strike-server found, Writing keys")
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return fmt.Errorf("error creating key directory: %v", err)
 	}
+
+	pubFullPath := filepath.Join(outputDir, "strike_server_public.pem")
+	privFullPath := filepath.Join(outputDir, "strike_server.pem")
+	certFullPath := filepath.Join(outputDir, "strike_server.crt")
 
 	pubKeyPEM := pem.Block{
 		Type:  "PUBLIC KEY",
@@ -326,13 +295,10 @@ func GenerateServerKeysAndCert() error {
 
 	// Make sure non-negative
 	if serialNumber.Sign() < 0 {
-		// The absolute value (or modulus) | x | of a real number x is the non-negative value of x without regard to its sign
 		serialNumber.Abs(serialNumber)
 	}
 
-	// first4 := publicKey[:4]
-
-	// Server template - TODO: Make the CommonName/DNSNames configurable during keygen, Maybe include First 4?
+	// Server template - TODO: Make the CommonName/DNSNames configurable during keygen
 	strikeCert := x509.Certificate{
 		SerialNumber: serialNumber,
 		Subject:      pkix.Name{CommonName: "strike-server"},
@@ -364,6 +330,6 @@ func GenerateServerKeysAndCert() error {
 		return fmt.Errorf("failed to create server.crt: %v", err)
 	}
 
-	fmt.Println("Strike Server Signing Keys and Certificate generated and saved to ~/.strike-server")
+	fmt.Printf("Strike Server Signing Keys and Certificate generated and saved to %s\n", outputDir)
 	return nil
 }

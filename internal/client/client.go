@@ -319,7 +319,7 @@ func PollServer(c *types.Client) (*pb.ServerInfo, error) {
 		Username:            c.Identity.Username,
 		UserId:              c.Identity.ID.String(),
 		EncryptionPublicKey: c.Identity.Keys["EncryptionPublicKey"],
-		SigningPublicKey:    c.Identity.Keys["SigningPublicKeyu"],
+		SigningPublicKey:    c.Identity.Keys["SigningPublicKey"],
 	})
 	if err != nil {
 		log.Printf("error polling server: %v\n", err)

@@ -55,9 +55,10 @@ func main() {
 
 	configFilePath := flag.String("config", "", "Path to configuration JSON file")
 	keygen := flag.Bool("keygen", false, "Launch Strike Key generation, creating keypair for user not bringing existing PKI")
+	keydir := flag.String("keydir", ".", "Output directory for generated keys")
 	flag.Parse()
 
-	clientCfg, loadedKeys, err := setupClientConfigAndKeys(*configFilePath, *keygen)
+	clientCfg, loadedKeys, err := setupClientConfigAndKeys(*configFilePath, *keygen, *keydir)
 	if err != nil {
 		fmt.Printf("error setting up config/keys: %v\n", err)
 		return
@@ -136,19 +137,18 @@ func initDB(path string, schema []byte) (*sql.DB, error) {
 	return dbOpen, nil
 }
 
-func setupClientConfigAndKeys(cfgPath string, keygen bool) (config.ClientConfig, map[string][]byte, error) {
+func setupClientConfigAndKeys(cfgPath string, keygen bool, keydir string) (config.ClientConfig, map[string][]byte, error) {
 	// Avoid shadowing
 	var clientCfg config.ClientConfig
 	var err error
 
-	// TODO: Replace Keygen with --firstrun?
 	if keygen {
-		if err := keys.SigningKeygen(); err != nil {
+		if err := keys.SigningKeygen(keydir); err != nil {
 			return clientCfg, nil, fmt.Errorf("error generating signing keys: %v", err)
 		}
 		fmt.Println("Signing keys generated successfully ")
 
-		if err = keys.EncryptionKeygen(); err != nil {
+		if err = keys.EncryptionKeygen(keydir); err != nil {
 			return clientCfg, nil, fmt.Errorf("error generating encryption keys: %v", err)
 		}
 		fmt.Println("Encryption keys generated successfully")
