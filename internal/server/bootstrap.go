@@ -95,7 +95,7 @@ func (b *Bootstrap) InitStrikeServer(creds credentials.TransportCredentials, pee
 	id := DeriveServerID(key)
 
 	b.Strike = &StrikeServer{
-		Name:           "strike-server",
+		Name:           b.Cfg.Name,
 		ID:             uuid.MustParse(id),
 		DBpool:         b.DB,
 		PStatements:    b.Statements,

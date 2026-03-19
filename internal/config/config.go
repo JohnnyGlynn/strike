@@ -9,6 +9,7 @@ import (
 )
 
 type ServerConfig struct {
+	Name                 string `json:"name" yaml:"name"`
 	SigningPrivateKeyPath string `json:"private_server_signing_key_path" yaml:"private_server_singing_key_path"`
 	SigningPublicKeyPath  string `json:"public_server_signing_key_path" yaml:"public_server_signing_key_path"`
 	CertificatePath       string `json:"certificate_path" yaml:"certificate_path"`
@@ -29,6 +30,7 @@ type ClientConfig struct {
 
 func LoadServerConfigEnv() *ServerConfig {
 	return &ServerConfig{
+		Name:                 os.Getenv("SERVER_NAME"),
 		SigningPrivateKeyPath: os.Getenv("PRIVATE_SERVER_SIGNING_KEY_PATH"),
 		SigningPublicKeyPath:  os.Getenv("PUBLIC_SERVER_SIGNING_KEY_PATH"),
 		CertificatePath:       os.Getenv("CERT_PATH"),
@@ -91,6 +93,7 @@ func ValidateFields(cfg map[string]*string) error {
 
 func (c *ServerConfig) ValidateConfig() error {
 	return ValidateFields(map[string]*string{
+		"name":                            &c.Name,
 		"private_server_signing_key_path": &c.SigningPrivateKeyPath,
 		"public_server_signing_key_path":  &c.SigningPublicKeyPath,
 		"certificate_path":                &c.CertificatePath,
@@ -114,6 +117,7 @@ func (c *ClientConfig) ValidateConfig() error {
 
 func (c *ServerConfig) ValidateEnv() error {
 	return ValidateFields(map[string]*string{
+		"SERVER_NAME":                     &c.Name,
 		"PRIVATE_SERVER_SIGNING_KEY_PATH": &c.SigningPrivateKeyPath,
 		"PUBLIC_SERVER_SIGNING_KEY_PATH":  &c.SigningPublicKeyPath,
 		"CERT_PATH":                       &c.CertificatePath,

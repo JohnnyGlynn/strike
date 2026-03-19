@@ -6,21 +6,39 @@ BUILD_DIR=build
 .PHONY: all
 all: build
 
-# === keygen === 
+# === keygen ===
+
+KEYS_DIR=keys
+CA_DIR=$(KEYS_DIR)/ca
+
+.PHONY: keygen-ca
+keygen-ca:
+	mkdir -p $(BUILD_DIR)
+	go build -o $(BUILD_DIR)/$(APP_NAME)-server ./cmd/strike-server
+	./$(BUILD_DIR)/$(APP_NAME)-server --gen-ca --keydir=$(CA_DIR)
+	rm -rf $(BUILD_DIR)
 
 .PHONY: keygen-client
 keygen-client:
 	mkdir -p $(BUILD_DIR)
 	go build -o $(BUILD_DIR)/$(APP_NAME)-client cmd/strike-client/main.go
-	./$(BUILD_DIR)/$(APP_NAME)-client --keygen --keydir=$(or $(KEYDIR),./keys/client)
+	./$(BUILD_DIR)/$(APP_NAME)-client --keygen --keydir=$(or $(KEYDIR),./$(KEYS_DIR)/client)
 	rm -rf $(BUILD_DIR)
 
 .PHONY: keygen-server
 keygen-server:
 	mkdir -p $(BUILD_DIR)
-	go build -o $(BUILD_DIR)/$(APP_NAME)-server cmd/strike-server/main.go
-	./$(BUILD_DIR)/$(APP_NAME)-server --keygen --keydir=$(or $(KEYDIR),./keys/server)
+	go build -o $(BUILD_DIR)/$(APP_NAME)-server ./cmd/strike-server
+	./$(BUILD_DIR)/$(APP_NAME)-server --keygen --keydir=$(or $(KEYDIR),./$(KEYS_DIR)/server) \
+		$(if $(SERVER_NAME),--name=$(SERVER_NAME)) \
+		$(if $(wildcard $(CA_DIR)/strike_ca.crt),--ca-cert=$(CA_DIR)/strike_ca.crt --ca-key=$(CA_DIR)/strike_ca.pem)
 	rm -rf $(BUILD_DIR)
+
+.PHONY: keygen-all
+keygen-all:
+	$(MAKE) keygen-ca
+	$(MAKE) keygen-server KEYDIR=./$(KEYS_DIR)/server1 SERVER_NAME=endpoint0
+	$(MAKE) keygen-server KEYDIR=./$(KEYS_DIR)/server2 SERVER_NAME=endpoint1
 
 # === keygen ===
 

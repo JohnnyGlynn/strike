@@ -1,10 +1,9 @@
 peers:
-  - id: "endpoint0-UUID"
+  - id: "438567f75e360000042b3e56f17aa114"
     name: "endpoint0"
     addr: "strike-server1:9090"
-    pubkey: "signing-key"
-    # cert? /
-  - id: "federated-server-UUID"
+    pubkey: "MCowBQYDK2VwAyEA7sn6KhWaE/ZMUm/TQyd/2o2+Zeh/zbPGSbTXR+pJJws="
+  - id: "8ea09227c6e09f98385a5abb6bfa3151"
     name: "endpoint1"
     addr: "strike-server2:9090"
-    pubkey: "signing-key-federated"
+    pubkey: "MCowBQYDK2VwAyEAY3g8PYTNFiwV8dy0/goUB7crJOP9A22nSVej0dFiy3I="

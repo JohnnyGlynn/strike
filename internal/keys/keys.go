@@ -4,8 +4,11 @@ import (
 	"crypto/ecdh"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/hex"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -238,7 +241,150 @@ func writeToPem(keyBytes []byte, keyType string, keyNameDotPem string, outputDir
 	return nil
 }
 
+func GenerateCA(outputDir string) error {
+	fmt.Println("Strike Federation CA Generator")
+
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return fmt.Errorf("error generating CA keys: %v", err)
+	}
+
+	privateKeyBytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
+	if err != nil {
+		return fmt.Errorf("error encoding CA private key: %v", err)
+	}
+
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return fmt.Errorf("error creating CA directory: %v", err)
+	}
+
+	twentyBytes := new(big.Int).Lsh(big.NewInt(1), 160)
+	serialNumber, err := rand.Int(rand.Reader, twentyBytes)
+	if err != nil {
+		return err
+	}
+	if serialNumber.Sign() < 0 {
+		serialNumber.Abs(serialNumber)
+	}
+
+	caCert := x509.Certificate{
+		SerialNumber:          serialNumber,
+		Subject:               pkix.Name{CommonName: "Strike Federation CA"},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(5 * 365 * 24 * time.Hour), // 5 years
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		MaxPathLen:            0,
+	}
+
+	signedCA, err := x509.CreateCertificate(rand.Reader, &caCert, &caCert, publicKey, privateKey)
+	if err != nil {
+		return fmt.Errorf("failed to create CA certificate: %v", err)
+	}
+
+	caKeyPath := filepath.Join(outputDir, "strike_ca.pem")
+	caCertPath := filepath.Join(outputDir, "strike_ca.crt")
+
+	err = os.WriteFile(caKeyPath, pem.EncodeToMemory(&pem.Block{
+		Type: "PRIVATE KEY", Bytes: privateKeyBytes,
+	}), 0600)
+	if err != nil {
+		return fmt.Errorf("failed to write CA private key: %v", err)
+	}
+
+	err = os.WriteFile(caCertPath, pem.EncodeToMemory(&pem.Block{
+		Type: "CERTIFICATE", Bytes: signedCA,
+	}), 0600)
+	if err != nil {
+		return fmt.Errorf("failed to write CA certificate: %v", err)
+	}
+
+	fmt.Printf("Strike Federation CA generated and saved to %s\n", outputDir)
+	return nil
+}
+
+func LoadCA(caCertPath, caKeyPath string) (*x509.Certificate, ed25519.PrivateKey, error) {
+	certPEM, err := os.ReadFile(caCertPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read CA cert: %v", err)
+	}
+
+	block, _ := pem.Decode(certPEM)
+	if block == nil {
+		return nil, nil, fmt.Errorf("failed to decode CA cert PEM")
+	}
+
+	caCert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse CA cert: %v", err)
+	}
+
+	keyPEM, err := os.ReadFile(caKeyPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read CA key: %v", err)
+	}
+
+	keyBlock, _ := pem.Decode(keyPEM)
+	if keyBlock == nil {
+		return nil, nil, fmt.Errorf("failed to decode CA key PEM")
+	}
+
+	parsed, err := x509.ParsePKCS8PrivateKey(keyBlock.Bytes)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse CA private key: %v", err)
+	}
+
+	caKey, ok := parsed.(ed25519.PrivateKey)
+	if !ok {
+		return nil, nil, fmt.Errorf("CA key is not ED25519")
+	}
+
+	return caCert, caKey, nil
+}
+
+func GenerateIdentityFile(keyDir string, name string) error {
+	pubKeyPath := filepath.Join(keyDir, "strike_server_public.pem")
+	pubKeyPEM, err := os.ReadFile(pubKeyPath)
+	if err != nil {
+		return fmt.Errorf("failed to read public key for identity: %v", err)
+	}
+
+	id := DeriveID(pubKeyPEM)
+
+	identity := struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}{
+		ID:   id,
+		Name: name,
+	}
+
+	data, err := json.MarshalIndent(identity, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal identity: %v", err)
+	}
+
+	idPath := filepath.Join(keyDir, "identity.json")
+	if err := os.WriteFile(idPath, data, 0600); err != nil {
+		return fmt.Errorf("failed to write identity file: %v", err)
+	}
+
+	fmt.Printf("Identity file generated: %s (id: %s, name: %s)\n", idPath, id, name)
+	return nil
+}
+
+// DeriveID computes a server ID from the raw PEM bytes of the public key
+func DeriveID(pubPEM []byte) string {
+	di := sha256.Sum256(pubPEM)
+	return hex.EncodeToString(di[:16])
+}
+
 func GenerateServerKeysAndCert(outputDir string) error {
+	return GenerateServerKeysAndCertWithCA(outputDir, nil, nil)
+}
+
+func GenerateServerKeysAndCertWithCA(outputDir string, caCert *x509.Certificate, caKey ed25519.PrivateKey) error {
 	fmt.Println("Server Keys and Cert Generator")
 
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
@@ -298,7 +444,6 @@ func GenerateServerKeysAndCert(outputDir string) error {
 		serialNumber.Abs(serialNumber)
 	}
 
-	// Server template - TODO: Make the CommonName/DNSNames configurable during keygen
 	strikeCert := x509.Certificate{
 		SerialNumber: serialNumber,
 		Subject:      pkix.Name{CommonName: "strike-server"},
@@ -310,14 +455,23 @@ func GenerateServerKeysAndCert(outputDir string) error {
 			x509.ExtKeyUsageServerAuth,
 		},
 		BasicConstraintsValid: true,
-		DNSNames:              []string{"localhost"},
+		DNSNames:              []string{"localhost", "strike-server1", "strike-server2", "strike-server1.strike.svc.cluster.local", "strike-server2.strike.svc.cluster.local"},
 	}
 
-	// Self-sign TODO: More robust (i.e no self parent)
-	signedCert, err := x509.CreateCertificate(rand.Reader, &strikeCert, &strikeCert, publicKey, privateKey)
+	// Sign with CA if provided, otherwise self-sign
+	var signerCert *x509.Certificate
+	var signerKey interface{}
+	if caCert != nil && caKey != nil {
+		signerCert = caCert
+		signerKey = caKey
+	} else {
+		signerCert = &strikeCert
+		signerKey = privateKey
+	}
+
+	signedCert, err := x509.CreateCertificate(rand.Reader, &strikeCert, signerCert, publicKey, signerKey)
 	if err != nil {
-		fmt.Printf("Failed to create server certificate: %v", err)
-		return nil
+		return fmt.Errorf("failed to create server certificate: %v", err)
 	}
 
 	certPEM := pem.Block{

@@ -1,8 +1,6 @@
 package server
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -36,7 +34,7 @@ func InitID(svrCfg config.ServerConfig, idCfg string) (*Identity, error) {
 		return nil, err
 	}
 
-	fingerprint := DeriveServerID(keyBytes)
+	fingerprint := keys.DeriveID(keyBytes)
 
 	if _, err := os.Stat(idCfg); err == nil {
 		file, err := os.ReadFile(idCfg)
@@ -57,7 +55,7 @@ func InitID(svrCfg config.ServerConfig, idCfg string) (*Identity, error) {
 
 	id := &Identity{
 		ID:   fingerprint,
-		Name: "MAKE-CONFIGURABLE",
+		Name: svrCfg.Name,
 	}
 
 	writes, err := json.Marshal(id)
@@ -65,17 +63,15 @@ func InitID(svrCfg config.ServerConfig, idCfg string) (*Identity, error) {
 		return nil, err
 	}
 
-	//Json path
 	err = os.WriteFile(idCfg, writes, 0600)
 	if err != nil {
 		return nil, err
 	}
 
 	return id, nil
-
 }
 
+// DeriveServerID wraps keys.DeriveID for use within the server package
 func DeriveServerID(pub []byte) string {
-	di := sha256.Sum256(pub)
-	return hex.EncodeToString(di[:16])
+	return keys.DeriveID(pub)
 }

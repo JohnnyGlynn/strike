@@ -2,6 +2,9 @@ package server
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/x509"
+	"encoding/base64"
 	"fmt"
 	"os"
 
@@ -93,7 +96,25 @@ func LoadPeers(path string) ([]types.PeerConfig, error) {
 		return nil, err
 	}
 
-	fmt.Printf("cfg: %v\n", cfg)
+	// Decode base64 SPKI public keys
+	for i := range cfg.Peers {
+		raw, err := base64.StdEncoding.DecodeString(cfg.Peers[i].RawKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode pubkey for peer %s: %v", cfg.Peers[i].Name, err)
+		}
+
+		parsed, err := x509.ParsePKIXPublicKey(raw)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse pubkey for peer %s: %v", cfg.Peers[i].Name, err)
+		}
+
+		pubKey, ok := parsed.(ed25519.PublicKey)
+		if !ok {
+			return nil, fmt.Errorf("peer %s pubkey is not ed25519", cfg.Peers[i].Name)
+		}
+
+		cfg.Peers[i].PubKey = pubKey
+	}
 
 	fmt.Println("Available peers")
 	for _, p := range cfg.Peers {

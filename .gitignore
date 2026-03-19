@@ -25,5 +25,8 @@ cmd/strike-client/client
 cmd/strike-client/client.db
 cmd/strike-server/main
 build/
+keys/
+config/server/federation.yaml
 cfg/
 CLAUDE.md
+client.db

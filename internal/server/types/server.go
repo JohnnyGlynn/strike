@@ -21,10 +21,11 @@ type PendingMsg struct {
 }
 
 type PeerConfig struct {
-	ID      uuid.UUID         `yaml:"id"`
-	Name    string            `yaml:"name"`
-	Address string            `yaml:"addr"`
-	PubKey  ed25519.PublicKey `yaml:"pubkey"`
+	ID      uuid.UUID        `yaml:"id"`
+	Name    string           `yaml:"name"`
+	Address string           `yaml:"addr"`
+	PubKey  ed25519.PublicKey `yaml:"-"`
+	RawKey  string           `yaml:"pubkey"`
 }
 
 type PeerRuntime struct {

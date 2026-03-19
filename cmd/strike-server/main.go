@@ -39,15 +39,50 @@ func main() {
 	// TODO: Refactor, replicated from client
 	configFilePath := flag.String("config", "", "Path to configuration JSON file")
 	keygen := flag.Bool("keygen", false, "Launch Strike Server Key generation, creating keypair and certificate")
+	genCA := flag.Bool("gen-ca", false, "Generate a Strike Federation CA keypair and certificate")
 	keydir := flag.String("keydir", ".", "Output directory for generated keys and certificate")
+	serverName := flag.String("name", "", "Server name for identity file (used with --keygen)")
+	caCertPath := flag.String("ca-cert", "", "Path to CA certificate for signing server cert")
+	caKeyPath := flag.String("ca-key", "", "Path to CA private key for signing server cert")
 	flag.Parse()
 
-	if *keygen {
-		err := keys.GenerateServerKeysAndCert(*keydir)
+	if *genCA {
+		err := keys.GenerateCA(*keydir)
 		if err != nil {
-			fmt.Printf("error generating server signing keys and certificate: %v\n", err)
+			fmt.Printf("error generating CA: %v\n", err)
 			return
 		}
+		os.Exit(0)
+	}
+
+	if *keygen {
+		if *caCertPath != "" && *caKeyPath != "" {
+			caCert, caKey, err := keys.LoadCA(*caCertPath, *caKeyPath)
+			if err != nil {
+				fmt.Printf("error loading CA: %v\n", err)
+				return
+			}
+			err = keys.GenerateServerKeysAndCertWithCA(*keydir, caCert, caKey)
+			if err != nil {
+				fmt.Printf("error generating server signing keys and certificate: %v\n", err)
+				return
+			}
+		} else {
+			err = keys.GenerateServerKeysAndCert(*keydir)
+			if err != nil {
+				fmt.Printf("error generating server signing keys and certificate: %v\n", err)
+				return
+			}
+		}
+
+		// Generate identity file if --name is provided
+		if *serverName != "" {
+			if err := keys.GenerateIdentityFile(*keydir, *serverName); err != nil {
+				fmt.Printf("error generating identity file: %v\n", err)
+				return
+			}
+		}
+
 		os.Exit(0)
 	}
 

@@ -39,23 +39,23 @@ local_resource(
 
 local_resource(
   'strike-server1-identity',
-  'kubectl delete secret strike-server1-identity -n strike --ignore-not-found && kubectl create secret generic strike-server1-identity --from-file=$HOME/.strike-server --from-file=./config/server/identity1.json -n strike',
-  deps=['$HOME/.strike-server/', './config/server/identity1.json'],
+  'kubectl delete secret strike-server1-identity -n strike --ignore-not-found && kubectl create secret generic strike-server1-identity --from-file=./keys/server1 -n strike',
+  deps=['./keys/server1/'],
   resource_deps=['strike-namespace']
 )
 
 local_resource(
   'strike-server2-identity',
-  'kubectl delete secret strike-server2-identity -n strike --ignore-not-found && kubectl create secret generic strike-server2-identity --from-file=$HOME/.strike-server --from-file=./config/server/identity2.json -n strike',
-  deps=['$HOME/.strike-server/', './config/server/identity2.json'],
+  'kubectl delete secret strike-server2-identity -n strike --ignore-not-found && kubectl create secret generic strike-server2-identity --from-file=./keys/server2 -n strike',
+  deps=['./keys/server2/'],
   resource_deps=['strike-namespace']
 )
 
 
 local_resource(
   'strike-federation',
-  'kubectl delete secret strike-federation -n strike --ignore-not-found && kubectl create secret generic strike-federation --from-file=./config/server -n strike',
-  deps=['./config/server/federation.yaml'],
+  'kubectl delete secret strike-federation -n strike --ignore-not-found && kubectl create secret generic strike-federation --from-file=./config/server/federation.yaml --from-file=./keys/ca/strike_ca.crt -n strike',
+  deps=['./config/server/federation.yaml', './keys/ca/strike_ca.crt'],
   resource_deps=['strike-namespace']
 )
 
