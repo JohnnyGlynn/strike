@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
@@ -485,5 +486,58 @@ func GenerateServerKeysAndCertWithCA(outputDir string, caCert *x509.Certificate,
 	}
 
 	fmt.Printf("Strike Server Signing Keys and Certificate generated and saved to %s\n", outputDir)
+	return nil
+}
+
+// PeerEntry represents a single peer for federation config generation
+type PeerEntry struct {
+	Name   string
+	Addr   string
+	KeyDir string
+}
+
+// GenerateFederationConfig reads public keys from each peer's key directory
+// and writes a federation.yaml with derived IDs and base64-encoded SPKI pubkeys
+func GenerateFederationConfig(peers []PeerEntry, outputPath string) error {
+	var lines []string
+	lines = append(lines, "peers:")
+
+	for _, p := range peers {
+		pubKeyPath := filepath.Join(p.KeyDir, "strike_server_public.pem")
+		pubPEM, err := os.ReadFile(pubKeyPath)
+		if err != nil {
+			return fmt.Errorf("failed to read public key for %s: %v", p.Name, err)
+		}
+
+		id := DeriveID(pubPEM)
+
+		block, _ := pem.Decode(pubPEM)
+		if block == nil {
+			return fmt.Errorf("failed to decode PEM for %s", p.Name)
+		}
+		pubB64 := base64.StdEncoding.EncodeToString(block.Bytes)
+
+		lines = append(lines,
+			fmt.Sprintf("  - id: \"%s\"", id),
+			fmt.Sprintf("    name: \"%s\"", p.Name),
+			fmt.Sprintf("    addr: \"%s\"", p.Addr),
+			fmt.Sprintf("    pubkey: \"%s\"", pubB64),
+		)
+	}
+
+	content := ""
+	for _, l := range lines {
+		content += l + "\n"
+	}
+
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+		return fmt.Errorf("failed to create output directory: %v", err)
+	}
+
+	if err := os.WriteFile(outputPath, []byte(content), 0600); err != nil {
+		return fmt.Errorf("failed to write federation config: %v", err)
+	}
+
+	fmt.Printf("Federation config generated: %s\n", outputPath)
 	return nil
 }

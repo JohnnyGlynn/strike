@@ -74,13 +74,13 @@ docker_build(
   'strike-db',
   './',
   dockerfile='deploy/db.Dockerfile',
-  ignore=['build', 'cmd', 'internal']
+  only=['config/db/init.sql']
 )
 docker_build(
   'strike_server',
   './',
   dockerfile='deploy/server.Dockerfile',
-  ignore=['build', 'cmd/strike-client', 'internal/client']
+  ignore=['build', 'keys', 'deploy', 'config', 'cmd/strike-client', 'internal/client', '.git']
 )
 
 k8s_resource(

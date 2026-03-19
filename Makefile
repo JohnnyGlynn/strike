@@ -10,13 +10,11 @@ all: build
 
 KEYS_DIR=keys
 CA_DIR=$(KEYS_DIR)/ca
+SERVER_BIN=$(BUILD_DIR)/$(APP_NAME)-server
 
 .PHONY: keygen-ca
-keygen-ca:
-	mkdir -p $(BUILD_DIR)
-	go build -o $(BUILD_DIR)/$(APP_NAME)-server ./cmd/strike-server
-	./$(BUILD_DIR)/$(APP_NAME)-server --gen-ca --keydir=$(CA_DIR)
-	rm -rf $(BUILD_DIR)
+keygen-ca: $(SERVER_BIN)
+	./$(SERVER_BIN) --gen-ca --keydir=$(CA_DIR)
 
 .PHONY: keygen-client
 keygen-client:
@@ -26,19 +24,29 @@ keygen-client:
 	rm -rf $(BUILD_DIR)
 
 .PHONY: keygen-server
-keygen-server:
-	mkdir -p $(BUILD_DIR)
-	go build -o $(BUILD_DIR)/$(APP_NAME)-server ./cmd/strike-server
-	./$(BUILD_DIR)/$(APP_NAME)-server --keygen --keydir=$(or $(KEYDIR),./$(KEYS_DIR)/server) \
+keygen-server: $(SERVER_BIN)
+	./$(SERVER_BIN) --keygen --keydir=$(or $(KEYDIR),./$(KEYS_DIR)/server) \
 		$(if $(SERVER_NAME),--name=$(SERVER_NAME)) \
 		$(if $(wildcard $(CA_DIR)/strike_ca.crt),--ca-cert=$(CA_DIR)/strike_ca.crt --ca-key=$(CA_DIR)/strike_ca.pem)
-	rm -rf $(BUILD_DIR)
+
+$(SERVER_BIN):
+	mkdir -p $(BUILD_DIR)
+	go build -o $(SERVER_BIN) ./cmd/strike-server
+
+.PHONY: gen-federation
+gen-federation: $(SERVER_BIN)
+	./$(SERVER_BIN) --gen-federation \
+		--output=./config/server/federation.yaml \
+		"endpoint0,strike-server1:9090,./$(KEYS_DIR)/server1" \
+		"endpoint1,strike-server2:9090,./$(KEYS_DIR)/server2"
 
 .PHONY: keygen-all
-keygen-all:
+keygen-all: $(SERVER_BIN)
 	$(MAKE) keygen-ca
 	$(MAKE) keygen-server KEYDIR=./$(KEYS_DIR)/server1 SERVER_NAME=endpoint0
 	$(MAKE) keygen-server KEYDIR=./$(KEYS_DIR)/server2 SERVER_NAME=endpoint1
+	$(MAKE) gen-federation
+	rm -rf $(BUILD_DIR)
 
 # === keygen ===
 

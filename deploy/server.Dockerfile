@@ -14,8 +14,8 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o strike.bin ./cmd/strike-server
 
 FROM scratch
-#tls COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /go/strike/strike.bin /strike
 
-EXPOSE 8080
+EXPOSE 8080 9090
 CMD ["/strike"]

@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/JohnnyGlynn/strike/internal/config"
@@ -40,11 +41,42 @@ func main() {
 	configFilePath := flag.String("config", "", "Path to configuration JSON file")
 	keygen := flag.Bool("keygen", false, "Launch Strike Server Key generation, creating keypair and certificate")
 	genCA := flag.Bool("gen-ca", false, "Generate a Strike Federation CA keypair and certificate")
+	genFed := flag.Bool("gen-federation", false, "Generate federation.yaml from peer key directories (use with --peer flags and --output)")
+	outputPath := flag.String("output", "./config/server/federation.yaml", "Output path for generated federation config")
 	keydir := flag.String("keydir", ".", "Output directory for generated keys and certificate")
 	serverName := flag.String("name", "", "Server name for identity file (used with --keygen)")
 	caCertPath := flag.String("ca-cert", "", "Path to CA certificate for signing server cert")
 	caKeyPath := flag.String("ca-key", "", "Path to CA private key for signing server cert")
 	flag.Parse()
+
+	if *genFed {
+		// Remaining args are peer specs using comma delimiter: name,addr,keydir
+		args := flag.Args()
+		if len(args) == 0 {
+			fmt.Println("usage: --gen-federation name,addr,keydir [name,addr,keydir ...]")
+			return
+		}
+
+		var peers []keys.PeerEntry
+		for _, arg := range args {
+			parts := strings.SplitN(arg, ",", 3)
+			if len(parts) != 3 {
+				fmt.Printf("invalid peer spec %q — expected name,addr,keydir\n", arg)
+				return
+			}
+			peers = append(peers, keys.PeerEntry{
+				Name:   parts[0],
+				Addr:   parts[1],
+				KeyDir: parts[2],
+			})
+		}
+
+		if err := keys.GenerateFederationConfig(peers, *outputPath); err != nil {
+			fmt.Printf("error generating federation config: %v\n", err)
+			return
+		}
+		os.Exit(0)
+	}
 
 	if *genCA {
 		err := keys.GenerateCA(*keydir)
