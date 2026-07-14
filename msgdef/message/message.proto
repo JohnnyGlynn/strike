@@ -14,7 +14,7 @@ service Strike {
 
   rpc SaltMine(common.UserInfo) returns (Salt) {}
 
-  rpc UserRequest(common.UserInfo) returns (common.UserInfo) {}
+  rpc UserRequest(common.UserAddress) returns (common.UserInfo) {}
 
   rpc SendPayload(StreamPayload) returns (ServerResponse) {}
 
@@ -33,6 +33,7 @@ message ServerInfo {
   string server_id = 1;
   string server_name = 2;
   repeated common.UserInfo users = 3;
+  string domain = 4;
 }
 
 //TODO: Getting very verbose here, prune
@@ -43,12 +44,14 @@ message Salt {
 message FriendRequest {
   string target = 2;
   common.UserInfo user_info = 4;
+  string sender_domain = 5;
 }
 
 message FriendResponse {
   string target = 2;
   common.UserInfo user_info = 4;
   bool state = 5;
+  string sender_domain = 6;
 }
 
 message InitUser {
@@ -90,6 +93,8 @@ message StreamPayload {
     FriendResponse friend_response = 11;
   }
   string info = 12;
+  string target_domain = 13;
+  string sender_domain = 14;
 }
 
 

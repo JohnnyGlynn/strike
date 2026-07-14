@@ -14,6 +14,7 @@ CREATE TABLE identity (
 CREATE TABLE IF NOT EXISTS addressbook (
     user_id TEXT PRIMARY KEY NOT NULL,
     username TEXT UNIQUE NOT NULL,
+    domain TEXT NOT NULL DEFAULT '',
     enc_pkey BLOB NOT NULL,
     sig_pkey BLOB NOT NULL,
     keyex INTEGER DEFAULT 0, --key exchange state
@@ -23,6 +24,7 @@ CREATE TABLE IF NOT EXISTS addressbook (
 CREATE TABLE IF NOT EXISTS friendrequests (
     friendId TEXT NOT NULL,
     username TEXT NOT NULL,
+    domain TEXT NOT NULL DEFAULT '',
     enc_pkey BLOB,
     sig_pkey BLOB,
     direction TEXT NOT NULL

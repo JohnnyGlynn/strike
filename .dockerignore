@@ -2,7 +2,6 @@ build/
 keys/
 .git/
 deploy/
-config/
 cmd/strike-client/
 internal/client/
 *.md

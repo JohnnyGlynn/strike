@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion8
 
 const (
-	Federation_Handshake_FullMethodName = "/federation.Federation/Handshake"
-	Federation_Relay_FullMethodName     = "/federation.Federation/Relay"
+	Federation_Handshake_FullMethodName  = "/federation.Federation/Handshake"
+	Federation_Relay_FullMethodName      = "/federation.Federation/Relay"
+	Federation_UserLookup_FullMethodName = "/federation.Federation/UserLookup"
 )
 
 // FederationClient is the client API for Federation service.
@@ -29,6 +30,7 @@ const (
 type FederationClient interface {
 	Handshake(ctx context.Context, in *HandshakeReq, opts ...grpc.CallOption) (*HandshakeAck, error)
 	Relay(ctx context.Context, in *RelayPayload, opts ...grpc.CallOption) (*RelayAck, error)
+	UserLookup(ctx context.Context, in *UserLookupReq, opts ...grpc.CallOption) (*UserLookupResp, error)
 }
 
 type federationClient struct {
@@ -59,12 +61,23 @@ func (c *federationClient) Relay(ctx context.Context, in *RelayPayload, opts ...
 	return out, nil
 }
 
+func (c *federationClient) UserLookup(ctx context.Context, in *UserLookupReq, opts ...grpc.CallOption) (*UserLookupResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UserLookupResp)
+	err := c.cc.Invoke(ctx, Federation_UserLookup_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FederationServer is the server API for Federation service.
 // All implementations must embed UnimplementedFederationServer
 // for forward compatibility
 type FederationServer interface {
 	Handshake(context.Context, *HandshakeReq) (*HandshakeAck, error)
 	Relay(context.Context, *RelayPayload) (*RelayAck, error)
+	UserLookup(context.Context, *UserLookupReq) (*UserLookupResp, error)
 	mustEmbedUnimplementedFederationServer()
 }
 
@@ -77,6 +90,9 @@ func (UnimplementedFederationServer) Handshake(context.Context, *HandshakeReq) (
 }
 func (UnimplementedFederationServer) Relay(context.Context, *RelayPayload) (*RelayAck, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Relay not implemented")
+}
+func (UnimplementedFederationServer) UserLookup(context.Context, *UserLookupReq) (*UserLookupResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UserLookup not implemented")
 }
 func (UnimplementedFederationServer) mustEmbedUnimplementedFederationServer() {}
 
@@ -127,6 +143,24 @@ func _Federation_Relay_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Federation_UserLookup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UserLookupReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FederationServer).UserLookup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Federation_UserLookup_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FederationServer).UserLookup(ctx, req.(*UserLookupReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Federation_ServiceDesc is the grpc.ServiceDesc for Federation service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -141,6 +175,10 @@ var Federation_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Relay",
 			Handler:    _Federation_Relay_Handler,
+		},
+		{
+			MethodName: "UserLookup",
+			Handler:    _Federation_UserLookup_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

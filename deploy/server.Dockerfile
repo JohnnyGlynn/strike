@@ -1,6 +1,6 @@
 #Strike Server
 
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 WORKDIR /go/strike
 # RUN apk add --no-cache bash curl
 RUN apk add --no-cache ca-certificates

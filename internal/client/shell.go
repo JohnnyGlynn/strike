@@ -16,16 +16,19 @@ import (
 	"github.com/JohnnyGlynn/strike/internal/client/crypto"
 	"github.com/JohnnyGlynn/strike/internal/client/network"
 	"github.com/JohnnyGlynn/strike/internal/client/types"
+	"github.com/JohnnyGlynn/strike/internal/shared"
 	common_pb "github.com/JohnnyGlynn/strike/msgdef/common"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 )
 
 func printPrompt(client *types.Client) {
+	self := shared.FormatAddress(client.Identity.Username, client.Identity.Domain)
 	switch client.State.Shell.Mode {
 	case types.ModeDefault:
-		fmt.Printf("[shell:%s]> ", client.Identity.Username)
+		fmt.Printf("[%s]> ", self)
 	case types.ModeChat:
-		fmt.Printf("[chat:%s@%s]> ", client.Identity.Username, client.State.Cache.CurrentChat.User.Name)
+		peer := shared.FormatAddress(client.State.Cache.CurrentChat.User.Name, client.State.Cache.CurrentChat.User.Domain)
+		fmt.Printf("[%s -> %s]> ", self, peer)
 	}
 }
 
@@ -93,10 +96,10 @@ func buildCommandMap() (map[string]types.Command, error) {
 				log.Println("failed to poll server")
 				return err
 			}
-			fmt.Printf("Server Info\n Name: %s\n ID: %s\n", sInfo.ServerName, sInfo.ServerId)
+			fmt.Printf("Server Info\n Name: %s\n ID: %s\n Domain: %s\n", sInfo.ServerName, sInfo.ServerId, sInfo.Domain)
 			fmt.Println("Online Users:")
 			for i, u := range sInfo.Users {
-				fmt.Printf("[%v] %s: %s", i+1, u.UserId[:4], u.Username)
+				fmt.Printf("[%v] %s: %s\n", i+1, u.UserId[:4], u.Username)
 			}
 			return nil
 		},
@@ -105,13 +108,12 @@ func buildCommandMap() (map[string]types.Command, error) {
 
 	register(types.Command{
 		Name: "/addfriend",
-		Desc: "Send a friend request",
+		Desc: "Send a friend request (usage: /addfriend or /addfriend user@domain)",
 		CmdFn: func(args []string, client *types.Client) error {
-			//TODO: Refactor out the need to pass in a reader
 			todoReader := bufio.NewReader(os.Stdin)
-			err := shellAddFriend(todoReader, client)
+			err := shellAddFriend(args, todoReader, client)
 			if err != nil {
-				fmt.Printf("error executing addFriend shell: %v\n", err)
+				fmt.Printf("error executing addFriend: %v\n", err)
 				return err
 			}
 			return nil
@@ -135,21 +137,23 @@ func buildCommandMap() (map[string]types.Command, error) {
 
 	register(types.Command{
 		Name: "/chat",
-		Desc: "Chat with a friend",
+		Desc: "Chat with a friend (usage: /chat user@domain or /chat user)",
 		CmdFn: func(args []string, client *types.Client) error {
 			if len(args) == 0 {
-				fmt.Println("Useage: /chat <friends username>")
+				fmt.Println("Usage: /chat <username@domain> or /chat <username>")
 				return nil
 			}
-			//TODO: Centralize state?
-			client.State.Shell.Mode = types.ModeChat
-			// client.Cache.CurrentChat
-			fmt.Printf("Chat with %s\n", args[0])
-			err := enterChat(client, args[0])
+			addr, err := shared.ParseAddress(args[0])
 			if err != nil {
-				fmt.Printf("failed to enter chat: %v", err)
+				fmt.Printf("invalid address: %v\n", err)
+				return nil
+			}
+			if err := enterChat(client, addr.Username); err != nil {
+				fmt.Printf("failed to enter chat: %v\n", err)
 				return err
 			}
+			client.State.Shell.Mode = types.ModeChat
+			fmt.Printf("Chat with %s\n", addr.Format())
 			return nil
 		},
 		Scope: []types.ShellMode{types.ModeDefault},
@@ -231,7 +235,7 @@ func enterChat(c *types.Client, target string) error {
 	u := types.User{}
 
 	var targetid string
-	idrow := c.DB.ID.GetUID.QueryRowContext(context.TODO(), c.Identity.Username)
+	idrow := c.DB.Friends.GetUserId.QueryRowContext(context.TODO(), target)
 	err := idrow.Scan(&targetid)
 	if err != nil {
 		return err
@@ -240,7 +244,7 @@ func enterChat(c *types.Client, target string) error {
 	//Useful?
 	var created time.Time
 	row := c.DB.Friends.GetUser.QueryRowContext(context.TODO(), targetid)
-	err = row.Scan(&u.Id, &u.Name, &u.Enckey, &u.Sigkey, &u.KeyEx, &created)
+	err = row.Scan(&u.Id, &u.Name, &u.Domain, &u.Enckey, &u.Sigkey, &u.KeyEx, &created)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			fmt.Printf("Friend: %s, not found", target)
@@ -277,9 +281,9 @@ func enterChat(c *types.Client, target string) error {
 
 	for _, v := range msgs {
 		if v.Direction == "inbound" {
-			fmt.Printf("[%s]: %s", c.State.Cache.CurrentChat.User.Name, v.Content)
+			fmt.Printf("[%s]: %s", shared.FormatAddress(c.State.Cache.CurrentChat.User.Name, c.State.Cache.CurrentChat.User.Domain), v.Content)
 		} else {
-			fmt.Printf("[%s]: %s", c.Identity.Username, v.Content)
+			fmt.Printf("[%s]: %s", shared.FormatAddress(c.Identity.Username, c.Identity.Domain), v.Content)
 		}
 	}
 
@@ -301,7 +305,7 @@ func shellFriendRequests(ctx context.Context, c *types.Client) error {
 	inputReader := bufio.NewReader(os.Stdin)
 
 	for _, fr := range frs {
-		fmt.Printf("[%s] %s\n", fr.FriendId, fr.Username)
+		fmt.Printf("[%s] %s\n", fr.FriendId, shared.FormatAddress(fr.Username, fr.Domain))
 		fmt.Printf(" y[Accept] / n[Decline] :")
 
 		input, err := inputReader.ReadString('\n')
@@ -322,9 +326,10 @@ func shellFriendRequests(ctx context.Context, c *types.Client) error {
 				EncryptionPublicKey: fr.Enckey,
 				SigningPublicKey:    fr.Sigkey,
 			},
+			SenderDomain: fr.Domain,
 		}
 
-		if err := FriendResponse(ctx, c, &pbfr, accepted); err != nil {
+		if err := FriendResponse(ctx, c, &pbfr, accepted, fr.Domain); err != nil {
 			return fmt.Errorf("friend response failure: %v", err)
 		}
 	}
@@ -367,7 +372,7 @@ func FriendList(c *types.Client) error {
 
 	//TODO: add active status
 	for _, f := range friends {
-		fmt.Printf("[%s] %s\n", f.Id, f.Name)
+		fmt.Printf("[%s] %s\n", f.Id, shared.FormatAddress(f.Name, f.Domain))
 	}
 
 	//TODO: DRY
@@ -391,7 +396,39 @@ func FriendList(c *types.Client) error {
 	return nil
 }
 
-func shellAddFriend(inputReader *bufio.Reader, c *types.Client) error {
+func shellAddFriend(args []string, inputReader *bufio.Reader, c *types.Client) error {
+	// Direct address mode: /addfriend user@domain
+	if len(args) > 0 {
+		addr, err := shared.ParseAddress(args[0])
+		if err != nil {
+			fmt.Printf("invalid address: %v\n", err)
+			return nil
+		}
+
+		if addr.Domain == "" {
+			addr.Domain = c.Identity.Domain
+		}
+
+		fmt.Printf("Looking up %s...\n", addr.Format())
+
+		uInfo, err := c.PBC.UserRequest(context.TODO(), &common_pb.UserAddress{
+			Username: addr.Username,
+			Domain:   addr.Domain,
+		})
+		if err != nil {
+			return fmt.Errorf("user lookup failed: %v", err)
+		}
+		if uInfo == nil || uInfo.UserId == "" {
+			fmt.Printf("User %s not found\n", addr.Format())
+			return nil
+		}
+
+		fmt.Printf("Found: %s (%s)\n", uInfo.Username, uInfo.UserId[:8])
+
+		return FriendRequest(context.TODO(), c, uInfo, addr.Domain)
+	}
+
+	// Interactive picker: local online users
 	fmt.Println("Online Users:")
 
 	au, err := GetActiveUsers(c, &common_pb.UserInfo{
@@ -439,7 +476,7 @@ func shellAddFriend(inputReader *bufio.Reader, c *types.Client) error {
 
 	selectedUser := userList[selectedIndex-1]
 
-	err = FriendRequest(context.TODO(), c, selectedUser)
+	err = FriendRequest(context.TODO(), c, selectedUser, c.Identity.Domain)
 	if err != nil {
 		log.Printf("error beginning chat: %v", err)
 	}
@@ -449,7 +486,7 @@ func shellAddFriend(inputReader *bufio.Reader, c *types.Client) error {
 
 // TODO: Need to figure out the best way to display these
 func loadMessages(c *types.Client) ([]types.Message, error) {
-	rows, err := c.DB.Messages.GetMessages.QueryContext(context.TODO(), c.State.Cache.CurrentChat.User)
+	rows, err := c.DB.Messages.GetMessages.QueryContext(context.TODO(), c.State.Cache.CurrentChat.User.Id.String())
 	if err != nil {
 
 		return nil, fmt.Errorf("error querying messages: %v", err)
@@ -501,20 +538,15 @@ func loadFriends(c *types.Client) ([]*types.User, error) {
 	var users []*types.User
 	found := false
 
-	//TODO: Clean this up
-	friendsStr := struct {
-		uInfo types.User
-		crAt  time.Time
-	}{}
-
 	for rows.Next() {
-		// usr := &pb.UserInfo{}
 		found = true
-		if err := rows.Scan(&friendsStr.uInfo.Id, &friendsStr.uInfo.Name, &friendsStr.uInfo.Enckey, &friendsStr.uInfo.Sigkey, &friendsStr.uInfo.KeyEx, &friendsStr.crAt); err != nil {
+		var u types.User
+		var crAt time.Time
+		if err := rows.Scan(&u.Id, &u.Name, &u.Domain, &u.Enckey, &u.Sigkey, &u.KeyEx, &crAt); err != nil {
 			log.Printf("error scanning row: %v", err)
 			return nil, err
 		}
-		users = append(users, &friendsStr.uInfo)
+		users = append(users, &u)
 	}
 
 	if !found {
@@ -542,22 +574,20 @@ func loadFriendRequests(c *types.Client) ([]*types.FriendRequest, error) {
 	}()
 
 	var friendRequests []*types.FriendRequest
-	var fr types.FriendRequest
 	found := false
 
 	for rows.Next() {
-		// usr := &pb.UserInfo{}
 		found = true
-		if err := rows.Scan(&fr.FriendId, &fr.Username, &fr.Enckey, &fr.Sigkey, &fr.Direction); err != nil {
+		var fr types.FriendRequest
+		if err := rows.Scan(&fr.FriendId, &fr.Username, &fr.Domain, &fr.Enckey, &fr.Sigkey, &fr.Direction); err != nil {
 			log.Printf("error scanning row: %v", err)
 			return nil, err
 		}
 
 		if fr.Direction == "outbound" {
 			continue
-		} else {
-			friendRequests = append(friendRequests, &fr)
 		}
+		friendRequests = append(friendRequests, &fr)
 	}
 
 	if !found {

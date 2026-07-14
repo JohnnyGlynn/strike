@@ -54,6 +54,7 @@ func main() {
 	// cDB = idb
 
 	configFilePath := flag.String("config", "", "Path to configuration JSON file")
+	serverFlag := flag.String("server", "", "Override server host (e.g. localhost:8080)")
 	keygen := flag.Bool("keygen", false, "Launch Strike Key generation, creating keypair for user not bringing existing PKI")
 	keydir := flag.String("keydir", ".", "Output directory for generated keys")
 	flag.Parse()
@@ -76,6 +77,11 @@ func main() {
 			return
 		}
 	}()
+
+	if *serverFlag != "" {
+		clientCfg.ServerHost = *serverFlag
+		log.Printf("Server override: %s\n", clientCfg.ServerHost)
+	}
 
 	conn, err := grpcSetup(clientCfg)
 	if err != nil {
@@ -319,6 +325,10 @@ func launchREPL(c *types.Client) error {
 			}
 
 		} else {
+			if err := client.SyncDomain(c); err != nil {
+				fmt.Printf("warning: could not sync domain: %v\n", err)
+			}
+
 			go func() {
 				if err := client.RegisterStatus(c); err != nil {
 					fmt.Printf("error connecting stream: %v\n", err)

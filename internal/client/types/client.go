@@ -11,6 +11,7 @@ import (
 
 type ClientIdentity struct {
 	Username string
+	Domain   string
 	ID       uuid.UUID
 	Keys     map[string][]byte
 	Config   *config.ClientConfig
@@ -45,6 +46,7 @@ type Client struct {
 type User struct {
 	Id     uuid.UUID
 	Name   string
+	Domain string
 	Enckey []byte
 	Sigkey []byte
 	KeyEx  int
@@ -61,6 +63,7 @@ type Message struct {
 type FriendRequest struct {
 	FriendId  uuid.UUID
 	Username  string
+	Domain    string
 	Enckey    []byte
 	Sigkey    []byte
 	Direction string

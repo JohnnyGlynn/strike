@@ -10,6 +10,7 @@ import (
 
 	"github.com/JohnnyGlynn/strike/internal/client/crypto"
 	"github.com/JohnnyGlynn/strike/internal/client/types"
+	"github.com/JohnnyGlynn/strike/internal/shared"
 	common_pb "github.com/JohnnyGlynn/strike/msgdef/common"
 	pb "github.com/JohnnyGlynn/strike/msgdef/message"
 	"github.com/google/uuid"
@@ -193,7 +194,7 @@ func processEnvelope(ctx context.Context, env *common_pb.EncryptedEnvelope, c *t
 
 	// TODO: Batch insert messages?
 	if c.State.Shell.Mode == types.ModeChat && env.FromUser == c.State.Cache.CurrentChat.User.Id.String() {
-		fmt.Printf("[%s]:%s\n", c.State.Cache.CurrentChat.User.Name, msg)
+		fmt.Printf("[%s]:%s\n", shared.FormatAddress(c.State.Cache.CurrentChat.User.Name, c.State.Cache.CurrentChat.User.Domain), msg)
 	}
 
 	_, err = c.DB.Messages.SaveMessage.ExecContext(ctx, uuid.New().String(), env.FromUser, "inbound", env.EncryptedMessage, env.SentAt.AsTime().UnixMilli())
@@ -207,9 +208,9 @@ func processEnvelope(ctx context.Context, env *common_pb.EncryptedEnvelope, c *t
 
 func processFriendRequest(ctx context.Context, fr *pb.FriendRequest, c *types.Client) error {
 
-	fmt.Printf("Friend Request from: %v\n", fr.UserInfo.Username)
+	fmt.Printf("Friend Request from: %v\n", shared.FormatAddress(fr.UserInfo.Username, fr.SenderDomain))
 
-	_, err := c.DB.FriendRequest.SaveFriendRequest.ExecContext(ctx, fr.UserInfo.UserId, fr.UserInfo.Username, fr.UserInfo.EncryptionPublicKey, fr.UserInfo.SigningPublicKey, "inbound")
+	_, err := c.DB.FriendRequest.SaveFriendRequest.ExecContext(ctx, fr.UserInfo.UserId, fr.UserInfo.Username, fr.SenderDomain, fr.UserInfo.EncryptionPublicKey, fr.UserInfo.SigningPublicKey, "inbound")
 	if err != nil {
 		fmt.Printf("failed to save Friend Request")
 		return err
@@ -221,16 +222,16 @@ func processFriendRequest(ctx context.Context, fr *pb.FriendRequest, c *types.Cl
 
 func processFriendResponse(ctx context.Context, fr *pb.FriendResponse, c *types.Client) error {
 
-	fmt.Printf("Friend Response from: %v\n", fr.UserInfo.Username)
+	fmt.Printf("Friend Response from: %v\n", shared.FormatAddress(fr.UserInfo.Username, fr.SenderDomain))
 
 	if fr.State {
-		_, err := c.DB.Friends.SaveUserDetails.ExecContext(ctx, fr.UserInfo.UserId, fr.UserInfo.Username, fr.UserInfo.EncryptionPublicKey, fr.UserInfo.SigningPublicKey)
+		_, err := c.DB.Friends.SaveUserDetails.ExecContext(ctx, fr.UserInfo.UserId, fr.UserInfo.Username, fr.SenderDomain, fr.UserInfo.EncryptionPublicKey, fr.UserInfo.SigningPublicKey)
 		if err != nil {
 			fmt.Printf("failed adding to address book: %v", err)
 			return err
 		}
 
-		err = InitiateKeyExchange(ctx, c, uuid.MustParse(fr.UserInfo.UserId))
+		err = InitiateKeyExchange(ctx, c, uuid.MustParse(fr.UserInfo.UserId), fr.SenderDomain)
 		if err != nil {
 			return err
 		}
@@ -252,7 +253,7 @@ func processKeyExchangeRequest(ctx context.Context, kx *pb.KeyExchangeRequest, c
 
 	var created time.Time
 	row := c.DB.Friends.GetUser.QueryRowContext(context.TODO(), kx.SenderUserId)
-	err := row.Scan(&u.Id, &u.Name, &u.Enckey, &u.Sigkey, &u.KeyEx, &created)
+	err := row.Scan(&u.Id, &u.Name, &u.Domain, &u.Enckey, &u.Sigkey, &u.KeyEx, &created)
 	if err != nil {
 		return fmt.Errorf("an error occured: %v", err)
 	}
@@ -263,7 +264,7 @@ func processKeyExchangeRequest(ctx context.Context, kx *pb.KeyExchangeRequest, c
 
 	senderId := uuid.MustParse(kx.SenderUserId)
 
-	err = ReciprocateKeyExchange(ctx, c, senderId)
+	err = ReciprocateKeyExchange(ctx, c, senderId, u.Domain)
 	if err != nil {
 		return err
 	}
@@ -277,7 +278,7 @@ func processKeyExchangeResponse(ctx context.Context, kx *pb.KeyExchangeResponse,
 
 	var created time.Time
 	row := c.DB.Friends.GetUser.QueryRowContext(context.TODO(), kx.ResponderUserId)
-	err := row.Scan(&u.Id, &u.Name, &u.Enckey, &u.Sigkey, &u.KeyEx, &created)
+	err := row.Scan(&u.Id, &u.Name, &u.Domain, &u.Enckey, &u.Sigkey, &u.KeyEx, &created)
 	if err != nil {
 		return fmt.Errorf("an error occured: %v", err)
 	}
@@ -286,7 +287,7 @@ func processKeyExchangeResponse(ctx context.Context, kx *pb.KeyExchangeResponse,
 		return fmt.Errorf("failed to verify signatures")
 	}
 
-	err = ConfirmKeyExchange(ctx, c, uuid.MustParse(kx.ResponderUserId), true)
+	err = ConfirmKeyExchange(ctx, c, uuid.MustParse(kx.ResponderUserId), true, u.Domain)
 	if err != nil {
 		fmt.Println("key exchange confirmation failed")
 		return err
@@ -316,7 +317,15 @@ func processKeyExchangeConfirmation(ctx context.Context, kx *pb.KeyExchangeConfi
 		//TODO: Retry mechanism?
 	}
 
-	err = ConfirmKeyExchange(ctx, c, uuid.MustParse(kx.ConfirmerUserId), true)
+	u := types.User{}
+	var created time.Time
+	row := c.DB.Friends.GetUser.QueryRowContext(ctx, kx.ConfirmerUserId)
+	err = row.Scan(&u.Id, &u.Name, &u.Domain, &u.Enckey, &u.Sigkey, &u.KeyEx, &created)
+	if err != nil {
+		return fmt.Errorf("failed to look up confirmer: %v", err)
+	}
+
+	err = ConfirmKeyExchange(ctx, c, uuid.MustParse(kx.ConfirmerUserId), true, u.Domain)
 	if err != nil {
 		fmt.Println("key exchange confirmation failed")
 		return err

@@ -50,7 +50,7 @@ func (b *Bootstrap) InitDb(ctx context.Context) error {
 		return err
 	}
 
-	b.Statements, err = PrepareStatements(ctx, b.DB)
+	b.Statements, err = InitStatements(ctx, b.DB)
 	return err
 }
 
@@ -151,6 +151,7 @@ func LoadFederationTLSConfig(certFile, keyFile, caFile string) (*tls.Config, err
 
 	return &tls.Config{
 		Certificates: []tls.Certificate{cert},
+		RootCAs:      caPool,
 		ClientCAs:    caPool,
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 		MinVersion:   tls.VersionTLS13,

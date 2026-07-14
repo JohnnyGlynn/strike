@@ -38,7 +38,7 @@ type StrikeClient interface {
 	Signup(ctx context.Context, in *InitUser, opts ...grpc.CallOption) (*ServerResponse, error)
 	Login(ctx context.Context, in *LoginVerify, opts ...grpc.CallOption) (*ServerResponse, error)
 	SaltMine(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (*Salt, error)
-	UserRequest(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (*common.UserInfo, error)
+	UserRequest(ctx context.Context, in *common.UserAddress, opts ...grpc.CallOption) (*common.UserInfo, error)
 	SendPayload(ctx context.Context, in *StreamPayload, opts ...grpc.CallOption) (*ServerResponse, error)
 	PayloadStream(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (Strike_PayloadStreamClient, error)
 	StatusStream(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (Strike_StatusStreamClient, error)
@@ -84,7 +84,7 @@ func (c *strikeClient) SaltMine(ctx context.Context, in *common.UserInfo, opts .
 	return out, nil
 }
 
-func (c *strikeClient) UserRequest(ctx context.Context, in *common.UserInfo, opts ...grpc.CallOption) (*common.UserInfo, error) {
+func (c *strikeClient) UserRequest(ctx context.Context, in *common.UserAddress, opts ...grpc.CallOption) (*common.UserInfo, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(common.UserInfo)
 	err := c.cc.Invoke(ctx, Strike_UserRequest_FullMethodName, in, out, cOpts...)
@@ -197,7 +197,7 @@ type StrikeServer interface {
 	Signup(context.Context, *InitUser) (*ServerResponse, error)
 	Login(context.Context, *LoginVerify) (*ServerResponse, error)
 	SaltMine(context.Context, *common.UserInfo) (*Salt, error)
-	UserRequest(context.Context, *common.UserInfo) (*common.UserInfo, error)
+	UserRequest(context.Context, *common.UserAddress) (*common.UserInfo, error)
 	SendPayload(context.Context, *StreamPayload) (*ServerResponse, error)
 	PayloadStream(*common.UserInfo, Strike_PayloadStreamServer) error
 	StatusStream(*common.UserInfo, Strike_StatusStreamServer) error
@@ -219,7 +219,7 @@ func (UnimplementedStrikeServer) Login(context.Context, *LoginVerify) (*ServerRe
 func (UnimplementedStrikeServer) SaltMine(context.Context, *common.UserInfo) (*Salt, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SaltMine not implemented")
 }
-func (UnimplementedStrikeServer) UserRequest(context.Context, *common.UserInfo) (*common.UserInfo, error) {
+func (UnimplementedStrikeServer) UserRequest(context.Context, *common.UserAddress) (*common.UserInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UserRequest not implemented")
 }
 func (UnimplementedStrikeServer) SendPayload(context.Context, *StreamPayload) (*ServerResponse, error) {
@@ -305,7 +305,7 @@ func _Strike_SaltMine_Handler(srv interface{}, ctx context.Context, dec func(int
 }
 
 func _Strike_UserRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(common.UserInfo)
+	in := new(common.UserAddress)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -317,7 +317,7 @@ func _Strike_UserRequest_Handler(srv interface{}, ctx context.Context, dec func(
 		FullMethod: Strike_UserRequest_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StrikeServer).UserRequest(ctx, req.(*common.UserInfo))
+		return srv.(StrikeServer).UserRequest(ctx, req.(*common.UserAddress))
 	}
 	return interceptor(ctx, in, info, handler)
 }

@@ -85,6 +85,31 @@ func (fo *FederationOrchestrator) Relay(
 	}, nil
 }
 
+func (fo *FederationOrchestrator) UserLookup(
+	ctx context.Context,
+	req *pb.UserLookupReq,
+) (*pb.UserLookupResp, error) {
+
+	if req.Username == "" {
+		return &pb.UserLookupResp{Found: false}, nil
+	}
+
+	uInfo, err := fo.strike.localUserLookup(ctx, req.Username)
+	if err != nil {
+		return &pb.UserLookupResp{Found: false}, nil
+	}
+
+	if uInfo == nil {
+		return &pb.UserLookupResp{Found: false}, nil
+	}
+
+	return &pb.UserLookupResp{
+		Found:    true,
+		UserInfo: uInfo,
+		Domain:   fo.strike.Name,
+	}, nil
+}
+
 func LoadPeers(path string) ([]types.PeerConfig, error) {
 	peerConfig, err := os.ReadFile(path)
 	if err != nil {

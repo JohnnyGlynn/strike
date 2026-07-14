@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/JohnnyGlynn/strike/internal/server/types"
@@ -30,7 +31,7 @@ type StrikeServer struct {
 	DBpool      *pgxpool.Pool
 	PStatements *ServerDB
 
-	Connected      map[uuid.UUID]*common_pb.UserInfo
+	Connected       map[uuid.UUID]*common_pb.UserInfo
 	PayloadStreams  map[uuid.UUID]pb.Strike_PayloadStreamServer
 	PayloadChannels map[uuid.UUID]chan *pb.StreamPayload
 
@@ -81,15 +82,22 @@ func (s *StrikeServer) SendPayload(ctx context.Context, payload *pb.StreamPayloa
 
 	messageID := uuid.New()
 
+	payloadBytes, err := proto.Marshal(payload)
+	if err != nil {
+		return &pb.ServerResponse{Success: false, Message: "failed to marshal payload"}, fmt.Errorf("send payload: marshal: %v", err)
+	}
+
 	s.mu.Lock()
 	s.mapInit()
 	pmsg := &types.PendingMsg{
-		MessageID: messageID,
-		From:      parsedSender,
-		To:        parsedTarget,
-		Payload:   payload.GetEncenv(),
-		Created:   time.Now(),
-		Attempts:  3,
+		MessageID:    messageID,
+		From:         parsedSender,
+		To:           parsedTarget,
+		SenderDomain: payload.SenderDomain,
+		TargetDomain: payload.TargetDomain,
+		Created:      time.Now(),
+		Payload:      payloadBytes,
+		Attempts:     3,
 	}
 
 	s.Pending[messageID] = pmsg
@@ -113,21 +121,27 @@ func (s *StrikeServer) attemptDelivery(
 		return
 	}
 
-	// Try local delivery first
-	ch, local := s.PayloadChannels[pmsg.To]
-	s.mu.Unlock()
+	// Route by domain: empty or matching our name means local
+	isLocal := pmsg.TargetDomain == "" || pmsg.TargetDomain == s.Name
 
-	if local {
-		delivered, err := s.localDelivery(ctx, ch, pmsg, 5*time.Second)
-		if err == nil && delivered {
-			s.mu.Lock()
-			delete(s.Pending, msgID)
-			s.mu.Unlock()
-			return
+	if isLocal {
+		ch, connected := s.PayloadChannels[pmsg.To]
+		s.mu.Unlock()
+
+		if connected {
+			delivered, err := s.localDelivery(ctx, ch, pmsg, 5*time.Second)
+			if err == nil && delivered {
+				s.mu.Lock()
+				delete(s.Pending, msgID)
+				s.mu.Unlock()
+				return
+			}
 		}
+	} else {
+		s.mu.Unlock()
 	}
 
-	// Fall back to federation
+	// Fall back to federation (domain-based lookup)
 	delivered, err := s.fedDelivery(ctx, pmsg)
 	if err != nil || !delivered {
 		s.mu.Lock()
@@ -159,12 +173,14 @@ func (s *StrikeServer) EnqueueFederated(ctx context.Context, rp *fedpb.RelayPayl
 	s.mu.Lock()
 	s.mapInit()
 	s.Pending[msgID] = &types.PendingMsg{
-		MessageID: msgID,
-		From:      from,
-		To:        to,
-		Payload:   rp.Payload,
-		Created:   time.Now(),
-		Attempts:  3,
+		MessageID:    msgID,
+		From:         from,
+		To:           to,
+		SenderDomain: rp.Sender.Domain,
+		TargetDomain: rp.Recipient.Domain,
+		Payload:      rp.PayloadData,
+		Created:      time.Now(),
+		Attempts:     3,
 	}
 	s.mu.Unlock()
 
@@ -200,6 +216,34 @@ func (s *StrikeServer) fedDelivery(
 	pmsg *types.PendingMsg,
 ) (bool, error) {
 
+	relay := &fedpb.RelayPayload{
+		EnvelopeId:   uuid.NewString(),
+		OriginServer: s.ID.String(),
+		Sender: &common_pb.UserAddress{
+			Domain: pmsg.SenderDomain,
+			UInfo:  &common_pb.UserInfo{UserId: pmsg.From.String()},
+		},
+		Recipient: &common_pb.UserAddress{
+			Domain: pmsg.TargetDomain,
+			UInfo:  &common_pb.UserInfo{UserId: pmsg.To.String()},
+		},
+		PayloadData: pmsg.Payload,
+		SentAt:      timestamppb.Now(),
+	}
+
+	// Try domain-based routing first
+	if pmsg.TargetDomain != "" {
+		client, ok := s.PeerMgr.ClientByName(pmsg.TargetDomain)
+		if ok {
+			_, err := client.Relay(ctx, relay)
+			if err != nil {
+				return false, err
+			}
+			return true, nil
+		}
+	}
+
+	// Fall back to RemotePresence lookup (legacy)
 	peerID, ok := s.lookupRemoteUser(pmsg.To)
 	if !ok {
 		return false, nil
@@ -210,13 +254,7 @@ func (s *StrikeServer) fedDelivery(
 		return false, fmt.Errorf("peer %s not connected", peerID)
 	}
 
-	_, err := client.Relay(ctx, &fedpb.RelayPayload{
-		EnvelopeId:   uuid.NewString(),
-		OriginServer: s.ID.String(),
-		Payload:      pmsg.Payload,
-		SentAt:       timestamppb.Now(),
-	})
-
+	_, err := client.Relay(ctx, relay)
 	if err != nil {
 		return false, err
 	}
@@ -225,10 +263,9 @@ func (s *StrikeServer) fedDelivery(
 }
 
 func (s *StrikeServer) localDelivery(ctx context.Context, ch chan<- *pb.StreamPayload, pmsg *types.PendingMsg, timeout time.Duration) (bool, error) {
-	out := &pb.StreamPayload{
-		Target:  pmsg.To.String(),
-		Sender:  pmsg.From.String(),
-		Payload: &pb.StreamPayload_Encenv{Encenv: pmsg.Payload},
+	out := &pb.StreamPayload{}
+	if err := proto.Unmarshal(pmsg.Payload, out); err != nil {
+		return false, fmt.Errorf("unmarshal payload: %v", err)
 	}
 
 	select {
@@ -239,7 +276,6 @@ func (s *StrikeServer) localDelivery(ctx context.Context, ch chan<- *pb.StreamPa
 	case <-ctx.Done():
 		return false, nil
 	}
-
 }
 
 func (s *StrikeServer) SaltMine(ctx context.Context, userInfo *common_pb.UserInfo) (*pb.Salt, error) {
@@ -348,11 +384,20 @@ func (s *StrikeServer) StatusStream(req *common_pb.UserInfo, stream pb.Strike_St
 	}
 }
 
-func (s *StrikeServer) UserRequest(ctx context.Context, userInfo *common_pb.UserInfo) (*common_pb.UserInfo, error) {
+func (s *StrikeServer) UserRequest(ctx context.Context, addr *common_pb.UserAddress) (*common_pb.UserInfo, error) {
+	// If domain is set and doesn't match us, forward to the peer
+	if addr.Domain != "" && addr.Domain != s.Name {
+		return s.federatedUserLookup(ctx, addr.Username, addr.Domain)
+	}
+
+	return s.localUserLookup(ctx, addr.Username)
+}
+
+func (s *StrikeServer) localUserLookup(ctx context.Context, username string) (*common_pb.UserInfo, error) {
 	var userid uuid.UUID
 	var encryptionPubKey, signingPubKey []byte
 
-	err := s.DBpool.QueryRow(ctx, s.PStatements.User.GetUser, userInfo.Username).Scan(&userid)
+	err := s.DBpool.QueryRow(ctx, s.PStatements.User.GetUser, username).Scan(&userid)
 	if err != nil {
 		if pgerr, ok := err.(*pgconn.PgError); ok && pgerr.Code == "no-data-found" {
 			fmt.Printf("Unable get username: %v", err)
@@ -368,7 +413,25 @@ func (s *StrikeServer) UserRequest(ctx context.Context, userInfo *common_pb.User
 		return nil, err
 	}
 
-	return &common_pb.UserInfo{UserId: userid.String(), Username: userInfo.Username, EncryptionPublicKey: encryptionPubKey, SigningPublicKey: signingPubKey}, nil
+	return &common_pb.UserInfo{UserId: userid.String(), Username: username, EncryptionPublicKey: encryptionPubKey, SigningPublicKey: signingPubKey}, nil
+}
+
+func (s *StrikeServer) federatedUserLookup(ctx context.Context, username string, domain string) (*common_pb.UserInfo, error) {
+	client, ok := s.PeerMgr.ClientByName(domain)
+	if !ok {
+		return nil, fmt.Errorf("unknown domain: %s", domain)
+	}
+
+	resp, err := client.UserLookup(ctx, &fedpb.UserLookupReq{Username: username})
+	if err != nil {
+		return nil, fmt.Errorf("federated lookup failed: %v", err)
+	}
+
+	if !resp.Found {
+		return nil, nil
+	}
+
+	return resp.UserInfo, nil
 }
 
 func (s *StrikeServer) OnlineUsers(ctx context.Context, userInfo *common_pb.UserInfo) (*common_pb.Users, error) {
@@ -407,6 +470,7 @@ func (s *StrikeServer) PollServer(ctx context.Context, userInfo *common_pb.UserI
 		ServerId:   s.ID.String(),
 		ServerName: s.Name,
 		Users:      users,
+		Domain:     s.Name,
 	}, nil
 }
 

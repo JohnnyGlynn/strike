@@ -10,16 +10,17 @@ import (
 
 const (
 	//Friends
-	sqlGetFriends      = `SELECT * FROM addressbook`
+	sqlGetFriends      = `SELECT user_id, username, domain, enc_pkey, sig_pkey, keyex, created_at FROM addressbook`
 	sqlSaveUserDetails = `
-    INSERT INTO addressbook (user_id, username, enc_pkey, sig_pkey) 
-    VALUES (?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET 
-    username=excluded.username, 
-    enc_pkey=excluded.enc_pkey, 
+    INSERT INTO addressbook (user_id, username, domain, enc_pkey, sig_pkey)
+    VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET
+    username=excluded.username,
+    domain=excluded.domain,
+    enc_pkey=excluded.enc_pkey,
     sig_pkey=excluded.sig_pkey
   `
 	sqlGetUserId    = "SELECT user_id FROM addressbook WHERE username = ?"
-	sqlGetUser      = "SELECT * FROM addressbook WHERE user_id = ?"
+	sqlGetUser      = "SELECT user_id, username, domain, enc_pkey, sig_pkey, keyex, created_at FROM addressbook WHERE user_id = ?"
 	sqlGetKeyEx     = "SELECT keyex FROM addressbook WHERE user_id = ?"
 	sqlConfirmKeyEx = "UPDATE addressbook SET keyex = ? WHERE user_id = ?"
 
@@ -33,8 +34,8 @@ const (
 	sqlGetMessages = "SELECT * FROM messages WHERE friendId = ? ORDER BY timestamp ASC, id ASC"
 
 	//Friend Requests
-	sqlSaveFriendRequest   = "INSERT INTO friendrequests (friendId, username, enc_pkey, sig_pkey, direction) VALUES (?, ?, ?, ?, ?)"
-	sqlGetFriendRequests   = "SELECT * FROM friendrequests"
+	sqlSaveFriendRequest   = "INSERT INTO friendrequests (friendId, username, domain, enc_pkey, sig_pkey, direction) VALUES (?, ?, ?, ?, ?, ?)"
+	sqlGetFriendRequests   = "SELECT friendId, username, domain, enc_pkey, sig_pkey, direction FROM friendrequests"
 	sqlDeleteFriendRequest = "DELETE FROM friendrequests WHERE friendId = ?"
 )
 

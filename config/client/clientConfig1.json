@@ -1,0 +1,8 @@
+{
+    "server_host": "localhost:8080",
+    "private_signing_key_path": "~/.strike-keys/client1/strike_signing.pem",
+    "public_signing_key_path": "~/.strike-keys/client1/strike_public_signing.pem",
+    "private_encryption_key_path": "~/.strike-keys/client1/strike_encryption.pem",
+    "public_encryption_key_path": "~/.strike-keys/client1/strike_public_encryption.pem",
+    "server_certificate_path": "../../keys/ca/strike_ca.crt"
+}

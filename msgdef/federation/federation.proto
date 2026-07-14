@@ -10,6 +10,7 @@ option go_package="github.com/JohnnyGlynn/strike/msgdef/federation;federation";
 service Federation {
   rpc Handshake (HandshakeReq) returns (HandshakeAck);
   rpc Relay (RelayPayload) returns (RelayAck);
+  rpc UserLookup (UserLookupReq) returns (UserLookupResp);
 }
 
 message HandshakeReq {
@@ -31,7 +32,7 @@ message RelayPayload {
 
   string origin_server = 4;
 
-  common.EncryptedEnvelope payload = 5;
+  bytes payload_data = 5;
 
   google.protobuf.Timestamp sent_at = 6;
 }
@@ -40,5 +41,15 @@ message RelayAck {
   string envelope_id = 1;
   bool accepted = 2;
   string info = 3;
+}
+
+message UserLookupReq {
+  string username = 1;
+}
+
+message UserLookupResp {
+  bool found = 1;
+  common.UserInfo user_info = 2;
+  string domain = 3;
 }
 

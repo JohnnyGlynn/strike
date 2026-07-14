@@ -20,8 +20,14 @@ keygen-ca: $(SERVER_BIN)
 keygen-client:
 	mkdir -p $(BUILD_DIR)
 	go build -o $(BUILD_DIR)/$(APP_NAME)-client cmd/strike-client/main.go
-	./$(BUILD_DIR)/$(APP_NAME)-client --keygen --keydir=$(or $(KEYDIR),./$(KEYS_DIR)/client)
-	rm -rf $(BUILD_DIR)
+	./$(BUILD_DIR)/$(APP_NAME)-client --keygen --keydir=$(or $(KEYDIR),$(HOME)/.strike-keys)
+	rm -f $(BUILD_DIR)/$(APP_NAME)-client
+
+# Two client keypairs on the host for local 2-user federation testing
+.PHONY: keygen-clients
+keygen-clients:
+	$(MAKE) keygen-client KEYDIR=$(HOME)/.strike-keys/client1
+	$(MAKE) keygen-client KEYDIR=$(HOME)/.strike-keys/client2
 
 .PHONY: keygen-server
 keygen-server: $(SERVER_BIN)
@@ -46,6 +52,7 @@ keygen-all: $(SERVER_BIN)
 	$(MAKE) keygen-server KEYDIR=./$(KEYS_DIR)/server1 SERVER_NAME=endpoint0
 	$(MAKE) keygen-server KEYDIR=./$(KEYS_DIR)/server2 SERVER_NAME=endpoint1
 	$(MAKE) gen-federation
+	$(MAKE) keygen-clients
 	rm -rf $(BUILD_DIR)
 
 # === keygen ===
@@ -77,12 +84,12 @@ bingen:
 	mkdir -p $(BUILD_DIR)/client2
 	go build -o $(BUILD_DIR)/client1/$(APP_NAME)-client cmd/strike-client/main.go
 	go build -o $(BUILD_DIR)/client2/$(APP_NAME)-client cmd/strike-client/main.go
-	cp ./config/client/clientConfig.json ./$(BUILD_DIR)/client1/
-	$(MAKE) run-client1	
-	
+	cp ./config/client/clientConfig1.json ./$(BUILD_DIR)/client1/clientConfig.json
+	$(MAKE) run-client1
+
 .PHONY: 2bin
 2bin:
-	cp ./config/client/clientConfig.json ./$(BUILD_DIR)/client2/
+	cp ./config/client/clientConfig2.json ./$(BUILD_DIR)/client2/clientConfig.json
 	$(MAKE) run-client2
 
 .PHONY: run-client1

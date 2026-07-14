@@ -142,7 +142,7 @@ func Login(c *types.Client, password string) error {
 
 	if !localIdentity {
 
-		dbsync, err := c.PBC.UserRequest(context.TODO(), &common_pb.UserInfo{Username: c.Identity.Username})
+		dbsync, err := c.PBC.UserRequest(context.TODO(), &common_pb.UserAddress{Username: c.Identity.Username})
 		if err != nil {
 			log.Printf("error syncing: %v\n", err)
 			return err
@@ -177,10 +177,12 @@ func SendMessage(c *types.Client, message string) error {
 	}
 
 	payloadEnvelope := pb.StreamPayload{
-		Target:  c.State.Cache.CurrentChat.User.Id.String(),
-		Sender:  c.Identity.ID.String(),
-		Payload: &pb.StreamPayload_Encenv{Encenv: &encenv},
-		Info:    "Encrypted Payload",
+		Target:       c.State.Cache.CurrentChat.User.Id.String(),
+		Sender:       c.Identity.ID.String(),
+		TargetDomain: c.State.Cache.CurrentChat.User.Domain,
+		SenderDomain: c.Identity.Domain,
+		Payload:      &pb.StreamPayload_Encenv{Encenv: &encenv},
+		Info:         "Encrypted Payload",
 	}
 
 	_, err = c.PBC.SendPayload(context.Background(), &payloadEnvelope)
@@ -198,7 +200,7 @@ func SendMessage(c *types.Client, message string) error {
 	return nil
 }
 
-func FriendRequest(ctx context.Context, c *types.Client, target *common_pb.UserInfo) error {
+func FriendRequest(ctx context.Context, c *types.Client, target *common_pb.UserInfo, targetDomain string) error {
 
 	req := pb.FriendRequest{
 		Target: target.UserId,
@@ -208,13 +210,16 @@ func FriendRequest(ctx context.Context, c *types.Client, target *common_pb.UserI
 			EncryptionPublicKey: c.Identity.Keys["EncryptionPublicKey"],
 			SigningPublicKey:    c.Identity.Keys["SigningPublicKey"],
 		},
+		SenderDomain: c.Identity.Domain,
 	}
 
 	payload := pb.StreamPayload{
-		Target:  target.UserId,
-		Sender:  c.Identity.ID.String(),
-		Payload: &pb.StreamPayload_FriendRequest{FriendRequest: &req},
-		Info:    "Friend Request payload",
+		Target:       target.UserId,
+		Sender:       c.Identity.ID.String(),
+		SenderDomain: c.Identity.Domain,
+		TargetDomain: targetDomain,
+		Payload:      &pb.StreamPayload_FriendRequest{FriendRequest: &req},
+		Info:         "Friend Request payload",
 	}
 
 	resp, err := c.PBC.SendPayload(ctx, &payload)
@@ -222,7 +227,7 @@ func FriendRequest(ctx context.Context, c *types.Client, target *common_pb.UserI
 		return fmt.Errorf("failed to confirm chat: %v", err)
 	}
 
-	_, err = c.DB.FriendRequest.SaveFriendRequest.ExecContext(context.TODO(), target.UserId, target.Username, nil, nil, "outbound")
+	_, err = c.DB.FriendRequest.SaveFriendRequest.ExecContext(context.TODO(), target.UserId, target.Username, targetDomain, nil, nil, "outbound")
 	if err != nil {
 		fmt.Printf("failed to save Friend Request")
 		return err
@@ -233,7 +238,7 @@ func FriendRequest(ctx context.Context, c *types.Client, target *common_pb.UserI
 	return nil
 }
 
-func FriendResponse(ctx context.Context, c *types.Client, friendReq *pb.FriendRequest, state bool) error {
+func FriendResponse(ctx context.Context, c *types.Client, friendReq *pb.FriendRequest, state bool, targetDomain string) error {
 
 	res := pb.FriendResponse{
 		Target: friendReq.UserInfo.UserId,
@@ -243,14 +248,17 @@ func FriendResponse(ctx context.Context, c *types.Client, friendReq *pb.FriendRe
 			EncryptionPublicKey: c.Identity.Keys["EncryptionPublicKey"],
 			SigningPublicKey:    c.Identity.Keys["SigningPublicKey"],
 		},
-		State: state,
+		State:        state,
+		SenderDomain: c.Identity.Domain,
 	}
 
 	payload := pb.StreamPayload{
-		Target:  friendReq.UserInfo.UserId,
-		Sender:  c.Identity.ID.String(),
-		Payload: &pb.StreamPayload_FriendResponse{FriendResponse: &res},
-		Info:    "Friend Response payload",
+		Target:       friendReq.UserInfo.UserId,
+		Sender:       c.Identity.ID.String(),
+		SenderDomain: c.Identity.Domain,
+		TargetDomain: targetDomain,
+		Payload:      &pb.StreamPayload_FriendResponse{FriendResponse: &res},
+		Info:         "Friend Response payload",
 	}
 
 	resp, err := c.PBC.SendPayload(ctx, &payload)
@@ -259,7 +267,7 @@ func FriendResponse(ctx context.Context, c *types.Client, friendReq *pb.FriendRe
 	}
 
 	if state {
-		_, err = c.DB.Friends.SaveUserDetails.ExecContext(ctx, friendReq.UserInfo.UserId, friendReq.UserInfo.Username, friendReq.UserInfo.EncryptionPublicKey, friendReq.UserInfo.SigningPublicKey)
+		_, err = c.DB.Friends.SaveUserDetails.ExecContext(ctx, friendReq.UserInfo.UserId, friendReq.UserInfo.Username, friendReq.SenderDomain, friendReq.UserInfo.EncryptionPublicKey, friendReq.UserInfo.SigningPublicKey)
 		if err != nil {
 			return fmt.Errorf("failed adding to address book: %v", err)
 		}
@@ -327,6 +335,18 @@ func PollServer(c *types.Client) (*pb.ServerInfo, error) {
 	}
 
 	return sInfo, nil
+}
+
+// SyncDomain fetches the server's domain and stores it on the client identity.
+func SyncDomain(c *types.Client) error {
+	sInfo, err := PollServer(c)
+	if err != nil {
+		return fmt.Errorf("failed to sync domain: %v", err)
+	}
+
+	c.Identity.Domain = sInfo.Domain
+	log.Printf("Home domain: %s\n", c.Identity.Domain)
+	return nil
 }
 
 // TODO: Handle all input like this?

@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func InitiateKeyExchange(ctx context.Context, c *types.Client, target uuid.UUID) error {
+func InitiateKeyExchange(ctx context.Context, c *types.Client, target uuid.UUID, targetDomain string) error {
 	// make nonce
 	nonce := make([]byte, 32)
 	_, err := rand.Read(nonce)
@@ -55,10 +55,12 @@ func InitiateKeyExchange(ctx context.Context, c *types.Client, target uuid.UUID)
 	}
 
 	payload := pb.StreamPayload{
-		Target:  target.String(),
-		Sender:  c.Identity.ID.String(),
-		Payload: &pb.StreamPayload_KeyExchRequest{KeyExchRequest: &exchangeInfo},
-		Info:    "Key Exchange initation payload",
+		Target:       target.String(),
+		Sender:       c.Identity.ID.String(),
+		TargetDomain: targetDomain,
+		SenderDomain: c.Identity.Domain,
+		Payload:      &pb.StreamPayload_KeyExchRequest{KeyExchRequest: &exchangeInfo},
+		Info:         "Key Exchange initation payload",
 	}
 
 	resp, err := c.PBC.SendPayload(ctx, &payload)
@@ -72,7 +74,7 @@ func InitiateKeyExchange(ctx context.Context, c *types.Client, target uuid.UUID)
 	return nil
 }
 
-func ReciprocateKeyExchange(ctx context.Context, c *types.Client, target uuid.UUID) error {
+func ReciprocateKeyExchange(ctx context.Context, c *types.Client, target uuid.UUID, targetDomain string) error {
 	// make nonce
 	nonce := make([]byte, 32)
 	_, err := rand.Read(nonce)
@@ -110,10 +112,12 @@ func ReciprocateKeyExchange(ctx context.Context, c *types.Client, target uuid.UU
 	}
 
 	payload := pb.StreamPayload{
-		Target:  target.String(),
-		Sender:  c.Identity.ID.String(),
-		Payload: &pb.StreamPayload_KeyExchResponse{KeyExchResponse: &exchangeInfo},
-		Info:    "Key Exchange reciprocation payload",
+		Target:       target.String(),
+		Sender:       c.Identity.ID.String(),
+		TargetDomain: targetDomain,
+		SenderDomain: c.Identity.Domain,
+		Payload:      &pb.StreamPayload_KeyExchResponse{KeyExchResponse: &exchangeInfo},
+		Info:         "Key Exchange reciprocation payload",
 	}
 
 	resp, err := c.PBC.SendPayload(ctx, &payload)
@@ -127,17 +131,19 @@ func ReciprocateKeyExchange(ctx context.Context, c *types.Client, target uuid.UU
 	return nil
 }
 
-func ConfirmKeyExchange(ctx context.Context, c *types.Client, target uuid.UUID, status bool) error {
+func ConfirmKeyExchange(ctx context.Context, c *types.Client, target uuid.UUID, status bool, targetDomain string) error {
 	confirmation := pb.KeyExchangeConfirmation{
 		Status:          status,
 		ConfirmerUserId: c.Identity.ID.String(),
 	}
 
 	payload := pb.StreamPayload{
-		Target:  target.String(),
-		Sender:  c.Identity.ID.String(),
-		Payload: &pb.StreamPayload_KeyExchConfirm{KeyExchConfirm: &confirmation},
-		Info:    "Key Exchange confirmation paload",
+		Target:       target.String(),
+		Sender:       c.Identity.ID.String(),
+		TargetDomain: targetDomain,
+		SenderDomain: c.Identity.Domain,
+		Payload:      &pb.StreamPayload_KeyExchConfirm{KeyExchConfirm: &confirmation},
+		Info:         "Key Exchange confirmation payload",
 	}
 
 	resp, err := c.PBC.SendPayload(ctx, &payload)
