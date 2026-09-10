@@ -33,11 +33,24 @@ keygen-clients:
 keygen-server: $(SERVER_BIN)
 	./$(SERVER_BIN) --keygen --keydir=$(or $(KEYDIR),./$(KEYS_DIR)/server) \
 		$(if $(SERVER_NAME),--name=$(SERVER_NAME)) \
+		$(if $(SAN),--san=$(SAN)) \
 		$(if $(wildcard $(CA_DIR)/strike_ca.crt),--ca-cert=$(CA_DIR)/strike_ca.crt --ca-key=$(CA_DIR)/strike_ca.pem)
 
 $(SERVER_BIN):
 	mkdir -p $(BUILD_DIR)
 	go build -o $(SERVER_BIN) ./cmd/strike-server
+
+# Print this server's federation peer entry to share with a friend, e.g.:
+#   make export-peer SERVER_NAME=jg-home ADDR=203.0.113.5:9090 > jg-home.peer.yaml
+.PHONY: export-peer
+export-peer: $(SERVER_BIN)
+	./$(SERVER_BIN) --export-peer --keydir=$(or $(KEYDIR),./$(KEYS_DIR)/server) --name=$(SERVER_NAME) --addr=$(ADDR)
+
+# Add a friend's exported peer entry to your federation.yaml, e.g.:
+#   make add-peer < jg-home.peer.yaml
+.PHONY: add-peer
+add-peer: $(SERVER_BIN)
+	./$(SERVER_BIN) --add-peer --output=$(or $(PEERS),./config/server/federation.yaml)
 
 .PHONY: gen-federation
 gen-federation: $(SERVER_BIN)

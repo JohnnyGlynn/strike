@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -118,6 +119,7 @@ func (b *Bootstrap) InitFederation() error {
 		b.Cfg.CertificatePath,
 		b.Cfg.SigningPrivateKeyPath,
 		b.Cfg.FederationCAPath,
+		b.Strike.PeerMgr.Peers(),
 	)
 	if err != nil {
 		return err
@@ -133,36 +135,103 @@ func (b *Bootstrap) InitFederation() error {
 	return nil
 }
 
-func LoadFederationTLSConfig(certFile, keyFile, caFile string) (*tls.Config, error) {
+// LoadFederationTLSConfig builds the mTLS config used both to dial peers and
+// to accept peer connections on the federation port.
+//
+// Trust is pinned-key by default: a peer's certificate is accepted if its
+// public key matches one of the entries in the known peers list — the same
+// known_hosts model as federation.yaml itself (see PeerConfig.PubKey and
+// `--export-peer`/`--add-peer`). Adding a peer means recording their key
+// once; there is no CA, no signing step, and nothing to bottleneck as the
+// peer list grows.
+//
+// If caFile is non-empty, a peer certificate that chains to it is *also*
+// accepted, alongside pinned-key trust rather than instead of it — for
+// deployments (e.g. the local k3d/Tilt cluster) that want one shared CA
+// across a group of servers they control.
+func LoadFederationTLSConfig(certFile, keyFile, caFile string, peers []types.PeerConfig) (*tls.Config, error) {
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
 		return nil, err
 	}
 
-	caPEM, err := os.ReadFile(caFile)
-	if err != nil {
-		return nil, err
-	}
+	var caPool *x509.CertPool
+	if caFile != "" {
+		caPEM, err := os.ReadFile(caFile)
+		if err != nil {
+			return nil, err
+		}
 
-	caPool := x509.NewCertPool()
-	if !caPool.AppendCertsFromPEM(caPEM) {
-		return nil, fmt.Errorf("invalid CA pem")
+		caPool = x509.NewCertPool()
+		if !caPool.AppendCertsFromPEM(caPEM) {
+			return nil, fmt.Errorf("invalid CA pem")
+		}
 	}
 
 	return &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		RootCAs:      caPool,
-		ClientCAs:    caPool,
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-		MinVersion:   tls.VersionTLS13,
+		// A certificate must still be presented, but we verify it ourselves
+		// below (pinned key, and CA chain if configured) rather than via Go's
+		// default chain verification, which would require every peer to
+		// share one CA.
+		ClientAuth:            tls.RequireAnyClientCert,
+		InsecureSkipVerify:    true,
+		VerifyPeerCertificate: verifyKnownPeer(caPool, peers),
+		MinVersion:            tls.VersionTLS13,
 	}, nil
+}
+
+// verifyKnownPeer accepts a peer certificate if its public key matches a
+// pinned peer, or (when caPool is configured) if it chains to that CA.
+func verifyKnownPeer(caPool *x509.CertPool, peers []types.PeerConfig) func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+	return func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+		if len(rawCerts) == 0 {
+			return fmt.Errorf("federation: peer presented no certificate")
+		}
+
+		leaf, err := x509.ParseCertificate(rawCerts[0])
+		if err != nil {
+			return fmt.Errorf("federation: failed to parse peer certificate: %v", err)
+		}
+
+		leafPub, ok := leaf.PublicKey.(ed25519.PublicKey)
+		if !ok {
+			return fmt.Errorf("federation: unsupported peer key type %T", leaf.PublicKey)
+		}
+
+		for _, p := range peers {
+			if len(p.PubKey) > 0 && leafPub.Equal(p.PubKey) {
+				return nil
+			}
+		}
+
+		if caPool != nil {
+			intermediates := x509.NewCertPool()
+			for _, raw := range rawCerts[1:] {
+				if c, err := x509.ParseCertificate(raw); err == nil {
+					intermediates.AddCert(c)
+				}
+			}
+
+			if _, err := leaf.Verify(x509.VerifyOptions{
+				Roots:         caPool,
+				Intermediates: intermediates,
+				KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+			}); err == nil {
+				return nil
+			}
+		}
+
+		return fmt.Errorf("federation: peer's public key is not a known peer (check federation.yaml) and its certificate is not signed by a trusted CA")
+	}
 }
 
 func (b *Bootstrap) InitFederationTLS() (*tls.Config, error) {
 	tlsConf, err := LoadFederationTLSConfig(
 		b.Cfg.CertificatePath,       // server cert
 		b.Cfg.SigningPrivateKeyPath, // server key
-		b.Cfg.FederationCAPath,      // CA that signs peer certs
+		b.Cfg.FederationCAPath,      // optional CA that signs peer certs
+		b.Strike.PeerMgr.Peers(),
 	)
 	if err != nil {
 		return nil, err

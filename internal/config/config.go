@@ -83,25 +83,48 @@ func ValidateFields(cfg map[string]*string) error {
 
 		// Only expand paths for keys containing "PATH" or "path"
 		if strings.Contains(key, "PATH") || strings.Contains(key, "path") {
-			if strings.HasPrefix(*value, "~") {
-				*value = filepath.Join(homeDir, (*value)[1:])
-			}
+			*value = expandTilde(homeDir, *value)
 		}
 	}
 	return nil
 }
 
+func expandTilde(homeDir, value string) string {
+	if strings.HasPrefix(value, "~") {
+		return filepath.Join(homeDir, value[1:])
+	}
+	return value
+}
+
+// expandOptionalPath expands a leading "~" in a path field that's allowed to
+// be blank. Federation trust is pinned-key by default (see PeerConfig.PubKey
+// and LoadFederationTLSConfig) — a server doesn't need a CA at all unless it
+// specifically wants to also trust peers via a shared CA chain.
+func expandOptionalPath(value *string) error {
+	if *value == "" {
+		return nil
+	}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("error finding user home directory: %w", err)
+	}
+	*value = expandTilde(homeDir, *value)
+	return nil
+}
+
 func (c *ServerConfig) ValidateConfig() error {
-	return ValidateFields(map[string]*string{
+	if err := ValidateFields(map[string]*string{
 		"name":                            &c.Name,
 		"private_server_signing_key_path": &c.SigningPrivateKeyPath,
 		"public_server_signing_key_path":  &c.SigningPublicKeyPath,
 		"certificate_path":                &c.CertificatePath,
-		"federation_ca_path":              &c.FederationCAPath,
 		"federation_peers":                &c.FederationPeers,
 		"id_file":                         &c.IdentityFile,
 		"db_connection_string":            &c.DBConnectionString,
-	})
+	}); err != nil {
+		return err
+	}
+	return expandOptionalPath(&c.FederationCAPath)
 }
 
 func (c *ClientConfig) ValidateConfig() error {
@@ -116,16 +139,18 @@ func (c *ClientConfig) ValidateConfig() error {
 }
 
 func (c *ServerConfig) ValidateEnv() error {
-	return ValidateFields(map[string]*string{
+	if err := ValidateFields(map[string]*string{
 		"SERVER_NAME":                     &c.Name,
 		"PRIVATE_SERVER_SIGNING_KEY_PATH": &c.SigningPrivateKeyPath,
 		"PUBLIC_SERVER_SIGNING_KEY_PATH":  &c.SigningPublicKeyPath,
 		"CERT_PATH":                       &c.CertificatePath,
-		"FED_CA_PATH":                     &c.FederationCAPath,
 		"FEDERATION_PEERS":                &c.FederationPeers,
 		"IDENTITY_FILE":                   &c.IdentityFile,
 		"DB_CONNECTION_STRING":            &c.DBConnectionString,
-	})
+	}); err != nil {
+		return err
+	}
+	return expandOptionalPath(&c.FederationCAPath)
 }
 
 func (c *ClientConfig) ValidateEnv() error {

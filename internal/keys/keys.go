@@ -14,8 +14,10 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -382,10 +384,39 @@ func DeriveID(pubPEM []byte) string {
 }
 
 func GenerateServerKeysAndCert(outputDir string) error {
-	return GenerateServerKeysAndCertWithCA(outputDir, nil, nil)
+	return GenerateServerKeysAndCertWithCA(outputDir, nil, nil, nil)
 }
 
-func GenerateServerKeysAndCertWithCA(outputDir string, caCert *x509.Certificate, caKey ed25519.PrivateKey) error {
+// splitSANs sorts a list of hostnames/IPs (as typed by an operator, e.g.
+// "203.0.113.5" or "strike.example.com") into DNS names and IP addresses for
+// use as x509 Subject Alternative Names. A bare address with a port
+// (e.g. "203.0.113.5:8080") has the port stripped, since TLS verifies the
+// host only.
+func splitSANs(sans []string) (dnsNames []string, ips []net.IP) {
+	for _, s := range sans {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		if host, _, err := net.SplitHostPort(s); err == nil {
+			s = host
+		}
+		if ip := net.ParseIP(s); ip != nil {
+			ips = append(ips, ip)
+		} else {
+			dnsNames = append(dnsNames, s)
+		}
+	}
+	return dnsNames, ips
+}
+
+// GenerateServerKeysAndCertWithCA generates a server signing keypair and
+// certificate. extraSANs lets the caller advertise the address(es) the
+// server will actually be reached at (a public IP, a DDNS hostname, etc.) —
+// without one matching the address a client dials, TLS hostname
+// verification will fail on connect. The local-dev names Strike ships with
+// (localhost, the two k8s server names) are always included alongside them.
+func GenerateServerKeysAndCertWithCA(outputDir string, caCert *x509.Certificate, caKey ed25519.PrivateKey, extraSANs []string) error {
 	fmt.Println("Server Keys and Cert Generator")
 
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
@@ -456,8 +487,11 @@ func GenerateServerKeysAndCertWithCA(outputDir string, caCert *x509.Certificate,
 			x509.ExtKeyUsageServerAuth,
 		},
 		BasicConstraintsValid: true,
-		DNSNames:              []string{"localhost", "strike-server1", "strike-server2", "strike-server1.strike.svc.cluster.local", "strike-server2.strike.svc.cluster.local"},
 	}
+
+	extraDNS, extraIPs := splitSANs(extraSANs)
+	strikeCert.DNSNames = append([]string{"localhost", "strike-server1", "strike-server2", "strike-server1.strike.svc.cluster.local", "strike-server2.strike.svc.cluster.local"}, extraDNS...)
+	strikeCert.IPAddresses = extraIPs
 
 	// Sign with CA if provided, otherwise self-sign
 	var signerCert *x509.Certificate

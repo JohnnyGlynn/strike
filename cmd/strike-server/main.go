@@ -4,9 +4,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -20,7 +22,10 @@ import (
 )
 
 func main() {
-	fmt.Println("Strike Server")
+	// stderr, not stdout — --export-peer's output is meant to be redirected
+	// straight into a file (e.g. `--export-peer ... > peer-card.yaml`), and a
+	// banner on stdout would corrupt that.
+	fmt.Fprintln(os.Stderr, "Strike Server")
 
 	// Avoid shadowing
 	var serverCfg config.ServerConfig
@@ -47,7 +52,51 @@ func main() {
 	serverName := flag.String("name", "", "Server name for identity file (used with --keygen)")
 	caCertPath := flag.String("ca-cert", "", "Path to CA certificate for signing server cert")
 	caKeyPath := flag.String("ca-key", "", "Path to CA private key for signing server cert")
+	sanFlag := flag.String("san", "", "Comma-separated hostnames/IPs this server will be reachable at (used with --keygen), e.g. the public IP or DDNS name a friend will connect to")
+	exportPeer := flag.Bool("export-peer", false, "Print this server's federation peer entry (name/addr/pubkey) to share with a friend running their own Strike server")
+	addPeer := flag.Bool("add-peer", false, "Read a peer entry (as produced by --export-peer) from stdin and add it to --output")
+	addrFlag := flag.String("addr", "", "Address this server is reachable at for federation, e.g. host:9090 (used with --export-peer)")
 	flag.Parse()
+
+	var extraSANs []string
+	if *sanFlag != "" {
+		extraSANs = strings.Split(*sanFlag, ",")
+	}
+
+	if *exportPeer {
+		if *serverName == "" || *addrFlag == "" {
+			fmt.Println("usage: --export-peer --name=<your-name> --addr=<host:9090> [--keydir=.]")
+			return
+		}
+
+		pubKeyPath := filepath.Join(*keydir, "strike_server_public.pem")
+		peerBlock, err := server.ExportPeerBlock(*serverName, *addrFlag, pubKeyPath)
+		if err != nil {
+			fmt.Printf("error exporting peer entry: %v\n", err)
+			return
+		}
+
+		fmt.Println("# Send this to a friend running their own Strike server.")
+		fmt.Printf("# They add it with: ./strike-server --add-peer --output=<their federation.yaml> < peer-%s.yaml\n", *serverName)
+		fmt.Print(peerBlock)
+		os.Exit(0)
+	}
+
+	if *addPeer {
+		card, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			fmt.Printf("failed to read peer entry from stdin: %v\n", err)
+			return
+		}
+
+		if err := server.AddPeerToFile(*outputPath, card); err != nil {
+			fmt.Printf("error adding peer: %v\n", err)
+			return
+		}
+
+		fmt.Printf("Peer added to %s\n", *outputPath)
+		os.Exit(0)
+	}
 
 	if *genFed {
 		// Remaining args are peer specs using comma delimiter: name,addr,keydir
@@ -94,13 +143,13 @@ func main() {
 				fmt.Printf("error loading CA: %v\n", err)
 				return
 			}
-			err = keys.GenerateServerKeysAndCertWithCA(*keydir, caCert, caKey)
+			err = keys.GenerateServerKeysAndCertWithCA(*keydir, caCert, caKey, extraSANs)
 			if err != nil {
 				fmt.Printf("error generating server signing keys and certificate: %v\n", err)
 				return
 			}
 		} else {
-			err = keys.GenerateServerKeysAndCert(*keydir)
+			err = keys.GenerateServerKeysAndCertWithCA(*keydir, nil, nil, extraSANs)
 			if err != nil {
 				fmt.Printf("error generating server signing keys and certificate: %v\n", err)
 				return

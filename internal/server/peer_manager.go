@@ -116,6 +116,20 @@ func (pm *PeerManager) connectPeer(
 	peer.Mu.Unlock()
 }
 
+// Peers returns a snapshot of the configured peer list — used to build the
+// pinned-key TLS trust check and to bind claimed identity to a specific
+// pinned key during Handshake.
+func (pm *PeerManager) Peers() []types.PeerConfig {
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+
+	out := make([]types.PeerConfig, 0, len(pm.peers))
+	for _, p := range pm.peers {
+		out = append(out, p.Cfg)
+	}
+	return out
+}
+
 func (pm *PeerManager) Client(peerID string) (fedpb.FederationClient, bool) {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
