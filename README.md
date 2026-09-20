@@ -71,7 +71,7 @@ After key generation, Strike can be run locally with default config by using the
 If you would like a more fluid development experience, you can make use of the k3d/Tilt Kubernetes deployment of the Strike Server and DB.
 It handles reloading the Server if changes are detected, without you needing to manually intervene.
 
-All Kubernetes configuration is present in `config/k8s/`.
+Kubernetes manifests live in `deploy/k8s/`, and the environment files Tilt turns into secrets live in `config/k8s/` (servers) and `config/db/` (databases).
 
 `make strike-cluster-start` - Build a local cluster, deploy Server and DB.
 `make strike-cluster-stop` - Stop all services and teardown the cluster.

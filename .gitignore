@@ -25,8 +25,8 @@ cmd/strike-client/client
 cmd/strike-client/client.db
 cmd/strike-server/main
 build/
-keys/
-config/server/federation.yaml
+# Anchored to the repo root so this does not also swallow internal/keys/
+/keys/
 cfg/
 CLAUDE.md
 client.db

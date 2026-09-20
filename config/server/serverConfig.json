@@ -1,9 +1,9 @@
 {
-  "name": "endpoint0"
-  "addr": "endpoint0.strike.svc.cluster.local:8080"
-  "keys": {
-    "private_server_signing_key_path": "~/.strike-server/strike_server.pem",
-    "public_server_signing_key_path": "~/.strike-server/strike_server_public.pem",
-    "certificate_path": "~/.strike-server/strike_server.crt"
-  }
+  "name": "endpoint0",
+  "private_server_signing_key_path": "./keys/server/strike_server.pem",
+  "public_server_signing_key_path": "./keys/server/strike_server_public.pem",
+  "certificate_path": "./keys/server/strike_server.crt",
+  "federation_peers": "./config/server/federation.yaml",
+  "id_file": "./keys/server/identity.json",
+  "db_connection_string": "postgres://strikeadmin:plaintextisbad@localhost:5432/strike"
 }

@@ -1,5 +1,0 @@
-federation:
-  - id: "federated-server-UUID"
-    name: "endpoint1"
-    addr: "endpoint1.strike.svc.cluster.local:8080t"
-    pubkey: "signing-key"

@@ -84,7 +84,7 @@ db-build:
 
 .PHONY: db-run
 db-run:
-	docker run --env-file=./config/db/env.db --name strike-db --network=strikenw -p 5432:5432 localhost/strike-db:latest
+	docker run --env-file=./config/db/env1.db --name strike-db --network=strikenw -p 5432:5432 localhost/strike-db:latest
 
 .PHONY: db-start
 db-start:
