@@ -184,7 +184,12 @@ func main() {
 	} else if !*keygen {
 		log.Println("Loading Config from Envrionment Variables")
 
-		serverCfg = *config.LoadServerConfigEnv()
+		envCfg, err := config.LoadServerConfigEnv()
+		if err != nil {
+			fmt.Printf("Invalid Server config: %v", err)
+			return
+		}
+		serverCfg = *envCfg
 
 		if err = serverCfg.ValidateEnv(); err != nil {
 			fmt.Printf("Invalid Server config: %v", err)
@@ -252,5 +257,5 @@ func main() {
 	<-ctx.Done()
 	log.Println("Shutdown signal received")
 
-	bootstrap.Stop(ctx)
+	bootstrap.Stop()
 }

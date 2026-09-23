@@ -5,7 +5,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+)
+
+// Ports a server binds when the config doesn't say otherwise. The k8s
+// manifests, the Dockerfile's EXPOSE and the README all assume these.
+const (
+	DefaultClientPort     = 8080
+	DefaultFederationPort = 9090
 )
 
 type ServerConfig struct {
@@ -17,6 +25,10 @@ type ServerConfig struct {
 	FederationPeers       string `json:"federation_peers" yaml:"federation_peers"`
 	IdentityFile          string `json:"id_file" yaml:"id_file"`
 	DBConnectionString    string `json:"db_connection_string" yaml:"db_connection_string"`
+
+	// Optional — left unset they fall back to the defaults above.
+	ClientPort     int `json:"client_port" yaml:"client_port"`
+	FederationPort int `json:"federation_port" yaml:"federation_port"`
 }
 
 type ClientConfig struct {
@@ -28,7 +40,17 @@ type ClientConfig struct {
 	ServerCertificatePath    string `json:"server_certificate_path" yaml:"server_certificate_key_path"`
 }
 
-func LoadServerConfigEnv() *ServerConfig {
+func LoadServerConfigEnv() (*ServerConfig, error) {
+	clientPort, err := portFromEnv("CLIENT_PORT")
+	if err != nil {
+		return nil, err
+	}
+
+	federationPort, err := portFromEnv("FEDERATION_PORT")
+	if err != nil {
+		return nil, err
+	}
+
 	return &ServerConfig{
 		Name:                  os.Getenv("SERVER_NAME"),
 		SigningPrivateKeyPath: os.Getenv("PRIVATE_SERVER_SIGNING_KEY_PATH"),
@@ -38,7 +60,27 @@ func LoadServerConfigEnv() *ServerConfig {
 		FederationPeers:       os.Getenv("FEDERATION_PEERS"),
 		IdentityFile:          os.Getenv("IDENTITY_FILE"),
 		DBConnectionString:    os.Getenv("DB_CONNECTION_STRING"),
+		ClientPort:            clientPort,
+		FederationPort:        federationPort,
+	}, nil
+}
+
+// portFromEnv returns 0 for an unset variable so validatePorts can apply the
+// default. A variable that's set but unparseable is an error rather than a
+// silent fallback — quietly binding 8080 because of a typo is the failure mode
+// this whole change exists to remove.
+func portFromEnv(key string) (int, error) {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return 0, nil
 	}
+
+	port, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %q is not a number", key, raw)
+	}
+
+	return port, nil
 }
 
 func LoadClientConfigEnv() *ClientConfig {
@@ -112,6 +154,40 @@ func expandOptionalPath(value *string) error {
 	return nil
 }
 
+// Ports below 1024 are privileged — binding one needs root or
+// CAP_NET_BIND_SERVICE, which a local `make server-run` doesn't have. Rejecting
+// them here turns a confusing "permission denied" at listen time into a config
+// error that names the field.
+const (
+	MinPort = 1024
+	MaxPort = 65535
+)
+
+// validatePorts fills in the defaults for ports left unset, then rejects
+// anything a listener couldn't bind. Both ports on one number would start a
+// server that's silently missing half its surface, so that's an error too.
+func (c *ServerConfig) validatePorts(clientKey, federationKey string) error {
+	if c.ClientPort == 0 {
+		c.ClientPort = DefaultClientPort
+	}
+
+	if c.FederationPort == 0 {
+		c.FederationPort = DefaultFederationPort
+	}
+
+	for key, port := range map[string]int{clientKey: c.ClientPort, federationKey: c.FederationPort} {
+		if port < MinPort || port > MaxPort {
+			return fmt.Errorf("%s: %d is out of range — use %d-%d (below %d is privileged)", key, port, MinPort, MaxPort, MinPort)
+		}
+	}
+
+	if c.ClientPort == c.FederationPort {
+		return fmt.Errorf("%s and %s must differ (both are %d)", clientKey, federationKey, c.ClientPort)
+	}
+
+	return nil
+}
+
 func (c *ServerConfig) ValidateConfig() error {
 	if err := ValidateFields(map[string]*string{
 		"name":                            &c.Name,
@@ -124,6 +200,11 @@ func (c *ServerConfig) ValidateConfig() error {
 	}); err != nil {
 		return err
 	}
+
+	if err := c.validatePorts("client_port", "federation_port"); err != nil {
+		return err
+	}
+
 	return expandOptionalPath(&c.FederationCAPath)
 }
 
@@ -150,6 +231,11 @@ func (c *ServerConfig) ValidateEnv() error {
 	}); err != nil {
 		return err
 	}
+
+	if err := c.validatePorts("CLIENT_PORT", "FEDERATION_PORT"); err != nil {
+		return err
+	}
+
 	return expandOptionalPath(&c.FederationCAPath)
 }
 

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/JohnnyGlynn/strike/internal/config"
@@ -246,14 +247,33 @@ func (b *Bootstrap) Start(ctx context.Context) error {
 		return fmt.Errorf("bootstrap not initialized")
 	}
 
+	// Bind before backgrounding either server. Listening inside the goroutines
+	// meant a port clash produced a process that looked healthy and was deaf.
+	clientAddr := fmt.Sprintf(":%d", b.Cfg.ClientPort)
+	clientLis, err := net.Listen("tcp", clientAddr)
+	if err != nil {
+		return fmt.Errorf("failed to listen for clients on %s: %w", clientAddr, err)
+	}
+
+	fedAddr := fmt.Sprintf(":%d", b.Cfg.FederationPort)
+	fedLis, err := net.Listen("tcp", fedAddr)
+	if err != nil {
+		_ = clientLis.Close()
+		return fmt.Errorf("failed to listen for federation on %s: %w", fedAddr, err)
+	}
+
+	fmt.Printf("Strike listening for clients on %s, federation on %s\n", clientAddr, fedAddr)
+
 	go func() {
-		lis, _ := net.Listen("tcp", ":8080")
-		b.grpcStrike.Serve(lis)
+		if err := b.grpcStrike.Serve(clientLis); err != nil {
+			fmt.Fprintf(os.Stderr, "strike server stopped serving %s: %v\n", clientAddr, err)
+		}
 	}()
 
 	go func() {
-		lis, _ := net.Listen("tcp", ":9090")
-		b.grpcFed.Serve(lis)
+		if err := b.grpcFed.Serve(fedLis); err != nil {
+			fmt.Fprintf(os.Stderr, "federation server stopped serving %s: %v\n", fedAddr, err)
+		}
 	}()
 
 	go func() {
@@ -268,16 +288,68 @@ func (b *Bootstrap) Start(ctx context.Context) error {
 	return nil
 }
 
-func (b *Bootstrap) Stop(ctx context.Context) {
+// ShutdownGrace bounds how long Stop waits for the gRPC servers to drain. A
+// bound is not optional: clients hold PayloadStream open for as long as
+// they're connected and GracefulStop waits on open streams, so an unbounded
+// wait would hang until every client happened to disconnect. Kept well under
+// the 30s Kubernetes allows by default before it sends SIGKILL.
+const ShutdownGrace = 10 * time.Second
 
+// Stop shuts down both gRPC servers, drops outbound federation connections and
+// closes the DB pool. It takes no context deliberately — by the time it runs
+// the caller's context is already cancelled, so it can't serve as the deadline.
+func (b *Bootstrap) Stop() {
 	fmt.Println("Strike shutting down")
 
-	if b.grpcStrike != nil {
-		fmt.Println("shutdown strike server")
+	servers := []struct {
+		name string
+		srv  *grpc.Server
+	}{
+		{"strike server", b.grpcStrike},
+		{"federation server", b.grpcFed},
 	}
 
-	if b.grpcFed != nil {
-		fmt.Println("shutdown strike federation server")
+	drained := make(chan struct{})
+	go func() {
+		var wg sync.WaitGroup
+
+		for _, s := range servers {
+			if s.srv == nil {
+				continue
+			}
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				s.srv.GracefulStop()
+				fmt.Printf("%s drained\n", s.name)
+			}()
+		}
+
+		wg.Wait()
+		close(drained)
+	}()
+
+	select {
+	case <-drained:
+	case <-time.After(ShutdownGrace):
+		// Both GracefulStop and Stop close their listeners before they wait,
+		// so the ports are already free by now. What's left is a connection
+		// that opened a socket and never finished the HTTP/2 handshake, which
+		// blocks both of them identically until grpc's connection timeout
+		// expires — Stop can't be rescued by a second Stop. Fire it anyway to
+		// kill established transports, but don't wait on it; the process is
+		// exiting and the kernel reclaims the rest.
+		fmt.Printf("servers did not drain in %s, closing transports and continuing\n", ShutdownGrace)
+		for _, s := range servers {
+			if s.srv != nil {
+				go s.srv.Stop()
+			}
+		}
+	}
+
+	if b.Strike != nil && b.Strike.PeerMgr != nil {
+		b.Strike.PeerMgr.CloseAll()
 	}
 
 	if b.DB != nil {

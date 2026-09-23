@@ -19,6 +19,7 @@ type PeerManager struct {
 	peers   map[string]*types.PeerRuntime
 	conns   map[string]*grpc.ClientConn
 	clients map[string]fedpb.FederationClient
+	closed  bool
 }
 
 func NewPeerManager(peers []types.PeerConfig) *PeerManager {
@@ -85,7 +86,7 @@ func (pm *PeerManager) connectPeer(
 
 		select {
 		case <-ctx.Done():
-			conn.Close()
+			_ = conn.Close()
 			return
 		case <-time.After(backoff):
 		}
@@ -97,13 +98,20 @@ func (pm *PeerManager) connectPeer(
 
 	if err != nil {
 		log.Printf("federation: giving up on peer %s after retries", peer.Cfg.Name)
-		conn.Close()
+		_ = conn.Close()
 		return
 	}
 
 	log.Printf("federation: connected to peer %s", peer.Cfg.Name)
 
 	pm.mu.Lock()
+	// A handshake that lands after CloseAll has run would otherwise register a
+	// connection nothing will ever close.
+	if pm.closed {
+		pm.mu.Unlock()
+		_ = conn.Close()
+		return
+	}
 	pm.conns[peer.Cfg.ID.String()] = conn
 	pm.clients[peer.Cfg.ID.String()] = client
 	pm.mu.Unlock()
@@ -114,6 +122,33 @@ func (pm *PeerManager) connectPeer(
 	peer.Online = true
 	peer.Handshaken = true
 	peer.Mu.Unlock()
+}
+
+// CloseAll tears down every outbound federation connection and marks the
+// manager closed, so a late handshake can't reconnect behind it. Called from
+// Bootstrap.Stop — the servers own these dials and nothing else closes them.
+func (pm *PeerManager) CloseAll() {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	pm.closed = true
+
+	for id, conn := range pm.conns {
+		if err := conn.Close(); err != nil {
+			log.Printf("federation: closing connection to peer %s: %v", id, err)
+		}
+		delete(pm.conns, id)
+		delete(pm.clients, id)
+	}
+
+	for _, peer := range pm.peers {
+		peer.Mu.Lock()
+		peer.Conn = nil
+		peer.Client = nil
+		peer.Online = false
+		peer.Handshaken = false
+		peer.Mu.Unlock()
+	}
 }
 
 // Peers returns a snapshot of the configured peer list — used to build the

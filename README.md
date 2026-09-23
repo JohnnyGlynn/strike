@@ -101,6 +101,8 @@ Then follow [Local Strike](#local-strike-without-k8s) above to build the DB and 
 
 You'll also need the ports your server listens on (`8080` for clients, `9090` for federation) reachable from your friend's machine — port-forward them on your router, or use a tunnel (Tailscale, ngrok, etc.) if you'd rather not expose your home connection directly.
 
+If either of those is already taken on your machine, set `client_port` / `federation_port` in the server config (or `CLIENT_PORT` / `FEDERATION_PORT` in the environment) — both are optional and fall back to `8080` / `9090`. Whatever you pick for federation is the port that goes in the `ADDR` of your peer card below.
+
 ### Connecting with a friend
 
 Once you're both running a server, exchange peer entries — a small YAML "peer card" containing your name, address, and public key:

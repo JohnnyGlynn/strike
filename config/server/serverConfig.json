@@ -5,5 +5,7 @@
   "certificate_path": "./keys/server/strike_server.crt",
   "federation_peers": "./config/server/federation.yaml",
   "id_file": "./keys/server/identity.json",
-  "db_connection_string": "postgres://strikeadmin:plaintextisbad@localhost:5432/strike"
+  "db_connection_string": "postgres://strikeadmin:plaintextisbad@localhost:5432/strike",
+  "client_port": 8080,
+  "federation_port": 9090
 }
